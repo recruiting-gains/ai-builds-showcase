@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta
+      name="description"
+      content="Two beginner-friendly AI automations built with Cloudflare Workers and Workers AI."
+    >
+    <meta name="theme-color" content="#0a0b10">
+    <meta property="og:title" content="AI Workflow Lab">
+    <meta
+      property="og:description"
+      content="Turn meeting notes into action plans and source material into ready-to-edit content."
+    >
+    <meta property="og:type" content="website">
+    <title>AI Workflow Lab — Two automations you can reverse engineer</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to the workflows</a>
+    <div class="page-glow page-glow-one" aria-hidden="true"></div>
+    <div class="page-glow page-glow-two" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <nav class="nav shell" aria-label="Main navigation">
+        <a class="brand" href="#top" aria-label="AI Workflow Lab home">
+          <span class="brand-mark" aria-hidden="true">WL</span>
+          <span>Workflow Lab</span>
+        </a>
+        <div class="nav-links">
+          <a href="#workflows">Try the tools</a>
+          <a href="#architecture">Architecture</a>
+          <a
+            class="nav-github"
+            href="https://github.com/recruiting-gains/ai-builds-showcase/tree/main/ai-workflow-lab"
+            target="_blank"
+            rel="noreferrer"
+          >
+            View source
+            <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="main-content">
+      <section class="hero shell" id="top">
+        <div class="hero-copy">
+          <div class="eyebrow">
+            <span class="eyebrow-dot" aria-hidden="true"></span>
+            Student build · Powered by Cloudflare
+          </div>
+          <h1>
+            Two useful AI workflows.
+            <span>Small enough to understand.</span>
+          </h1>
+          <p class="hero-lede">
+            Paste messy input. Get structured, editable output. No login, no
+            database, and no mystery—the entire front end and backend live in
+            one readable project.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#workflows">
+              Try a workflow
+              <span aria-hidden="true">↓</span>
+            </a>
+            <a class="button button-ghost" href="#architecture">See how it works</a>
+          </div>
+          <div class="hero-proof" role="group" aria-label="Project features">
+            <span><b>2</b> live workflows</span>
+            <span><b>1</b> Worker backend</span>
+            <span><b>0</b> stored inputs</span>
+          </div>
+        </div>
+
+        <div
+          class="hero-visual"
+          role="group"
+          aria-label="A visual preview of the workflow"
+        >
+          <div class="visual-topline">
+            <div class="window-dots" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </div>
+            <span class="visual-label">live pipeline</span>
+          </div>
+          <div class="pipeline">
+            <div class="pipeline-node node-input">
+              <span class="node-icon" aria-hidden="true">01</span>
+              <div>
+                <small>INPUT</small>
+                <strong>Raw notes or idea</strong>
+              </div>
+            </div>
+            <div class="pipeline-line">
+              <span></span>
+            </div>
+            <div class="pipeline-node node-worker">
+              <span class="node-icon" aria-hidden="true">02</span>
+              <div>
+                <small>PROCESS</small>
+                <strong>Worker + AI model</strong>
+              </div>
+              <i>structured JSON</i>
+            </div>
+            <div class="pipeline-line">
+              <span></span>
+            </div>
+            <div class="pipeline-node node-output">
+              <span class="node-icon" aria-hidden="true">03</span>
+              <div>
+                <small>OUTPUT</small>
+                <strong>Useful next steps</strong>
+              </div>
+            </div>
+          </div>
+          <div class="visual-footer">
+            <span class="connection-pill">
+              <span class="status-dot" id="api-status-dot" aria-hidden="true"></span>
+              <span id="api-status-text">Checking the live API…</span>
+            </span>
+            <span>Cloudflare edge</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="workflows-section" id="workflows">
+        <div class="shell">
+          <div class="section-heading">
+            <div>
+              <p class="kicker">THE LIVE LAB</p>
+              <h2>Pick a workflow and take it apart.</h2>
+            </div>
+            <p>
+              Each tool follows the same four-part pattern: collect, validate,
+              transform, and display.
+            </p>
+          </div>
+
+          <div class="workflow-tabs" role="tablist" aria-label="Choose an AI workflow">
+            <button
+              class="workflow-tab is-active"
+              id="meeting-tab"
+              role="tab"
+              aria-selected="true"
+              aria-controls="meeting-panel"
+              data-workflow-tab="meeting"
+              type="button"
+            >
+              <span class="tab-number">01</span>
+              <span>
+                <strong>Meeting → Action Plan</strong>
+                <small>Summaries, decisions, owners</small>
+              </span>
+            </button>
+            <button
+              class="workflow-tab"
+              id="content-tab"
+              role="tab"
+              aria-selected="false"
+              aria-controls="content-panel"
+              data-workflow-tab="content"
+              type="button"
+            >
+              <span class="tab-number">02</span>
+              <span>
+                <strong>Idea → Content Kit</strong>
+                <small>Posts, thread, newsletter</small>
+              </span>
+            </button>
+          </div>
+
+          <div class="workflow-panel" id="meeting-panel" role="tabpanel" aria-labelledby="meeting-tab">
+            <div class="workflow-intro">
+              <div>
+                <span class="workflow-icon" aria-hidden="true">✦</span>
+                <p class="kicker">WORKFLOW 01</p>
+                <h3>Turn meeting notes into an action plan</h3>
+              </div>
+              <p>
+                The AI separates what was discussed from what was actually decided,
+                assigns only stated owners, and drafts a follow-up email.
+              </p>
+            </div>
+
+            <div class="workspace-grid">
+              <form class="input-card" id="meeting-form">
+                <div class="card-heading">
+                  <div>
+                    <span class="step-label">INPUT</span>
+                    <h4>Paste your meeting notes</h4>
+                  </div>
+                  <button class="text-button" id="meeting-sample" type="button">Use sample</button>
+                </div>
+                <label class="sr-only" for="meeting-text">Meeting notes</label>
+                <textarea
+                  id="meeting-text"
+                  name="meetingText"
+                  minlength="40"
+                  maxlength="12000"
+                  placeholder="Example: Maya shared the prototype. We decided to test it with five students next Tuesday…"
+                  required
+                ></textarea>
+                <div class="input-meta">
+                  <span>No recordings or notes are stored.</span>
+                  <span><b id="meeting-count">0</b> / 12,000</span>
+                </div>
+                <div class="form-error" id="meeting-error" role="alert" hidden></div>
+                <button class="button button-primary submit-button" type="submit">
+                  <span class="button-label">Build my action plan</span>
+                  <span class="button-loader" aria-hidden="true"></span>
+                  <span aria-hidden="true" class="button-arrow">→</span>
+                </button>
+              </form>
+
+              <div class="empty-state" id="meeting-empty">
+                <div class="empty-visual" aria-hidden="true">
+                  <span></span><span></span><span></span>
+                </div>
+                <h4>Your action plan will appear here</h4>
+                <p>Try the sample if you want to see the complete workflow in under a minute.</p>
+              </div>
+
+              <section class="results" id="meeting-results" aria-live="polite" hidden>
+                <div class="result-header">
+                  <div>
+                    <span class="step-label">OUTPUT</span>
+                    <h4 id="meeting-result-title">Action plan</h4>
+                  </div>
+                  <span class="result-badge">AI draft · review it</span>
+                </div>
+
+                <article class="result-card result-card-featured">
+                  <div class="result-card-top">
+                    <h5>Executive summary</h5>
+                    <button class="copy-button" type="button" data-copy-target="meeting-summary">Copy</button>
+                  </div>
+                  <p id="meeting-summary"></p>
+                </article>
+
+                <article class="result-card">
+                  <div class="result-card-top">
+                    <h5>Decisions</h5>
+                    <button class="copy-button" type="button" data-copy-target="meeting-decisions">Copy</button>
+                  </div>
+                  <ul class="clean-list" id="meeting-decisions"></ul>
+                </article>
+
+                <article class="result-card">
+                  <div class="result-card-top">
+                    <h5>Action items</h5>
+                    <button class="copy-button" type="button" data-copy-target="meeting-actions">Copy</button>
+                  </div>
+                  <div class="table-wrap" id="meeting-actions">
+                    <table>
+                      <thead>
+                        <tr><th>Task</th><th>Owner</th><th>Due</th></tr>
+                      </thead>
+                      <tbody id="meeting-actions-body"></tbody>
+                    </table>
+                  </div>
+                </article>
+
+                <article class="result-card">
+                  <div class="result-card-top">
+                    <h5>Follow-up email</h5>
+                    <button class="copy-button" type="button" data-copy-target="meeting-email">Copy</button>
+                  </div>
+                  <pre class="draft-text" id="meeting-email"></pre>
+                </article>
+              </section>
+            </div>
+          </div>
+
+          <div
+            class="workflow-panel"
+            id="content-panel"
+            role="tabpanel"
+            aria-labelledby="content-tab"
+            hidden
+          >
+            <div class="workflow-intro">
+              <div>
+                <span class="workflow-icon workflow-icon-coral" aria-hidden="true">⌁</span>
+                <p class="kicker">WORKFLOW 02</p>
+                <h3>Turn one idea into a content kit</h3>
+              </div>
+              <p>
+                The AI keeps the source facts intact while changing the format for a
+                LinkedIn post, short thread, newsletter, and title list.
+              </p>
+            </div>
+
+            <div class="workspace-grid">
+              <form class="input-card" id="content-form">
+                <div class="card-heading">
+                  <div>
+                    <span class="step-label">INPUT</span>
+                    <h4>Add your source material</h4>
+                  </div>
+                  <button class="text-button" id="content-sample" type="button">Use sample</button>
+                </div>
+                <label class="sr-only" for="content-text">Source material</label>
+                <textarea
+                  id="content-text"
+                  name="contentText"
+                  minlength="40"
+                  maxlength="12000"
+                  placeholder="Paste a class note, rough idea, project update, or short article…"
+                  required
+                ></textarea>
+                <div class="input-meta">
+                  <span>Your source is processed, not saved.</span>
+                  <span><b id="content-count">0</b> / 12,000</span>
+                </div>
+
+                <div class="field-grid">
+                  <label>
+                    <span>Audience</span>
+                    <input
+                      type="text"
+                      id="content-audience"
+                      name="audience"
+                      value="students learning about AI"
+                      maxlength="120"
+                      required
+                    >
+                  </label>
+                  <label>
+                    <span>Tone</span>
+                    <select id="content-tone" name="tone">
+                      <option value="clear">Clear</option>
+                      <option value="friendly" selected>Friendly</option>
+                      <option value="professional">Professional</option>
+                      <option value="playful">Playful</option>
+                    </select>
+                  </label>
+                </div>
+                <label class="full-field">
+                  <span>Call to action</span>
+                  <input
+                    type="text"
+                    id="content-cta"
+                    name="callToAction"
+                    value="Tell me what you would build next"
+                    maxlength="180"
+                    required
+                  >
+                </label>
+
+                <div class="form-error" id="content-error" role="alert" hidden></div>
+                <button class="button button-primary button-coral submit-button" type="submit">
+                  <span class="button-label">Create my content kit</span>
+                  <span class="button-loader" aria-hidden="true"></span>
+                  <span aria-hidden="true" class="button-arrow">→</span>
+                </button>
+              </form>
+
+              <div class="empty-state" id="content-empty">
+                <div class="empty-visual empty-visual-coral" aria-hidden="true">
+                  <span></span><span></span><span></span>
+                </div>
+                <h4>Your content kit will appear here</h4>
+                <p>Use the sample to see how one idea becomes several distinct drafts.</p>
+              </div>
+
+              <section class="results" id="content-results" aria-live="polite" hidden>
+                <div class="result-header">
+                  <div>
+                    <span class="step-label">OUTPUT</span>
+                    <h4>Content kit</h4>
+                  </div>
+                  <span class="result-badge">AI draft · review it</span>
+                </div>
+
+                <article class="result-card result-card-featured result-card-coral">
+                  <div class="result-card-top">
+                    <h5>Core message</h5>
+                    <button class="copy-button" type="button" data-copy-target="content-core">Copy</button>
+                  </div>
+                  <p id="content-core"></p>
+                </article>
+
+                <article class="result-card">
+                  <div class="result-card-top">
+                    <h5>LinkedIn post</h5>
+                    <button class="copy-button" type="button" data-copy-target="content-linkedin">Copy</button>
+                  </div>
+                  <pre class="draft-text" id="content-linkedin"></pre>
+                </article>
+
+                <article class="result-card">
+                  <div class="result-card-top">
+                    <h5>Short thread</h5>
+                    <button class="copy-button" type="button" data-copy-target="content-thread">Copy</button>
+                  </div>
+                  <ol class="thread-list" id="content-thread"></ol>
+                </article>
+
+                <article class="result-card">
+                  <div class="result-card-top">
+                    <h5>Newsletter blurb</h5>
+                    <button class="copy-button" type="button" data-copy-target="content-newsletter">Copy</button>
+                  </div>
+                  <pre class="draft-text" id="content-newsletter"></pre>
+                </article>
+
+                <div class="result-split">
+                  <article class="result-card">
+                    <div class="result-card-top">
+                      <h5>Title ideas</h5>
+                      <button class="copy-button" type="button" data-copy-target="content-titles">Copy</button>
+                    </div>
+                    <ul class="clean-list" id="content-titles"></ul>
+                  </article>
+                  <article class="result-card">
+                    <div class="result-card-top">
+                      <h5>Hashtags</h5>
+                      <button class="copy-button" type="button" data-copy-target="content-hashtags">Copy</button>
+                    </div>
+                    <div class="hashtag-list" id="content-hashtags"></div>
+                  </article>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="learning-section shell" id="architecture">
+        <div class="section-heading">
+          <div>
+            <p class="kicker">UNDER THE HOOD</p>
+            <h2>One small architecture, used twice.</h2>
+          </div>
+          <p>
+            Learn this pattern once and you can reuse it for dozens of school and
+            personal projects.
+          </p>
+        </div>
+
+        <div class="architecture" role="group" aria-label="Application architecture">
+          <div class="architecture-node">
+            <span>01</span>
+            <small>FRONT END</small>
+            <strong>HTML, CSS &amp; JavaScript</strong>
+            <p>Collects the input and renders safe, editable results.</p>
+          </div>
+          <div class="architecture-arrow" aria-hidden="true">
+            <span>validated JSON</span>
+            <b>→</b>
+          </div>
+          <div class="architecture-node architecture-node-accent">
+            <span>02</span>
+            <small>BACK END</small>
+            <strong>Cloudflare Worker</strong>
+            <p>Checks requests, protects limits, and chooses the prompt.</p>
+          </div>
+          <div class="architecture-arrow" aria-hidden="true">
+            <span>one AI call</span>
+            <b>→</b>
+          </div>
+          <div class="architecture-node">
+            <span>03</span>
+            <small>MODEL</small>
+            <strong>Workers AI</strong>
+            <p>Returns a fixed JSON schema the interface can trust.</p>
+          </div>
+        </div>
+
+        <div class="principles">
+          <article>
+            <span aria-hidden="true">◇</span>
+            <h3>No database</h3>
+            <p>Nothing to migrate, manage, or accidentally expose while learning.</p>
+          </article>
+          <article>
+            <span aria-hidden="true">⌁</span>
+            <h3>No browser API key</h3>
+            <p>The AI binding stays on the Worker, away from front-end source code.</p>
+          </article>
+          <article>
+            <span aria-hidden="true">✓</span>
+            <h3>Structured output</h3>
+            <p>A JSON schema makes every field predictable and easy to render.</p>
+          </article>
+          <article>
+            <span aria-hidden="true">↗</span>
+            <h3>One-command deploy</h3>
+            <p>The static site and API publish together on Cloudflare’s network.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="origin-section">
+        <div class="shell origin-grid">
+          <div>
+            <p class="kicker">WHY THESE TWO?</p>
+            <h2>Easy to reverse engineer. Useful enough to keep.</h2>
+          </div>
+          <div class="origin-copy">
+            <p>
+              Both workflows have a single input, one AI transformation, and a
+              visible output. That makes them ideal for learning where the front
+              end stops, where the API begins, and what the model actually does.
+            </p>
+            <p class="attribution">
+              Concept research:
+              <a href="https://github.com/AI277487/meeting_notes_summariser" target="_blank" rel="noreferrer">
+                meeting_notes_summariser
+              </a>
+              and
+              <a href="https://github.com/Jamilof1/content-repurposing-flow" target="_blank" rel="noreferrer">
+                content-repurposing-flow
+              </a>.
+              This implementation was written from scratch.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="final-cta shell">
+        <div>
+          <span class="cta-orbit" aria-hidden="true"></span>
+          <p class="kicker">BUILD THE NEXT ONE</p>
+          <h2>Fork the pattern. Change the prompt. Make it yours.</h2>
+          <p>
+            The source includes the interface, Worker routes, validation,
+            structured schemas, tests, and Cloudflare configuration.
+          </p>
+          <a
+            class="button button-light"
+            href="https://github.com/recruiting-gains/ai-builds-showcase/tree/main/ai-workflow-lab"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Explore the code on GitHub
+            <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer shell">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">WL</span>
+        <span>Workflow Lab</span>
+      </div>
+      <p>
+        An independent student project by
+        <a href="https://github.com/recruiting-gains" target="_blank" rel="noreferrer">recruiting-gains</a>.
+        Not affiliated with GitHub, Cloudflare, or the referenced projects.
+      </p>
+      <span>© <span id="year">2026</span></span>
+    </footer>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden>Copied</div>
+  </body>
+</html>

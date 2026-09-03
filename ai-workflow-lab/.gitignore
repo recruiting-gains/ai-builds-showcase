@@ -1,0 +1,11 @@
+.DS_Store
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+.wrangler
+coverage
+dist
+node_modules
+worker-configuration.d.ts

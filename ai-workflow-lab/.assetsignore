@@ -1,0 +1,11 @@
+.DS_Store
+.dev.vars*
+.env*
+.git
+.gitignore
+.wrangler
+node_modules
+src
+test
+worker-configuration.d.ts
+wrangler.jsonc
