@@ -1,0 +1,29 @@
+{
+  "name": "memory-city",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Turn what you learn into a living 3D city of connected ideas.",
+  "scripts": {
+    "build": "vite build",
+    "cf-typegen": "wrangler types",
+    "check": "npm run typecheck && npm test && npm run build && npm run deploy:check",
+    "deploy": "npm run build && wrangler deploy",
+    "deploy:check": "wrangler deploy --dry-run",
+    "dev": "npm run build && wrangler dev --live-reload",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.client.json && tsc --noEmit -p tsconfig.worker.json"
+  },
+  "dependencies": {
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260903.1",
+    "@types/node": "^26.4.1",
+    "@types/three": "0.180.0",
+    "typescript": "7.0.2",
+    "vite": "^7.1.5",
+    "vitest": "4.1.11",
+    "wrangler": "4.128.0"
+  }
+}

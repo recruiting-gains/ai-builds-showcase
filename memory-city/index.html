@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Memory City turns notes and questions into a living 3D city of connected ideas."
+    />
+    <meta name="theme-color" content="#05070d" />
+    <meta property="og:title" content="Memory City — Watch what you learn become a city" />
+    <meta
+      property="og:description"
+      content="Add a thought. Watch its main ideas become buildings, neighborhoods, and roads you can explore."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title>Memory City — Your knowledge, made visible</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#city-builder">Skip to the city builder</a>
+    <div class="page-atmosphere" aria-hidden="true">
+      <span class="aurora aurora-one"></span>
+      <span class="aurora aurora-two"></span>
+      <span class="grain"></span>
+    </div>
+
+    <header class="site-header" id="top">
+      <a class="brand" href="#top" aria-label="Memory City home">
+        <svg class="brand-mark" viewBox="0 0 44 44" aria-hidden="true">
+          <path d="M8 28 22 36 37 27 22 19 8 28Z" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M11 24v-9l7-4v17l-7-4Zm14 5V8l8 4v13l-8 4Zm-5-3V17l4 2v9l-4-2Z" fill="currentColor"/>
+          <path d="m8 28 14-8 15 7M22 36V20" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".55"/>
+        </svg>
+        <span>Memory City</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="#how-it-works">How it works</a>
+        <a href="#city-language">City language</a>
+        <a href="#city-builder">Build yours</a>
+      </nav>
+      <a class="header-action" href="#city-builder">Start building <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="signal-dot" aria-hidden="true"></span> Your knowledge, made visible</p>
+          <h1 id="hero-title">Watch what you learn become a <em>living city.</em></h1>
+          <p class="hero-lede">
+            Add a note, idea, or question. Memory City finds the main ideas, places related ideas
+            near one another, and turns them into a world you can explore.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#city-builder">
+              Build my first block <span aria-hidden="true">↗</span>
+            </a>
+            <button class="button button-quiet" id="tour-demo" type="button">
+              Explore the demo city <span aria-hidden="true">↓</span>
+            </button>
+          </div>
+          <p class="hero-reassurance"><span aria-hidden="true">✦</span> No AI knowledge needed. Start with one thought.</p>
+          <ul class="hero-key" aria-label="How to read the city">
+            <li><i class="key-building" aria-hidden="true"></i><span><strong>Building</strong> one idea</span></li>
+            <li><i class="key-road" aria-hidden="true"></i><span><strong>Road</strong> a connection</span></li>
+            <li><i class="key-block" aria-hidden="true"></i><span><strong>District</strong> related ideas</span></li>
+          </ul>
+        </div>
+
+        <div class="hero-world" id="hero-world">
+          <div class="city-loading" id="hero-loading" aria-hidden="true">
+            <span class="blueprint-building"></span>
+            <span>Lighting the demo city…</span>
+          </div>
+          <div class="city-canvas" id="hero-city" aria-hidden="true"></div>
+          <div class="hero-vignette" aria-hidden="true"></div>
+          <div class="city-callout callout-building" aria-hidden="true">
+            <span></span>
+            <p><strong>Every building is an idea.</strong><br />Select one to look inside.</p>
+          </div>
+          <div class="city-callout callout-road" aria-hidden="true">
+            <span></span>
+            <p><strong>Roads connect related thoughts.</strong></p>
+          </div>
+          <div class="hero-world-controls">
+            <span>Drag to explore · Scroll to zoom</span>
+            <button class="icon-button" id="hero-reset" type="button" aria-label="Reset demo city view" title="Reset view">⌂</button>
+            <button class="icon-button motion-toggle" data-target="hero" type="button" aria-pressed="false" aria-label="Pause city motion" title="Pause motion">Ⅱ</button>
+          </div>
+          <article class="floating-inspector" id="hero-inspector" hidden>
+            <button class="inspector-close" type="button" aria-label="Close idea details">×</button>
+            <p class="inspector-kicker">Selected idea</p>
+            <h2></h2>
+            <p class="inspector-description"></p>
+            <div class="inspector-meta"></div>
+            <div class="inspector-connections">
+              <h3>Connected roads</h3>
+              <ul></ul>
+            </div>
+          </article>
+        </div>
+        <a class="scroll-cue" href="#simple-explanation" aria-label="Continue to how Memory City works">
+          <span>See how it works</span><i aria-hidden="true"></i>
+        </a>
+      </section>
+
+      <section class="plain-strip" id="simple-explanation" aria-label="Memory City in one sentence">
+        <p><span aria-hidden="true">◈</span> Every building is an idea. Every road shows how two ideas connect.</p>
+      </section>
+
+      <section class="story shell" id="how-it-works" aria-labelledby="story-title">
+        <div class="section-heading story-heading">
+          <p class="eyebrow">Here is the whole idea</p>
+          <h2 id="story-title">From one thought to a place you can remember.</h2>
+          <p>
+            Memory City reads what you save, spots the main ideas, and places related ideas near one
+            another. Open any building to see what it means and which note created it.
+          </p>
+        </div>
+        <ol class="steps-grid">
+          <li class="step-card">
+            <div class="step-visual step-note" aria-hidden="true">
+              <span class="note-sheet"><i></i><i></i><i></i></span>
+              <b>+</b>
+            </div>
+            <span class="step-number">01</span>
+            <h3>Add something you learned</h3>
+            <p>Paste a thought, a note, or a question that you want to keep.</p>
+          </li>
+          <li class="step-card featured-step">
+            <div class="step-visual step-build" aria-hidden="true">
+              <span></span><span></span><span></span><i></i>
+            </div>
+            <span class="step-number">02</span>
+            <h3>Watch the ideas connect</h3>
+            <p>Main ideas rise as buildings. Related thoughts get roads between them.</p>
+          </li>
+          <li class="step-card">
+            <div class="step-visual step-return" aria-hidden="true">
+              <span></span><span></span><span></span><i></i>
+            </div>
+            <span class="step-number">03</span>
+            <h3>Come back to remember</h3>
+            <p>Explore the skyline and reopen the ideas that matter to you.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="language-section" id="city-language" aria-labelledby="language-title">
+        <div class="shell">
+          <div class="section-heading language-heading">
+            <p class="eyebrow">A city with a simple language</p>
+            <h2 id="language-title">You already know how to read it.</h2>
+            <p>The city uses familiar places to make invisible connections feel easy to understand.</p>
+          </div>
+          <div class="language-grid">
+            <article class="language-card language-building">
+              <div class="language-icon" aria-hidden="true"><span></span><i></i><i></i><i></i></div>
+              <p class="card-index">01 / BUILDING</p>
+              <h3>One idea</h3>
+              <p>Each building holds one clear concept found in your note.</p>
+            </article>
+            <article class="language-card language-neighborhood">
+              <div class="language-icon" aria-hidden="true"><span></span><span></span><span></span></div>
+              <p class="card-index">02 / NEIGHBORHOOD</p>
+              <h3>Related ideas</h3>
+              <p>Ideas of the same kind gather into a recognizable part of town.</p>
+            </article>
+            <article class="language-card language-road">
+              <div class="language-icon" aria-hidden="true"><span></span><i></i><b></b></div>
+              <p class="card-index">03 / ROAD</p>
+              <h3>A connection</h3>
+              <p>A glowing road tells you why two thoughts belong together.</p>
+            </article>
+            <article class="language-card language-height">
+              <div class="language-icon" aria-hidden="true"><span></span><span></span><span></span></div>
+              <p class="card-index">04 / HEIGHT</p>
+              <h3>More support</h3>
+              <p>Taller buildings have more material connected to the idea—not a smarter score.</p>
+            </article>
+            <article class="language-card language-site">
+              <div class="language-icon" aria-hidden="true"><span></span><i></i><b></b></div>
+              <p class="card-index">05 / CONSTRUCTION SITE</p>
+              <h3>An open question</h3>
+              <p>Unfinished structures show the things you still want to explore.</p>
+            </article>
+            <article class="language-card language-bridge">
+              <div class="language-icon" aria-hidden="true"><span></span><i></i><b></b></div>
+              <p class="card-index">06 / BRIDGE</p>
+              <h3>A surprising link</h3>
+              <p>A bridge reaches across town when two different subjects connect.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="builder-section" id="city-builder" aria-labelledby="builder-title">
+        <div class="builder-intro shell">
+          <p class="eyebrow">The city builder</p>
+          <h2 id="builder-title">Give one thought a place to live.</h2>
+          <p>Try the real experience below. The city is private to this browser unless you share its private key.</p>
+        </div>
+
+        <div class="app-frame shell-wide">
+          <div class="app-topbar">
+            <div class="app-title">
+              <span class="status-light" aria-hidden="true"></span>
+              <div><strong id="city-name">Demo City</strong><small id="city-status">Ready to explore</small></div>
+            </div>
+            <div class="city-stats" aria-live="polite">
+              <span><b id="stat-ideas">12</b> ideas</span>
+              <span><b id="stat-districts">4</b> districts</span>
+              <span><b id="stat-roads">13</b> roads</span>
+            </div>
+            <div class="view-actions" aria-label="City view controls">
+              <button class="toolbar-button active" id="show-city" type="button" aria-pressed="true">◇ City</button>
+              <button class="toolbar-button" id="show-list" type="button" aria-pressed="false">☷ List</button>
+              <button class="toolbar-button motion-toggle" data-target="workspace" type="button" aria-pressed="false">Ⅱ <span>Motion</span></button>
+            </div>
+          </div>
+
+          <div class="app-layout">
+            <aside class="input-rail">
+              <div class="rail-heading">
+                <span class="rail-step">+</span>
+                <div><h3>Grow the city</h3><p>Start with one useful thought.</p></div>
+              </div>
+              <form id="memory-form" novalidate>
+                <label for="memory-text">What did you learn?</label>
+                <textarea
+                  id="memory-text"
+                  name="text"
+                  rows="9"
+                  minlength="40"
+                  maxlength="5000"
+                  aria-describedby="memory-help character-count form-message"
+                  placeholder="Example: Deep sleep helps the brain organize and strengthen new memories. Sleep cycles repeat through the night, and each stage supports the brain differently."
+                  required
+                ></textarea>
+                <div class="input-meta">
+                  <span id="memory-help">Do not add private or sensitive information.</span>
+                  <span id="character-count">0 / 5,000</span>
+                </div>
+                <div class="example-row">
+                  <span>Try an example:</span>
+                  <button type="button" data-example="sleep">Sleep & memory</button>
+                  <button type="button" data-example="creativity">Creative work</button>
+                </div>
+                <button class="button button-build" id="build-button" type="submit">
+                  <span class="button-ready">Grow my city <b aria-hidden="true">✦</b></span>
+                  <span class="button-busy" hidden>Finding the main ideas…</span>
+                </button>
+                <p class="form-message" id="form-message" role="alert" tabindex="-1" hidden></p>
+              </form>
+
+              <div class="build-progress" id="build-progress" aria-live="polite" hidden>
+                <span class="progress-line"><i></i></span>
+                <ol>
+                  <li class="active">Finding the main ideas</li>
+                  <li>Connecting related thoughts</li>
+                  <li>Raising the buildings</li>
+                </ol>
+              </div>
+
+              <div class="district-filters">
+                <p>Show districts</p>
+                <button type="button" class="filter-chip concepts active" data-district="concepts" aria-pressed="true"><i></i> Concepts</button>
+                <button type="button" class="filter-chip skills active" data-district="skills" aria-pressed="true"><i></i> Skills</button>
+                <button type="button" class="filter-chip evidence active" data-district="evidence" aria-pressed="true"><i></i> Evidence</button>
+                <button type="button" class="filter-chip questions active" data-district="questions" aria-pressed="true"><i></i> Questions</button>
+              </div>
+            </aside>
+
+            <section class="city-stage" aria-label="Interactive view of the memory city">
+              <p class="sr-only" id="city-summary">
+                The demo city contains 12 ideas across 4 districts. Use List view for a text version of every idea and connection.
+              </p>
+              <div class="city-canvas workspace-canvas" id="workspace-city" aria-hidden="true"></div>
+              <div class="city-loading workspace-loading" id="workspace-loading" aria-hidden="true">
+                <span class="blueprint-building"></span>
+                <span>Preparing the city…</span>
+              </div>
+              <div class="district-label district-concepts" aria-hidden="true"><i></i>Concepts</div>
+              <div class="district-label district-skills" aria-hidden="true"><i></i>Skills</div>
+              <div class="district-label district-evidence" aria-hidden="true"><i></i>Evidence</div>
+              <div class="district-label district-questions" aria-hidden="true"><i></i>Questions</div>
+              <div class="stage-help">Drag to turn · Scroll to zoom · Select a building</div>
+              <button class="reset-view" id="workspace-reset" type="button">⌂ Reset view</button>
+
+              <article class="idea-inspector" id="idea-inspector" hidden>
+                <button class="inspector-close" type="button" aria-label="Close idea details">×</button>
+                <p class="inspector-kicker"><span></span><b></b></p>
+                <h3></h3>
+                <p class="inspector-description"></p>
+                <div class="inspector-depth">
+                  <span>Connected material</span><i><b></b></i><strong></strong>
+                </div>
+                <p class="inspector-source"></p>
+                <div class="inspector-connections">
+                  <h4>Connected roads</h4>
+                  <ul></ul>
+                </div>
+              </article>
+
+              <div class="list-view" id="city-list" hidden>
+                <div class="list-view-heading">
+                  <div><p class="eyebrow">Accessible city view</p><h3>Every idea, in plain text</h3></div>
+                  <p>Select an idea to see its meaning and connections.</p>
+                </div>
+                <div class="list-districts" id="list-districts"></div>
+              </div>
+            </section>
+          </div>
+
+          <div class="app-footerbar">
+            <p><span aria-hidden="true">◉</span> Your city key stays in this browser · inactive cities expire after 180 days.</p>
+            <div>
+              <button class="text-control" id="export-city" type="button">↓ Export city</button>
+              <button class="text-control danger-control" id="delete-city" type="button">Delete my city</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="truth-section shell" aria-labelledby="truth-title">
+        <div class="truth-visual" aria-hidden="true">
+          <div class="truth-orbit"><span></span><span></span><span></span></div>
+          <div class="truth-tower"><i></i><i></i><i></i><i></i></div>
+          <p>YOUR WORDS<br />STAY AT THE FOUNDATION</p>
+        </div>
+        <div class="truth-copy">
+          <p class="eyebrow">Built for curiosity, not certainty</p>
+          <h2 id="truth-title">Memory City helps organize your thinking. It does not replace it.</h2>
+          <p>The AI can misunderstand a thought. Your original note stays preserved so you can always check where an idea came from.</p>
+          <ul>
+            <li><span>01</span><div><strong>Your source stays attached</strong><p>Open a building to trace it back to the note that created it.</p></div></li>
+            <li><span>02</span><div><strong>You control the data</strong><p>Export the city as a file or delete the whole private city at any time.</p></div></li>
+            <li><span>03</span><div><strong>The map is a suggestion</strong><p>Connections are useful starting points, not guaranteed facts.</p></div></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="final-cta" aria-labelledby="final-title">
+        <div class="sunrise" aria-hidden="true"><span></span><i></i><b></b></div>
+        <div class="final-copy">
+          <p class="eyebrow">An empty lot is waiting</p>
+          <h2 id="final-title">Your next idea could be the first building.</h2>
+          <p>Begin with one sentence. You can add everything else later.</p>
+          <a class="button button-primary" href="#city-builder">Start my city <span aria-hidden="true">↗</span></a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <a class="brand" href="#top">
+        <svg class="brand-mark" viewBox="0 0 44 44" aria-hidden="true"><path d="M8 28 22 36 37 27 22 19 8 28Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M11 24v-9l7-4v17l-7-4Zm14 5V8l8 4v13l-8 4Zm-5-3V17l4 2v9l-4-2Z" fill="currentColor"/></svg>
+        <span>Memory City</span>
+      </a>
+      <p>An original experiment that turns thoughts into explorable places.</p>
+      <a href="https://github.com/recruiting-gains/ai-builds-showcase/tree/main/memory-city" target="_blank" rel="noopener noreferrer">View the build on GitHub ↗</a>
+    </footer>
+
+    <dialog id="delete-dialog" aria-labelledby="delete-title">
+      <form method="dialog" class="dialog-card">
+        <span class="dialog-symbol" aria-hidden="true">⌁</span>
+        <h2 id="delete-title">Delete this city?</h2>
+        <p>This permanently removes its notes, buildings, and roads. Export a copy first if you might want it later.</p>
+        <div class="dialog-actions">
+          <button class="button button-quiet" value="cancel">Keep my city</button>
+          <button class="button button-danger" id="confirm-delete" value="delete">Delete everything</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <div class="sr-only" id="live-status" aria-live="polite"></div>
+    <script type="module" src="/src/client/main.ts"></script>
+  </body>
+</html>

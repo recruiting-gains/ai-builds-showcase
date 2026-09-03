@@ -1,0 +1,58 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "memory-city",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-09-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "ai": {
+    "binding": "AI",
+    "remote": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "memory-city-db",
+      "database_id": "f3171d6b-7216-402e-a49b-6028316853fb",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vectorize": [
+    {
+      "binding": "CONCEPT_INDEX",
+      "index_name": "memory-city-concepts",
+      "remote": true
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "CITY_RATE_LIMITER",
+      "namespace_id": "40902026",
+      "simple": {
+        "limit": 8,
+        "period": 60
+      }
+    }
+  ],
+  "triggers": {
+    "crons": ["23 * * * *"]
+  },
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist",
+    "not_found_handling": "none",
+    "run_worker_first": ["/api/*"]
+  },
+  "observability": {
+    "enabled": true,
+    "redact_query_string": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.1
+    }
+  }
+}
