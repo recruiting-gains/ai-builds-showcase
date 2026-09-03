@@ -4,11 +4,19 @@
 >
 > A two-minute check before you join a public conversation.
 
-![NO MEGAPHONE landing page: a dark editorial interface with a crossed-megaphone mark and the headline “Should you comment?”](./docs/evaluation/landing-refresh/desktop-landing.png)
+**[Open the live build →](https://no-megaphone.recruiting-gains.workers.dev/)**
+
+![Miniature decision room moving a draft from noise toward a useful conversation.](../docs/assets/showcase/no-megaphone.webp)
+
+*The point is not to say more. It is to decide whether saying anything would help.*
 
 NO MEGAPHONE is a respectful, read-only decision tool. Eleven quick questions produce a clear result before someone enters a public online community discussion.
 
 The person reads the discussion in another tab. The app never opens the page, asks for its link, connects to an account, or writes a comment. “Stay quiet” is treated as a successful result.
+
+## See the real interface
+
+![NO MEGAPHONE landing page: a dark editorial interface with a crossed-megaphone mark and the headline “Should you comment?”](./docs/evaluation/landing-refresh/desktop-landing.png)
 
 ## A two-minute demo
 
@@ -159,19 +167,20 @@ npm run deploy:check
 
 Final recorded evidence is in [`docs/VERIFICATION.md`](./docs/VERIFICATION.md). The adversarial review and simulated comparison are in [`docs/THE-OPPONENT.md`](./docs/THE-OPPONENT.md) and [`docs/BLINDED-EVALUATION.md`](./docs/BLINDED-EVALUATION.md).
 
-## Cloudflare-ready deployment
+## Live deployment
 
-No deployment was performed for this pull request.
+**Production:** <https://no-megaphone.recruiting-gains.workers.dev/>
 
-After owner review and explicit approval:
+The public build is live on Cloudflare Workers. No deployment is performed by this documentation update.
 
-1. Confirm the desired Worker name and Cloudflare account.
-2. Run `npm ci` and `npm run check` from this folder.
-3. Review the output of `npm run deploy:check`.
-4. Run `npm run deploy` only when deployment is authorized.
-5. Verify `/api/health`, the fictional journey, security headers, and mobile layout at the resulting route.
+For a future release:
 
-The configuration creates no database binding, secret, AI binding, custom domain, or production route.
+1. Run `npm ci` and `npm run check` from this folder.
+2. Review the output of `npm run deploy:check`.
+3. Deploy only after reviewing the change.
+4. Verify `/api/health`, the fictional journey, security headers, and mobile layout.
+
+The configuration creates no database binding, secret, AI binding, custom domain, or platform connection.
 
 ## Honest limitations
 
@@ -181,7 +190,7 @@ The configuration creates no database binding, secret, AI binding, custom domain
 - Current performance numbers come from a local production build, not field data over a public network.
 - No genuine human blinded study has been run. The included comparison is explicitly simulated and heuristic.
 - Localization and testing with assistive-technology users remain future work.
-- Before any public launch, the owner should decide on host-level abuse controls and review the hosting provider’s metadata policy.
+- Future releases should recheck host-level abuse controls and the hosting provider’s metadata policy.
 
 ## License and independence
 
