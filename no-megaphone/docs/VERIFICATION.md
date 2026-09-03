@@ -2,6 +2,15 @@
 
 Final gate run: **2026-09-03 UTC** on the production build. No deployment or merge was performed.
 
+## Landing-page refresh
+
+The **2026-09-03** copy refresh moves the working check directly below a shorter hero, reduces the guide to five ground rules, places the exact scoring math in an optional disclosure, and condenses the privacy explanation. The decision formula, API, local-storage behavior, and safety exclusions were not changed.
+
+Fresh landing screenshots were inspected at 1440×960 and 390×844. Both versions rendered immediately with no white-page failure or horizontal overflow:
+
+- [`landing-refresh/desktop-landing.png`](./evaluation/landing-refresh/desktop-landing.png)
+- [`landing-refresh/mobile-landing.png`](./evaluation/landing-refresh/mobile-landing.png)
+
 ## Clean-install gate
 
 The final check started with a fresh dependency installation:
@@ -81,7 +90,7 @@ Wrangler's final dry-run reported a 24.12 KiB Worker upload and 7.14 KiB gzip, w
 - [`THE-OPPONENT.md`](./THE-OPPONENT.md) records the adversarial findings, severities, improvements, second pass, and stop decision.
 - [`BLINDED-EVALUATION.md`](./BLINDED-EVALUATION.md) records the honest simulated comparison and future human-study protocol.
 - [`evaluation/RUBRIC.md`](./evaluation/RUBRIC.md) is the frozen scoring rubric.
-- `evaluation/variant-a/` and `evaluation/variant-b/` preserve the screenshots and measured capture data.
+- `evaluation/variant-a/` and `evaluation/variant-b/` preserve the original screenshots and measured capture data; `evaluation/landing-refresh/` contains the simplified landing-page captures.
 
 ## Remaining limitations
 

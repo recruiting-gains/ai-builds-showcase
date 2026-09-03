@@ -20,7 +20,7 @@ async function completeContext(page: Page): Promise<void> {
   await page.getByLabel("Kind of work").selectOption("professional_service");
   await page.getByLabel("Hands-on experience").selectOption("6_to_10");
   await page.getByLabel("Where that experience applies").selectOption("local");
-  await page.getByRole("button", { name: "Set private lens and continue" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
 }
 
 async function fillChecklist(page: Page, overrides: Partial<ScoreInput> = {}): Promise<void> {
@@ -39,13 +39,11 @@ test("completes the fictional primary journey through the real scoring endpoint"
   });
 
   await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "The best contribution might be silence." }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Should you comment?" })).toBeVisible();
   await expect(page.locator("#result-panel")).toBeHidden();
-  await page.getByRole("button", { name: "Try the fictional example" }).click();
-  await expect(page.getByText("A neighborhood bakery owner", { exact: false })).toBeVisible();
-  await page.getByRole("button", { name: "Evaluate the conversation" }).click();
+  await page.getByRole("button", { name: "Try an example" }).click();
+  await expect(page.getByText("A bakery owner", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "See my result" }).click();
 
   await expect(page.locator("#result-label")).toHaveText("Helpful opening");
   await expect(page.locator("#result-score")).toHaveText("87");
@@ -60,7 +58,7 @@ test("treats prohibited participation as a successful Stay quiet exclusion", asy
   await page.goto("/");
   await completeContext(page);
   await fillChecklist(page, { ruleFit: "prohibited" });
-  await page.getByRole("button", { name: "Evaluate the conversation" }).click();
+  await page.getByRole("button", { name: "See my result" }).click();
 
   await expect(page.locator("#result-label")).toHaveText("Stay quiet");
   await expect(page.locator("#result-score")).toHaveText("0");
@@ -72,7 +70,7 @@ test("treats prohibited participation as a successful Stay quiet exclusion", asy
 test("shows a useful empty-form error and focuses the first unanswered group", async ({ page }) => {
   await page.goto("/");
   await completeContext(page);
-  await page.getByRole("button", { name: "Evaluate the conversation" }).click();
+  await page.getByRole("button", { name: "See my result" }).click();
   await expect(page.getByRole("alert")).toHaveText(
     "Answer every checklist question before calculating the score.",
   );
@@ -101,8 +99,8 @@ test("uses the identical local formula when the scoring network is unavailable",
 }) => {
   await page.route("**/api/score", (route) => route.abort("failed"));
   await page.goto("/");
-  await page.getByRole("button", { name: "Try the fictional example" }).click();
-  await page.getByRole("button", { name: "Evaluate the conversation" }).click();
+  await page.getByRole("button", { name: "Try an example" }).click();
+  await page.getByRole("button", { name: "See my result" }).click();
   await expect(page.locator("#result-score")).toHaveText("87");
   await expect(page.getByText("The endpoint was unavailable", { exact: false })).toBeVisible();
 });
@@ -118,14 +116,14 @@ test("communicates progress on a slow scoring request", async ({ page }) => {
 
   try {
     await page.goto("/");
-    await page.getByRole("button", { name: "Try the fictional example" }).click();
-    const evaluate = page.getByRole("button", { name: "Evaluate the conversation" });
+    await page.getByRole("button", { name: "Try an example" }).click();
+    const evaluate = page.getByRole("button", { name: "See my result" });
     await evaluate.click();
     await expect(page.getByRole("button", { name: "Checking the math…" })).toBeDisabled();
     await expect(page.locator("#checklist-form")).toHaveAttribute("aria-busy", "true");
     await expect(page.locator('input[name="momentum"][value="active"]')).toBeDisabled();
     await expect(page.getByLabel("Kind of work")).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Try the fictional example" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Try an example" })).toBeDisabled();
     await expect(page.locator("#reset-check")).toBeDisabled();
     await expect(page.getByRole("button", { name: "Delete local data" })).toBeDisabled();
     await expect.poll(() => Boolean(releaseRequest)).toBe(true);
@@ -152,12 +150,12 @@ test("falls back locally when the scoring endpoint does not respond", async ({ p
 
   try {
     await page.goto("/");
-    await page.getByRole("button", { name: "Try the fictional example" }).click();
-    await page.getByRole("button", { name: "Evaluate the conversation" }).click();
+    await page.getByRole("button", { name: "Try an example" }).click();
+    await page.getByRole("button", { name: "See my result" }).click();
     await expect(page.getByRole("button", { name: "Checking the math…" })).toBeDisabled();
     await expect(page.locator("#result-score")).toHaveText("87", { timeout: 6_000 });
     await expect(page.getByText("The endpoint was unavailable", { exact: false })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Evaluate the conversation" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "See my result" })).toBeEnabled();
   } finally {
     releaseRequest?.();
   }
@@ -166,9 +164,7 @@ test("falls back locally when the scoring endpoint does not respond", async ({ p
 test("supports direct section links", async ({ page }) => {
   await page.goto("/rules-first");
   await expect(page).toHaveURL(/\/#rules-first$/);
-  await expect(
-    page.getByRole("heading", { name: "If you enter, leave the room better." }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Five ground rules." })).toBeVisible();
 });
 
 test("has screen-reader landmarks, names, and no automated accessibility violations", async ({
@@ -178,7 +174,7 @@ test("has screen-reader landmarks, names, and no automated accessibility violati
   await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
   await expect(page.getByRole("main")).toHaveCount(1);
   await expect(page.getByRole("contentinfo")).toHaveCount(1);
-  await page.getByRole("button", { name: "Try the fictional example" }).click();
+  await page.getByRole("button", { name: "Try an example" }).click();
 
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
@@ -208,7 +204,7 @@ test("supports skip navigation and keyboard operation of setup and checklist cho
   await page.keyboard.type("L");
   await expect(serviceArea).toHaveValue("location_free");
 
-  await page.getByRole("button", { name: "Set private lens and continue" }).focus();
+  await page.getByRole("button", { name: "Continue" }).focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("#checklist-panel")).toBeVisible();
 
@@ -243,11 +239,9 @@ for (const viewport of [
       scrollWidth: document.documentElement.scrollWidth,
     }));
     expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
-    await expect(
-      page.getByRole("heading", { name: "The best contribution might be silence." }),
-    ).toBeVisible();
-    await page.getByRole("button", { name: "Try the fictional example" }).click();
-    await page.getByRole("button", { name: "Evaluate the conversation" }).click();
+    await expect(page.getByRole("heading", { name: "Should you comment?" })).toBeVisible();
+    await page.getByRole("button", { name: "Try an example" }).click();
+    await page.getByRole("button", { name: "See my result" }).click();
     const resultDimensions = await page.evaluate(() => ({
       clientWidth: document.documentElement.clientWidth,
       scrollWidth: document.documentElement.scrollWidth,
@@ -276,8 +270,8 @@ for (const viewport of [
 test("keeps mobile width stable throughout the decorative animation cycle", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await page.getByRole("button", { name: "Try the fictional example" }).click();
-  await page.getByRole("button", { name: "Evaluate the conversation" }).click();
+  await page.getByRole("button", { name: "Try an example" }).click();
+  await page.getByRole("button", { name: "See my result" }).click();
 
   for (let sample = 0; sample < 8; sample += 1) {
     const overflow = await page.evaluate(
@@ -297,13 +291,9 @@ test("loads without scripts as a polished readable guide", async ({ browser }) =
   await page.goto("/");
   await expect(page.locator("#context-form")).toBeHidden();
   expect(new URL(page.url()).search).toBe("");
-  await expect(page.getByText("The guide still works without JavaScript.")).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "The best contribution might be silence." }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "If you enter, leave the room better." }),
-  ).toBeAttached();
+  await expect(page.getByText("JavaScript is off.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Should you comment?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Five ground rules." })).toBeAttached();
   await context.close();
 });
 

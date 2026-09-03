@@ -1,22 +1,20 @@
 # NO MEGAPHONE
 
-> **The best contribution might be silence.**
+> **Should you comment?**
 >
-> Listen for need, not attention.
+> A two-minute check before you join a public conversation.
 
-![NO MEGAPHONE landing page: a dark editorial interface with a crossed-megaphone mark and the headline “The best contribution might be silence.”](./docs/evaluation/variant-b/desktop-landing.png)
+![NO MEGAPHONE landing page: a dark editorial interface with a crossed-megaphone mark and the headline “Should you comment?”](./docs/evaluation/landing-refresh/desktop-landing.png)
 
-NO MEGAPHONE is a respectful, read-only decision tool for business owners and professionals. It helps someone decide whether their real experience might improve a public online community discussion before they enter it.
+NO MEGAPHONE is a respectful, read-only decision tool. Eleven quick questions produce a clear result before someone enters a public online community discussion.
 
 The person reads the discussion in another tab. The app never opens the page, asks for its link, connects to an account, or writes a comment. “Stay quiet” is treated as a successful result.
 
 ## A two-minute demo
 
-1. Choose a broad work context. It stays in the browser and acts only as a private reminder.
-2. Read a public community discussion yourself.
-3. Answer eleven structured questions about need, rules, timing, experience, location, sensitivity, intent, and missing information.
-4. Inspect the exact factor points, penalties, score caps, exclusions, and uncertainty.
-5. Use the rules-first guide—or accept **Stay quiet** as the completed decision.
+1. Read a public community discussion yourself.
+2. Answer eleven quick questions about need, rules, timing, experience, and intent.
+3. Get a transparent score and next step—or accept **Stay quiet** as the completed decision.
 
 The built-in example is fictional. It produces 87/100 rather than a perfect showcase score, including a conditional community-rule fit that requires disclosure.
 
