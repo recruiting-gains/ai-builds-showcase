@@ -21,10 +21,39 @@ A full-stack Next.js 14 (App Router) + TypeScript + Tailwind CSS landing page an
 npm run dev        # start local dev server on http://localhost:3000
 ```
 
+## Deploy Your Own
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/recruiting-gains/ai-builds-showcase/tree/main/chatgpt-ads)
+
+Clicking this deploys a copy of `chatgpt-ads` straight to **your own** Cloudflare account — no credentials are ever shared with the original author. Cloudflare clones the repo into your GitHub, builds it with the settings from `wrangler.toml`/`package.json` below, and provisions the Pages project for you automatically.
+
 ## Deploy
+
+### Vercel
 
 ```bash
 vercel --prod
+```
+
+### Cloudflare Pages
+
+This app can also be deployed to Cloudflare Pages via [`@cloudflare/next-on-pages`](https://github.com/cloudflare/next-on-pages), without affecting the Vercel deployment above.
+
+`wrangler.toml` in this directory codifies the build output directory and the `nodejs_compat` compatibility flag, so connecting this repo to Cloudflare Pages' Git integration mostly just works — no manual flag toggling required in the dashboard. In Cloudflare Pages project settings, set:
+
+| Setting | Value |
+| --- | --- |
+| Root directory | `chatgpt-ads` |
+| Build command | `npx @cloudflare/next-on-pages@1` |
+| Build output directory | `.vercel/output/static` |
+| Compatibility flag | `nodejs_compat` (also set via `wrangler.toml`) |
+
+Once connected, every push to `main` triggers a production deploy and every branch/PR push gets its own preview deploy automatically — same as Vercel's Git integration.
+
+You can also build locally with:
+
+```bash
+npm run pages:build
 ```
 
 ## Project Structure
