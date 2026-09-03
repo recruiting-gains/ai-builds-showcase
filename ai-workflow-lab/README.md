@@ -36,7 +36,8 @@ Cloudflare Worker
   ├─ validates type and length
   ├─ keeps source text separate from system instructions
   ├─ requests a fixed JSON schema
-  └─ checks the model result before returning it
+  ├─ checks the model result before returning it
+  └─ formats the follow-up email from validated fields
           │
           ▼
 Workers AI

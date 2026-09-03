@@ -2,12 +2,14 @@ import {
   CONTENT_SCHEMA,
   MEETING_SCHEMA,
   type ContentResult,
+  type MeetingExtraction,
   type MeetingResult
 } from "./contracts";
+import { buildFollowUpEmail } from "./formatters";
 import { buildContentMessages, buildMeetingMessages } from "./prompts";
 import {
   isContentResult,
-  isMeetingResult,
+  isMeetingExtraction,
   normalizePlainText,
   parseContentInput,
   parseMeetingInput,
@@ -85,7 +87,7 @@ async function runMeeting(request: Request, env: Env): Promise<MeetingResult> {
     MODEL,
     {
       messages: buildMeetingMessages(input),
-      max_tokens: 1400,
+      max_tokens: 900,
       temperature: 0.2,
       response_format: {
         type: "json_schema",
@@ -101,7 +103,7 @@ async function runMeeting(request: Request, env: Env): Promise<MeetingResult> {
   const parsed = parseModelPayload(
     (modelResult as unknown as { response?: unknown }).response
   );
-  if (!isMeetingResult(parsed)) {
+  if (!isMeetingExtraction(parsed)) {
     console.warn(
       JSON.stringify({
         event: "schema_mismatch",
@@ -111,9 +113,19 @@ async function runMeeting(request: Request, env: Env): Promise<MeetingResult> {
     );
     throw new Error("The AI response did not match the meeting schema.");
   }
+  const extraction: MeetingExtraction = {
+    title: normalizePlainText(parsed.title),
+    summary: normalizePlainText(parsed.summary),
+    decisions: parsed.decisions.map(normalizePlainText),
+    actionItems: parsed.actionItems.map((item) => ({
+      task: normalizePlainText(item.task),
+      owner: normalizePlainText(item.owner),
+      dueDate: normalizePlainText(item.dueDate)
+    }))
+  };
   return {
-    ...parsed,
-    followUpEmail: normalizePlainText(parsed.followUpEmail)
+    ...extraction,
+    followUpEmail: buildFollowUpEmail(extraction)
   };
 }
 

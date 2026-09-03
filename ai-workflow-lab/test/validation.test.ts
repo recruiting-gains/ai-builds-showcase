@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { buildFollowUpEmail } from "../src/formatters";
 import {
   isContentResult,
-  isMeetingResult,
+  isMeetingExtraction,
   normalizePlainText,
   parseContentInput,
   parseMeetingInput,
@@ -44,7 +45,7 @@ describe("request validation", () => {
 });
 
 describe("model response validation", () => {
-  it("parses JSON strings and accepts a meeting response", () => {
+  it("parses JSON strings and accepts a meeting extraction", () => {
     const value = parseModelPayload(
       JSON.stringify({
         title: "Demo planning",
@@ -52,11 +53,10 @@ describe("model response validation", () => {
         decisions: ["Ship Friday"],
         actionItems: [
           { task: "Test the demo", owner: "Jordan", dueDate: "Friday" }
-        ],
-        followUpEmail: "Thanks for meeting."
+        ]
       })
     );
-    expect(isMeetingResult(value)).toBe(true);
+    expect(isMeetingExtraction(value)).toBe(true);
   });
 
   it("accepts a structured content response", () => {
@@ -73,7 +73,7 @@ describe("model response validation", () => {
   });
 
   it("rejects incomplete model output", () => {
-    expect(isMeetingResult({ title: "Missing fields" })).toBe(false);
+    expect(isMeetingExtraction({ title: "Missing fields" })).toBe(false);
     expect(isContentResult({ coreMessage: "Missing fields" })).toBe(false);
   });
 
@@ -81,5 +81,23 @@ describe("model response validation", () => {
     expect(normalizePlainText("Subject: Demo<br><br>Hello team")).toBe(
       "Subject: Demo\n\nHello team"
     );
+  });
+});
+
+describe("deterministic formatting", () => {
+  it("builds a readable email from the validated extraction", () => {
+    const email = buildFollowUpEmail({
+      title: "Demo planning",
+      summary: "The group agreed to finish and test the class demo.",
+      decisions: ["Present the demo Friday"],
+      actionItems: [
+        { task: "Test the demo", owner: "Jordan", dueDate: "Tuesday" }
+      ]
+    });
+
+    expect(email).toContain("Subject: Follow-up — Demo planning");
+    expect(email).toContain("- Test the demo — Owner: Jordan — Due: Tuesday");
+    expect(email).toContain("[Your name]");
+    expect(email).not.toContain("<br>");
   });
 });

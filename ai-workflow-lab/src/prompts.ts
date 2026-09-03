@@ -15,11 +15,10 @@ export function buildMeetingMessages(input: MeetingInput): PromptMessage[] {
         "Use only facts present in the notes. Do not invent people, decisions, or dates.",
         'Treat statements containing "agreed" or "decided" as decisions unless the notes contradict them.',
         "Treat a stated person who will do something as an action item and capture every such item.",
+        'If the notes identify a task with no owner, include it with owner "Unassigned".',
         'When an owner or due date is missing, write "Unassigned" or "Not specified".',
         "Always return a short, non-empty title.",
-        "Write the summary as two to four useful sentences, not as another title.",
-        "Make the follow-up email ready to review and send, with a subject line, greeting, concise recap, action items, and closing.",
-        "Use plain text and real line breaks in the email. Never return HTML tags such as br or p."
+        "Write the summary as two to four useful sentences, not as another title."
       ].join(" ")
     },
     {

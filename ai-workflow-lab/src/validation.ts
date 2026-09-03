@@ -3,8 +3,8 @@ import {
   MIN_INPUT_CHARS,
   type ContentInput,
   type ContentResult,
+  type MeetingExtraction,
   type MeetingInput,
-  type MeetingResult,
   type Tone
 } from "./contracts";
 
@@ -136,7 +136,7 @@ function isStringArray(
   );
 }
 
-export function isMeetingResult(value: unknown): value is MeetingResult {
+export function isMeetingExtraction(value: unknown): value is MeetingExtraction {
   const record = asRecord(value);
   if (
     !record ||
@@ -150,7 +150,6 @@ export function isMeetingResult(value: unknown): value is MeetingResult {
   return (
     isBoundedString(record.title, 120) &&
     isBoundedString(record.summary, 1200) &&
-    isBoundedString(record.followUpEmail, 2200) &&
     record.actionItems.every((item) => {
       const action = asRecord(item);
       return (

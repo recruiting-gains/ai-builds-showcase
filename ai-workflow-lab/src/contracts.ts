@@ -25,10 +25,9 @@ export const MEETING_SCHEMA = {
         },
         required: ["task", "owner", "dueDate"]
       }
-    },
-    followUpEmail: { type: "string", minLength: 80, maxLength: 2200 }
+    }
   },
-  required: ["title", "summary", "decisions", "actionItems", "followUpEmail"]
+  required: ["title", "summary", "decisions", "actionItems"]
 } as const;
 
 export const CONTENT_SCHEMA = {
@@ -86,11 +85,14 @@ export interface ActionItem {
   dueDate: string;
 }
 
-export interface MeetingResult {
+export interface MeetingExtraction {
   title: string;
   summary: string;
   decisions: string[];
   actionItems: ActionItem[];
+}
+
+export interface MeetingResult extends MeetingExtraction {
   followUpEmail: string;
 }
 
