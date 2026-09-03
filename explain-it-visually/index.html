@@ -7,7 +7,7 @@
       name="description"
       content="Turn a process, timeline, comparison, or list into an editable visual in seconds."
     />
-    <meta name="theme-color" content="#f4f0e7" />
+    <meta name="theme-color" content="#080a18" />
     <meta property="og:title" content="Explain It Visually" />
     <meta
       property="og:description"
@@ -20,6 +20,7 @@
   </head>
   <body>
     <a class="skip-link" href="#builder">Skip to the visual maker</a>
+    <div class="page-noise" aria-hidden="true"></div>
 
     <header class="site-header">
       <a class="brand" href="#top" aria-label="Explain It Visually home">
@@ -32,46 +33,46 @@
         <a href="#how-it-works">How it works</a>
         <a href="#builder">Make a visual</a>
       </nav>
-      <a class="header-cta" href="#builder">Try it free</a>
+      <a class="header-cta" href="#builder"><span class="header-cta-label">Create a visual</span> <span aria-hidden="true">↗</span></a>
     </header>
 
     <main id="top">
       <section class="hero shell" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="eyebrow"><span aria-hidden="true">✦</span> Plain words → clear picture</p>
-          <h1 id="hero-title">Turn a long explanation into a visual people can understand.</h1>
+          <p class="eyebrow"><span aria-hidden="true">✦</span> A visual shortcut for big ideas</p>
+          <h1 id="hero-title">Turn complex words into <span class="gradient-word">visuals</span> anyone can understand.</h1>
           <p class="hero-lede">
-            Paste a process, timeline, list, or comparison. The app organizes the main ideas into an
-            editable infographic you can download—no design software needed.
+            Paste the thing that takes too long to explain. Get a clear, editable infographic you can
+            download and share—without opening design software.
           </p>
           <div class="hero-actions">
             <a class="button button-primary" href="#builder">
-              Make something visual
-              <span aria-hidden="true">↓</span>
+              Make it visual
+              <span aria-hidden="true">↗</span>
             </a>
             <button class="text-button" id="load-example-top" type="button">
-              See a simple example <span aria-hidden="true">↗</span>
+              Load an example <span aria-hidden="true">↓</span>
             </button>
           </div>
           <ul class="trust-list" aria-label="What to expect">
             <li><span aria-hidden="true">✓</span> No account</li>
             <li><span aria-hidden="true">✓</span> No saved history</li>
-            <li><span aria-hidden="true">✓</span> PNG &amp; SVG downloads</li>
+            <li><span aria-hidden="true">✓</span> Ready to download</li>
           </ul>
         </div>
 
-        <div class="hero-demo" aria-label="Example: rough words becoming a clear visual">
-          <div class="demo-label demo-label-left"><span></span> Your words</div>
+        <figure class="hero-demo" role="img" aria-label="Example showing a rough written idea becoming a clear four-step visual">
+          <div class="demo-label demo-label-left"><span></span> The messy version</div>
           <article class="paper-note paper-note-one">
             <span class="scribble-line long"></span>
             <span class="scribble-line medium"></span>
             <span class="scribble-line short"></span>
-            <p>How does a good idea become something real?</p>
+            <p>How does a rough idea become something people can use?</p>
           </article>
           <div class="flow-arrow" aria-hidden="true">→</div>
-          <div class="demo-label demo-label-right"><span></span> A clear picture</div>
+          <div class="demo-label demo-label-right"><span></span> The clear version</div>
           <article class="mini-visual">
-            <p class="mini-kicker">FROM IDEA TO REALITY</p>
+            <p class="mini-kicker">FROM IDEA TO SOMETHING REAL</p>
             <ol>
               <li><span>1</span><div><strong>Notice</strong><small>Find a useful problem</small></div></li>
               <li><span>2</span><div><strong>Shape</strong><small>Choose the smallest answer</small></div></li>
@@ -82,36 +83,77 @@
           <span class="spark spark-one" aria-hidden="true">✦</span>
           <span class="spark spark-two" aria-hidden="true">✦</span>
           <span class="loop-arrow" aria-hidden="true">↝</span>
-        </div>
+        </figure>
       </section>
 
       <section class="explain-strip" aria-label="A simple explanation of the product">
-        <p><strong>Think of it like a visual editor with an AI first draft.</strong> You provide the meaning. The app helps arrange it. You stay in control.</p>
+        <div class="marquee" aria-hidden="true">
+          <span>PROCESSES</span><b>✦</b><span>TIMELINES</span><b>✦</b><span>COMPARISONS</span><b>✦</b><span>KEY IDEAS</span><b>✦</b><span>HOW-TO GUIDES</span><b>✦</b><span>PLANS</span>
+        </div>
+        <p><strong>You bring the meaning.</strong> AI arranges a first draft. You edit the words, check the facts, and control the final result.</p>
+      </section>
+
+      <section class="format-showcase shell" aria-labelledby="format-title">
+        <div class="section-heading format-heading">
+          <p class="eyebrow">One idea, four clear shapes</p>
+          <h2 id="format-title">Choose how people should see it.</h2>
+          <p>The same wall of text can become a process, a timeline, a comparison, or a set of key ideas.</p>
+        </div>
+        <div class="format-cards">
+          <article class="format-card format-steps">
+            <div class="format-card-top"><span>01</span><h3>Steps</h3></div>
+            <div class="format-preview steps-preview" aria-hidden="true">
+              <i><b>1</b></i><em></em><i><b>2</b></i><em></em><i><b>3</b></i>
+            </div>
+            <p>Show exactly what happens next.</p>
+          </article>
+          <article class="format-card format-timeline">
+            <div class="format-card-top"><span>02</span><h3>Timeline</h3></div>
+            <div class="format-preview timeline-preview" aria-hidden="true">
+              <span></span><i></i><span></span><i></i><span></span>
+            </div>
+            <p>Make a sequence easy to follow.</p>
+          </article>
+          <article class="format-card format-compare">
+            <div class="format-card-top"><span>03</span><h3>Compare</h3></div>
+            <div class="format-preview compare-preview" aria-hidden="true">
+              <i>A</i><b>VS</b><i>B</i>
+            </div>
+            <p>Put two choices side by side.</p>
+          </article>
+          <article class="format-card format-list">
+            <div class="format-card-top"><span>04</span><h3>Key ideas</h3></div>
+            <div class="format-preview list-preview" aria-hidden="true">
+              <i></i><i></i><i></i><i></i>
+            </div>
+            <p>Turn the main points into a scan.</p>
+          </article>
+        </div>
       </section>
 
       <section class="how shell" id="how-it-works" aria-labelledby="how-title">
         <div class="section-heading">
-          <p class="eyebrow">How it works</p>
-          <h2 id="how-title">Three small steps. One clearer story.</h2>
+          <p class="eyebrow">From paste to picture</p>
+          <h2 id="how-title">Your first visual is three steps away.</h2>
         </div>
         <ol class="steps-grid">
           <li>
             <span class="step-number">01</span>
             <div class="step-icon step-icon-paste" aria-hidden="true"><span></span></div>
-            <h3>Paste your words</h3>
-            <p>Use notes, an explanation, a process, or any idea that feels hard to explain.</p>
+            <h3>Drop in the messy part</h3>
+            <p>Paste notes, a process, or any explanation that feels harder than it should.</p>
           </li>
           <li>
             <span class="step-number">02</span>
             <div class="step-icon step-icon-organize" aria-hidden="true"><span></span><span></span><span></span></div>
-            <h3>Let AI organize them</h3>
-            <p>It finds the main points and chooses a clear structure. It does not check your facts.</p>
+            <h3>Get a visual first draft</h3>
+            <p>The app finds the main points and gives them a clear shape. It does not check your facts.</p>
           </li>
           <li>
             <span class="step-number">03</span>
             <div class="step-icon step-icon-download" aria-hidden="true"><span>↓</span></div>
-            <h3>Review and download</h3>
-            <p>Edit the wording, check the meaning, then save a PNG or SVG for sharing.</p>
+            <h3>Make it yours</h3>
+            <p>Edit the wording, check the meaning, then download a PNG or SVG ready to share.</p>
           </li>
         </ol>
       </section>
@@ -119,9 +161,9 @@
       <section class="builder-section" id="builder" aria-labelledby="builder-title">
         <div class="shell builder-shell">
           <div class="section-heading builder-heading">
-            <p class="eyebrow">Make your first visual</p>
-            <h2 id="builder-title">Paste the thing you wish was easier to explain.</h2>
-            <p>AI creates the first draft. You review and control the final result.</p>
+            <p class="eyebrow">The visual maker</p>
+            <h2 id="builder-title">What should be easier to understand?</h2>
+            <p>Paste it below. The first draft takes seconds; the final judgment stays with you.</p>
           </div>
 
           <div class="workspace">
@@ -141,13 +183,13 @@
                 rows="11"
                 minlength="30"
                 maxlength="3500"
-                aria-describedby="text-help character-count"
+                aria-describedby="text-help character-count form-message"
                 placeholder="Example: A useful AI workflow starts with a clear task. Then it gathers the right information, creates a draft, checks the result, and lets a person make the final decision."
                 required
               ></textarea>
               <div class="textarea-meta">
                 <span id="text-help">Avoid private or highly sensitive information.</span>
-                <span id="character-count" aria-live="polite">0 / 3,500</span>
+                <span id="character-count">0 / 3,500</span>
               </div>
 
               <fieldset class="choice-group">
@@ -179,7 +221,7 @@
                 <button class="text-button" id="load-example" type="button">Use an example</button>
               </div>
 
-              <p class="form-message" id="form-message" role="alert" hidden></p>
+              <p class="form-message" id="form-message" role="alert" tabindex="-1" hidden></p>
               <p class="privacy-note"><span aria-hidden="true">◉</span> This app does not save your text or visual. Cloudflare processes the text only to create your draft.</p>
             </form>
 
@@ -208,7 +250,7 @@
                   </div>
                 </div>
 
-                <div class="visual-stage" id="visual-stage" aria-label="Generated infographic preview"></div>
+                <div class="visual-stage" id="visual-stage" role="img" aria-label="Generated infographic preview"></div>
 
                 <section class="structured-result" aria-labelledby="structured-title">
                   <p class="structured-label">Text version</p>

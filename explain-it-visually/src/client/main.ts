@@ -71,9 +71,10 @@ function setBusy(busy: boolean): void {
   form.setAttribute("aria-busy", String(busy));
 }
 
-function showError(message: string): void {
+function showError(message: string, inputInvalid = false): void {
   formMessage.textContent = message;
   formMessage.hidden = false;
+  sourceText.setAttribute("aria-invalid", String(inputInvalid));
   liveStatus.textContent = `Could not create the visual. ${message}`;
   formMessage.focus({ preventScroll: true });
 }
@@ -81,6 +82,13 @@ function showError(message: string): void {
 function clearError(): void {
   formMessage.textContent = "";
   formMessage.hidden = true;
+  sourceText.removeAttribute("aria-invalid");
+}
+
+function preferredScrollBehavior(): ScrollBehavior {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? "auto"
+    : "smooth";
 }
 
 function selectedValue(name: string): string {
@@ -185,6 +193,7 @@ async function renderVisual(): Promise<void> {
   });
 
   visualStage.setAttribute("aria-label", currentPlan.altText);
+  visualStage.querySelector("svg")?.setAttribute("aria-hidden", "true");
   populateStructuredResult(currentPlan);
   downloadPng.disabled = false;
   downloadSvg.disabled = false;
@@ -235,7 +244,7 @@ async function showResult(plan: VisualPlan, style: VisualStyle): Promise<void> {
   resultReady.hidden = false;
   await renderVisual();
   liveStatus.textContent = `Visual created: ${plan.title}. Review the wording and meaning before downloading.`;
-  resultReady.scrollIntoView({ behavior: "smooth", block: "start" });
+  resultReady.scrollIntoView({ behavior: preferredScrollBehavior(), block: "start" });
 }
 
 function readEditedItems(): VisualItem[] {
@@ -294,7 +303,7 @@ async function handleSubmit(event: SubmitEvent): Promise<void> {
 
   const text = sourceText.value.trim();
   if (text.length < 30) {
-    showError("Add a little more detail—at least 30 characters.");
+    showError("Add a little more detail—at least 30 characters.", true);
     sourceText.focus();
     return;
   }
@@ -329,7 +338,7 @@ function loadExample(): void {
   sourceText.value = SAMPLE_TEXT;
   updateCharacterCount();
   sourceText.focus();
-  sourceText.scrollIntoView({ behavior: "smooth", block: "center" });
+  sourceText.scrollIntoView({ behavior: preferredScrollBehavior(), block: "center" });
   liveStatus.textContent = "Example added. Choose a format or let Auto decide.";
 }
 
