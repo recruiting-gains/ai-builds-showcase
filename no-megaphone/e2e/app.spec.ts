@@ -108,16 +108,59 @@ test("uses the identical local formula when the scoring network is unavailable",
 });
 
 test("communicates progress on a slow scoring request", async ({ page }) => {
+  let releaseRequest: (() => void) | undefined;
   await page.route("**/api/score", async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    await route.continue();
+    await new Promise<void>((resolve) => {
+      releaseRequest = resolve;
+    });
+    await route.continue().catch(() => undefined);
   });
-  await page.goto("/");
-  await page.getByRole("button", { name: "Try the fictional example" }).click();
-  const evaluate = page.getByRole("button", { name: "Evaluate the conversation" });
-  await evaluate.click();
-  await expect(page.getByRole("button", { name: "Checking the math…" })).toBeDisabled();
-  await expect(page.locator("#result-label")).toHaveText("Helpful opening");
+
+  try {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Try the fictional example" }).click();
+    const evaluate = page.getByRole("button", { name: "Evaluate the conversation" });
+    await evaluate.click();
+    await expect(page.getByRole("button", { name: "Checking the math…" })).toBeDisabled();
+    await expect(page.locator("#checklist-form")).toHaveAttribute("aria-busy", "true");
+    await expect(page.locator('input[name="momentum"][value="active"]')).toBeDisabled();
+    await expect(page.getByLabel("Kind of work")).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Try the fictional example" })).toBeDisabled();
+    await expect(page.locator("#reset-check")).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Delete local data" })).toBeDisabled();
+    await expect.poll(() => Boolean(releaseRequest)).toBe(true);
+    releaseRequest?.();
+    await expect(page.locator("#result-label")).toHaveText("Helpful opening");
+    await expect(page.locator("#result-score")).toHaveText("87");
+    await expect(page.locator('input[name="momentum"][value="active"]')).toBeChecked();
+    await expect(page.getByText("Verified by the no-storage scoring endpoint.")).toBeVisible();
+    await expect(page.getByLabel("Kind of work")).toBeEnabled();
+    await expect(page.locator("#checklist-form")).toHaveAttribute("aria-busy", "false");
+  } finally {
+    releaseRequest?.();
+  }
+});
+
+test("falls back locally when the scoring endpoint does not respond", async ({ page }) => {
+  let releaseRequest: (() => void) | undefined;
+  await page.route("**/api/score", async (route) => {
+    await new Promise<void>((resolve) => {
+      releaseRequest = resolve;
+    });
+    await route.continue().catch(() => undefined);
+  });
+
+  try {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Try the fictional example" }).click();
+    await page.getByRole("button", { name: "Evaluate the conversation" }).click();
+    await expect(page.getByRole("button", { name: "Checking the math…" })).toBeDisabled();
+    await expect(page.locator("#result-score")).toHaveText("87", { timeout: 6_000 });
+    await expect(page.getByText("The endpoint was unavailable", { exact: false })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Evaluate the conversation" })).toBeEnabled();
+  } finally {
+    releaseRequest?.();
+  }
 });
 
 test("supports direct section links", async ({ page }) => {
@@ -150,15 +193,21 @@ test("supports skip navigation and keyboard operation of setup and checklist cho
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
 
-  await page.getByLabel("Kind of work").focus();
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("Enter");
-  await page.getByLabel("Hands-on experience").focus();
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("Enter");
-  await page.getByLabel("Where that experience applies").focus();
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("Enter");
+  const businessType = page.getByLabel("Kind of work");
+  await businessType.focus();
+  await page.keyboard.type("P");
+  await expect(businessType).toHaveValue("professional_service");
+
+  const experienceLevel = page.getByLabel("Hands-on experience");
+  await experienceLevel.focus();
+  await page.keyboard.type("6");
+  await expect(experienceLevel).toHaveValue("6_to_10");
+
+  const serviceArea = page.getByLabel("Where that experience applies");
+  await serviceArea.focus();
+  await page.keyboard.type("L");
+  await expect(serviceArea).toHaveValue("location_free");
+
   await page.getByRole("button", { name: "Set private lens and continue" }).focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("#checklist-panel")).toBeVisible();
@@ -246,6 +295,8 @@ test("loads without scripts as a polished readable guide", async ({ browser }) =
   });
   const page = await context.newPage();
   await page.goto("/");
+  await expect(page.locator("#context-form")).toBeHidden();
+  expect(new URL(page.url()).search).toBe("");
   await expect(page.getByText("The guide still works without JavaScript.")).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "The best contribution might be silence." }),

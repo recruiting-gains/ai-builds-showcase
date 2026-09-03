@@ -89,6 +89,29 @@ None found after the full automated and visual retest.
 4. Localization is not implemented.
 5. Host-level abuse controls and metadata policy must be chosen before an approved public deployment; adding a Cloudflare resource now would violate the no-deployment boundary.
 
-### Stop decision
+### Stop decision at the time
 
-A third improvement cycle was not started. No high-severity or worthwhile medium-severity finding remains; further changes would be cosmetic, require unverifiable user claims, add complexity, or cross the product/deployment boundaries.
+A third improvement cycle was not started during the original build. Later independent clean-room verification found the concrete privacy, concurrency, timeout, and browser-portability issues recorded below; this historical stop decision was therefore superseded.
+
+## Cycle 3 — Independent verification repair
+
+Evidence: a fresh clone of the pull-request branch, the documented clean install, direct source review, adversarial browser routes, and repeated macOS Chromium keyboard runs.
+
+### Reproduced findings
+
+1. **Local context could enter a GET URL without JavaScript.** The context form relied on a JavaScript `preventDefault()` listener. With JavaScript disabled, its three named controls were serialized into the request URL, contradicting the local-only promise and exposing the values to browser history and possible host request logs.
+2. **A pending result could drift from the visible answers.** Checklist, demo, reset, delete, and context controls remained active during the request. Changing momentum while a delayed request was pending produced a visible `saturated` answer beside a stale score of 87; resubmitting the visible state produced 62.
+3. **A request could remain pending indefinitely.** The local result was already available, but `fetch()` had no application deadline, so an open connection could leave the interface at “Checking the math…” without activating the documented local fallback.
+4. **The keyboard test assumed one platform-specific native-select sequence.** `ArrowDown` followed by `Enter` left the placeholder selected in bundled Chromium on macOS. Native type-ahead selection worked, showing that the test sequence—not the standard select controls—was the portability defect.
+
+### Corrections and regression evidence
+
+- The local-context form now starts hidden and is revealed only after all client handlers and restoration logic are ready. Its selects have no submission names, and the client reads their values directly. Static and no-JavaScript browser regressions enforce both boundaries.
+- Every user control that can mutate, replace, reset, or delete the submitted snapshot is disabled while scoring is pending; the checklist exposes `aria-busy`, and a request-sequence guard prevents an obsolete request from clearing or rendering over a newer state.
+- The score request now has a four-second `AbortController` deadline. Failure or timeout returns the already-computed deterministic local result, unlocks the interface, and clearly identifies the local fallback.
+- The keyboard-only check uses native type-ahead keys with explicit value assertions, then retains `Enter` submission and `Space` radio selection coverage.
+- The locked Wrangler version requires Node.js 22 or newer, so the local-development requirement was corrected from Node.js 20+.
+
+### Remaining limitations
+
+The existing limitations still apply: self-reported input, no genuine assistive-technology user study, no localization, local rather than field performance measurements, and owner decisions on host-level abuse controls and operational metadata before any public deployment. Additional low-priority review notes should be handled separately rather than silently expanding this repair: the fictional demo replaces saved context, server-result drift is currently described as endpoint unavailability, unsuccessful `/assets/` responses inherit immutable caching, and commit-email privacy depends on repository-owner policy.

@@ -24,6 +24,15 @@ describe("static product boundaries", () => {
     );
   });
 
+  it("keeps local context controls out of browser form submissions", () => {
+    for (const id of ["business-type", "experience-level", "service-area"]) {
+      const select = html.match(new RegExp(`<select[^>]*id=["']${id}["'][^>]*>`, "iu"));
+      expect(select?.[0], `select #${id}`).toBeDefined();
+      expect(select?.[0]).not.toMatch(/\sname\s*=/iu);
+    }
+    expect(html).toMatch(/<form[^>]*id=["']context-form["'][^>]*\shidden(?:\s|>)/iu);
+  });
+
   it("keeps every same-page link connected to a real target", () => {
     const targets = new Set([...html.matchAll(/\sid=["']([^"']+)["']/gu)].map((match) => match[1]));
     const anchors = [...html.matchAll(/\shref=["']#([^"']+)["']/gu)].map((match) => match[1]);

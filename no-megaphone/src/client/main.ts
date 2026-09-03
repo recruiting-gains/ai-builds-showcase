@@ -4,9 +4,8 @@ import type { ScoreInput, ScoreResult } from "../shared/contracts";
 import { scoreConversation } from "../shared/scoring";
 import { parseScoreInput, ValidationError } from "../shared/validation";
 
-document.documentElement.classList.add("has-js");
-
 const CONTEXT_STORAGE_KEY = "no-megaphone-context-v1";
+const SCORE_REQUEST_TIMEOUT_MS = 4_000;
 
 const BUSINESS_TYPES = [
   "local_service",
@@ -86,6 +85,9 @@ function requiredDescendant<T extends Element>(parent: ParentNode, selector: str
 
 const contextForm = elementById<HTMLFormElement>("context-form");
 const checklistForm = elementById<HTMLFormElement>("checklist-form");
+const businessTypeSelect = elementById<HTMLSelectElement>("business-type");
+const experienceLevelSelect = elementById<HTMLSelectElement>("experience-level");
+const serviceAreaSelect = elementById<HTMLSelectElement>("service-area");
 const contextPanel = elementById<HTMLElement>("context-panel");
 const checklistPanel = elementById<HTMLElement>("checklist-panel");
 const resultPanel = elementById<HTMLElement>("result-panel");
@@ -95,6 +97,16 @@ const evaluateButton = elementById<HTMLButtonElement>("evaluate-button");
 const buttonReady = requiredDescendant<HTMLElement>(evaluateButton, ".button-ready");
 const buttonLoading = requiredDescendant<HTMLElement>(evaluateButton, ".button-loading");
 const deleteDialog = elementById<HTMLDialogElement>("delete-dialog");
+const evaluationLockControls = [
+  ...contextForm.querySelectorAll<HTMLSelectElement | HTMLButtonElement>("select, button"),
+  ...checklistForm.querySelectorAll<HTMLInputElement>("input"),
+  ...document.querySelectorAll<HTMLButtonElement>(
+    ".demo-button, #hero-demo-button, #reset-check, #delete-data-button, #confirm-delete",
+  ),
+];
+
+let evaluationSequence = 0;
+let activeScoreRequest: AbortController | null = null;
 
 function includesValue<T extends string>(allowed: readonly T[], value: unknown): value is T {
   return typeof value === "string" && allowed.includes(value as T);
@@ -112,22 +124,18 @@ function isLocalContext(value: unknown): value is LocalContext {
 }
 
 function readContextForm(): LocalContext | null {
-  const formData = new FormData(contextForm);
   const candidate = {
-    businessType: formData.get("businessType"),
-    experienceLevel: formData.get("experienceLevel"),
-    serviceArea: formData.get("serviceArea"),
+    businessType: businessTypeSelect.value,
+    experienceLevel: experienceLevelSelect.value,
+    serviceArea: serviceAreaSelect.value,
   };
   return isLocalContext(candidate) ? candidate : null;
 }
 
 function applyContext(context: LocalContext): void {
-  const businessType = elementById<HTMLSelectElement>("business-type");
-  const experienceLevel = elementById<HTMLSelectElement>("experience-level");
-  const serviceArea = elementById<HTMLSelectElement>("service-area");
-  businessType.value = context.businessType;
-  experienceLevel.value = context.experienceLevel;
-  serviceArea.value = context.serviceArea;
+  businessTypeSelect.value = context.businessType;
+  experienceLevelSelect.value = context.experienceLevel;
+  serviceAreaSelect.value = context.serviceArea;
 }
 
 function saveContext(context: LocalContext): void {
@@ -213,6 +221,7 @@ function setRadioValue(name: keyof ScoreInput, value: string): void {
 }
 
 function runDemo(): void {
+  cancelPendingEvaluation();
   applyContext(DEMO_CONTEXT);
   saveContext(DEMO_CONTEXT);
   for (const [name, value] of Object.entries(DEMO_SCORE_INPUT)) {
@@ -247,7 +256,10 @@ function isMatchingServerResult(
   return JSON.stringify((value as { result: unknown }).result) === JSON.stringify(expected);
 }
 
-async function getScore(input: ScoreInput): Promise<{ result: ScoreResult; usedServer: boolean }> {
+async function getScore(
+  input: ScoreInput,
+  signal: AbortSignal,
+): Promise<{ result: ScoreResult; usedServer: boolean }> {
   const localResult = scoreConversation(input);
 
   try {
@@ -255,6 +267,7 @@ async function getScore(input: ScoreInput): Promise<{ result: ScoreResult; usedS
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
+      signal,
     });
 
     if (!response.ok) throw new Error(`Scoring endpoint returned ${response.status}.`);
@@ -430,9 +443,19 @@ function renderResult(result: ScoreResult, usedServer: boolean): void {
 }
 
 function setEvaluationLoading(loading: boolean): void {
+  for (const control of evaluationLockControls) control.disabled = loading;
   evaluateButton.disabled = loading;
+  checklistForm.setAttribute("aria-busy", String(loading));
   buttonReady.hidden = loading;
   buttonLoading.hidden = !loading;
+}
+
+function cancelPendingEvaluation(): void {
+  if (!activeScoreRequest) return;
+  evaluationSequence += 1;
+  activeScoreRequest.abort();
+  activeScoreRequest = null;
+  setEvaluationLoading(false);
 }
 
 function showFormError(message: string): void {
@@ -442,6 +465,7 @@ function showFormError(message: string): void {
 }
 
 function resetCurrentCheck(shouldScroll = true): void {
+  cancelPendingEvaluation();
   checklistForm.reset();
   resultPanel.hidden = true;
   demoScenario.hidden = true;
@@ -452,6 +476,7 @@ function resetCurrentCheck(shouldScroll = true): void {
 }
 
 function deleteLocalData(): void {
+  cancelPendingEvaluation();
   try {
     localStorage.removeItem(CONTEXT_STORAGE_KEY);
   } catch {
@@ -487,10 +512,20 @@ checklistForm.addEventListener("submit", async (event) => {
     return;
   }
 
+  let controller: AbortController | null = null;
+
   try {
     const input = readChecklist();
+    const requestSequence = ++evaluationSequence;
+    const requestController = new AbortController();
+    controller = requestController;
+    activeScoreRequest = requestController;
     setEvaluationLoading(true);
-    const { result, usedServer } = await getScore(input);
+    const timeout = window.setTimeout(() => requestController.abort(), SCORE_REQUEST_TIMEOUT_MS);
+    const { result, usedServer } = await getScore(input, requestController.signal).finally(() => {
+      window.clearTimeout(timeout);
+    });
+    if (requestSequence !== evaluationSequence) return;
     renderResult(result, usedServer);
   } catch (error) {
     const message =
@@ -499,11 +534,17 @@ checklistForm.addEventListener("submit", async (event) => {
         : "The score could not be calculated. Review the checklist and try again.";
     showFormError(message);
   } finally {
-    setEvaluationLoading(false);
+    if (controller && activeScoreRequest === controller) {
+      activeScoreRequest = null;
+      setEvaluationLoading(false);
+    }
   }
 });
 
-checklistForm.addEventListener("change", updateAnswerProgress);
+checklistForm.addEventListener("change", () => {
+  cancelPendingEvaluation();
+  updateAnswerProgress();
+});
 
 for (const button of document.querySelectorAll<HTMLButtonElement>(".demo-button")) {
   button.addEventListener("click", runDemo);
@@ -516,3 +557,5 @@ elementById<HTMLButtonElement>("delete-data-button").addEventListener("click", (
 elementById<HTMLButtonElement>("confirm-delete").addEventListener("click", deleteLocalData);
 
 restoreContext();
+contextForm.hidden = false;
+document.documentElement.classList.add("has-js");

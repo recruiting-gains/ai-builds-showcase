@@ -56,7 +56,7 @@ There is deliberately no arrow from the application to a community or social pla
 | `src/worker/index.ts` | `/api/health`, `/api/score`, consistent JSON errors, origin checks, bounded body reader, deep-link redirects, and security headers |
 | `wrangler.jsonc` | Cloudflare Worker and static-assets configuration; no database, secret, AI, or production route |
 
-The browser calculates the published formula locally and asks the Worker to verify it. If the endpoint is unavailable, the same imported formula still returns a result and the interface says that it ran locally.
+The browser calculates the published formula locally and asks the Worker to verify it. Verification is bounded to four seconds, and controls that could change the submitted snapshot are locked while it is pending. If the endpoint fails or misses that deadline, the same imported formula returns a result and the interface says that it ran locally.
 
 ## Contribution Opportunity Score 1.0
 
@@ -103,7 +103,7 @@ The result exposes base points, every subtraction, the pre-guardrail score, fina
 
 The application accepts eleven enumerated checklist values. It has no field for a post, URL, username, name, email, message, or free text.
 
-Broad work type, experience range, and geographic scope can be stored under one versioned `localStorage` key. That context is not scored or sent to the Worker. **Delete local data** removes it and resets the current check.
+Broad work type, experience range, and geographic scope can be stored under one versioned `localStorage` key. That context is not scored or sent to the Worker. The setup form is revealed only after its local handlers are ready, and its controls are excluded from native form submission so a no-script or failed-initialization page cannot put that context in a request URL. **Delete local data** removes it and resets the current check.
 
 The Worker:
 
@@ -111,7 +111,7 @@ The Worker:
 - requires an exact JSON media type and a closed field allowlist;
 - rejects cross-origin score requests;
 - emits consistent, non-leaking JSON errors with generated request IDs;
-- returns restrictive CSP, framing, permissions, referrer, MIME, origin, and transport headers;
+- returns full document security headers plus restrictive CSP, referrer, MIME, and resource-isolation headers on JSON API responses;
 - has Cloudflare observability disabled in configuration; and
 - binds no database or persistent storage.
 
@@ -127,14 +127,14 @@ A future hosting provider may still process standard security and operational me
 - Responsive landing and completed-result checks at 320, 390, 768, and 1440 px
 - A full animation-cycle overflow check at mobile width
 - Readable product philosophy, rules, scoring weights, and privacy information without JavaScript
-- Deterministic local fallback for a slow or unavailable scoring endpoint
+- Four-second deadline with deterministic local fallback, plus a locked pending snapshot so answers cannot change while that result is being computed
 - Direct links for `/read-the-room`, `/rules-first`, and `/privacy`
 
 Automated evidence does not replace testing with people who use assistive technology. See the proposed genuine study in [`docs/BLINDED-EVALUATION.md`](./docs/BLINDED-EVALUATION.md).
 
 ## Local development
 
-Requirements: Node.js 20 or newer and npm.
+Requirements: Node.js 22 or newer and npm (matching the locked Wrangler release).
 
 ```bash
 cd no-megaphone
