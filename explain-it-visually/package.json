@@ -1,0 +1,29 @@
+{
+  "name": "explain-it-visually",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Turn plain-language explanations into editable, downloadable infographics.",
+  "scripts": {
+    "build": "vite build",
+    "cf-typegen": "wrangler types",
+    "check": "npm run typecheck && npm test && npm run build && npm run deploy:check",
+    "deploy": "npm run build && wrangler deploy",
+    "deploy:check": "wrangler deploy --dry-run",
+    "dev": "npm run build && wrangler dev",
+    "dev:remote": "npm run build && wrangler dev --remote",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.client.json && tsc --noEmit -p tsconfig.worker.json"
+  },
+  "dependencies": {
+    "@antv/infographic": "0.2.20"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260903.1",
+    "@types/node": "^26.4.1",
+    "typescript": "7.0.2",
+    "vite": "^7.1.5",
+    "vitest": "4.1.11",
+    "wrangler": "4.128.0"
+  }
+}

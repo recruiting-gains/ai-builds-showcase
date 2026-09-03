@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Turn a process, timeline, comparison, or list into an editable visual in seconds."
+    />
+    <meta name="theme-color" content="#f4f0e7" />
+    <meta property="og:title" content="Explain It Visually" />
+    <meta
+      property="og:description"
+      content="Paste an explanation. Get an editable infographic you can download and share."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title>Explain It Visually</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#builder">Skip to the visual maker</a>
+
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Explain It Visually home">
+        <span class="brand-mark" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+        <span>Explain It Visually</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="#how-it-works">How it works</a>
+        <a href="#builder">Make a visual</a>
+      </nav>
+      <a class="header-cta" href="#builder">Try it free</a>
+    </header>
+
+    <main id="top">
+      <section class="hero shell" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span aria-hidden="true">✦</span> Plain words → clear picture</p>
+          <h1 id="hero-title">Turn a long explanation into a visual people can understand.</h1>
+          <p class="hero-lede">
+            Paste a process, timeline, list, or comparison. The app organizes the main ideas into an
+            editable infographic you can download—no design software needed.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#builder">
+              Make something visual
+              <span aria-hidden="true">↓</span>
+            </a>
+            <button class="text-button" id="load-example-top" type="button">
+              See a simple example <span aria-hidden="true">↗</span>
+            </button>
+          </div>
+          <ul class="trust-list" aria-label="What to expect">
+            <li><span aria-hidden="true">✓</span> No account</li>
+            <li><span aria-hidden="true">✓</span> No saved history</li>
+            <li><span aria-hidden="true">✓</span> PNG &amp; SVG downloads</li>
+          </ul>
+        </div>
+
+        <div class="hero-demo" aria-label="Example: rough words becoming a clear visual">
+          <div class="demo-label demo-label-left"><span></span> Your words</div>
+          <article class="paper-note paper-note-one">
+            <span class="scribble-line long"></span>
+            <span class="scribble-line medium"></span>
+            <span class="scribble-line short"></span>
+            <p>How does a good idea become something real?</p>
+          </article>
+          <div class="flow-arrow" aria-hidden="true">→</div>
+          <div class="demo-label demo-label-right"><span></span> A clear picture</div>
+          <article class="mini-visual">
+            <p class="mini-kicker">FROM IDEA TO REALITY</p>
+            <ol>
+              <li><span>1</span><div><strong>Notice</strong><small>Find a useful problem</small></div></li>
+              <li><span>2</span><div><strong>Shape</strong><small>Choose the smallest answer</small></div></li>
+              <li><span>3</span><div><strong>Build</strong><small>Make a working version</small></div></li>
+              <li><span>4</span><div><strong>Share</strong><small>Learn from real feedback</small></div></li>
+            </ol>
+          </article>
+          <span class="spark spark-one" aria-hidden="true">✦</span>
+          <span class="spark spark-two" aria-hidden="true">✦</span>
+          <span class="loop-arrow" aria-hidden="true">↝</span>
+        </div>
+      </section>
+
+      <section class="explain-strip" aria-label="A simple explanation of the product">
+        <p><strong>Think of it like a visual editor with an AI first draft.</strong> You provide the meaning. The app helps arrange it. You stay in control.</p>
+      </section>
+
+      <section class="how shell" id="how-it-works" aria-labelledby="how-title">
+        <div class="section-heading">
+          <p class="eyebrow">How it works</p>
+          <h2 id="how-title">Three small steps. One clearer story.</h2>
+        </div>
+        <ol class="steps-grid">
+          <li>
+            <span class="step-number">01</span>
+            <div class="step-icon step-icon-paste" aria-hidden="true"><span></span></div>
+            <h3>Paste your words</h3>
+            <p>Use notes, an explanation, a process, or any idea that feels hard to explain.</p>
+          </li>
+          <li>
+            <span class="step-number">02</span>
+            <div class="step-icon step-icon-organize" aria-hidden="true"><span></span><span></span><span></span></div>
+            <h3>Let AI organize them</h3>
+            <p>It finds the main points and chooses a clear structure. It does not check your facts.</p>
+          </li>
+          <li>
+            <span class="step-number">03</span>
+            <div class="step-icon step-icon-download" aria-hidden="true"><span>↓</span></div>
+            <h3>Review and download</h3>
+            <p>Edit the wording, check the meaning, then save a PNG or SVG for sharing.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="builder-section" id="builder" aria-labelledby="builder-title">
+        <div class="shell builder-shell">
+          <div class="section-heading builder-heading">
+            <p class="eyebrow">Make your first visual</p>
+            <h2 id="builder-title">Paste the thing you wish was easier to explain.</h2>
+            <p>AI creates the first draft. You review and control the final result.</p>
+          </div>
+
+          <div class="workspace">
+            <form class="input-panel" id="visual-form" novalidate>
+              <div class="panel-topline">
+                <span class="panel-step">1</span>
+                <div>
+                  <h3>Add your explanation</h3>
+                  <p>30–3,500 characters works best.</p>
+                </div>
+              </div>
+
+              <label class="textarea-label" for="source-text">Your words</label>
+              <textarea
+                id="source-text"
+                name="text"
+                rows="11"
+                minlength="30"
+                maxlength="3500"
+                aria-describedby="text-help character-count"
+                placeholder="Example: A useful AI workflow starts with a clear task. Then it gathers the right information, creates a draft, checks the result, and lets a person make the final decision."
+                required
+              ></textarea>
+              <div class="textarea-meta">
+                <span id="text-help">Avoid private or highly sensitive information.</span>
+                <span id="character-count" aria-live="polite">0 / 3,500</span>
+              </div>
+
+              <fieldset class="choice-group">
+                <legend>Choose a visual format</legend>
+                <p class="field-help">Not sure? Auto will choose for you.</p>
+                <div class="choice-grid format-grid">
+                  <label><input type="radio" name="format" value="auto" checked /><span><b>✦</b>Auto<small>Best fit</small></span></label>
+                  <label><input type="radio" name="format" value="steps" /><span><b>→</b>Steps<small>A process</small></span></label>
+                  <label><input type="radio" name="format" value="timeline" /><span><b>—</b>Timeline<small>Over time</small></span></label>
+                  <label><input type="radio" name="format" value="comparison" /><span><b>↔</b>Compare<small>Two sides</small></span></label>
+                  <label><input type="radio" name="format" value="list" /><span><b>≡</b>List<small>Key points</small></span></label>
+                </div>
+              </fieldset>
+
+              <fieldset class="choice-group style-choice">
+                <legend>Choose a look</legend>
+                <div class="choice-grid style-grid">
+                  <label><input type="radio" name="style" value="bright" checked /><span><i class="swatch swatch-bright"></i>Bright</span></label>
+                  <label><input type="radio" name="style" value="dark" /><span><i class="swatch swatch-dark"></i>Dark</span></label>
+                  <label><input type="radio" name="style" value="sketch" /><span><i class="swatch swatch-sketch"></i>Sketch</span></label>
+                </div>
+              </fieldset>
+
+              <div class="form-actions">
+                <button class="button button-primary generate-button" id="generate-button" type="submit">
+                  <span class="button-ready">Make it visual <b aria-hidden="true">✦</b></span>
+                  <span class="button-loading" hidden>Organizing your ideas…</span>
+                </button>
+                <button class="text-button" id="load-example" type="button">Use an example</button>
+              </div>
+
+              <p class="form-message" id="form-message" role="alert" hidden></p>
+              <p class="privacy-note"><span aria-hidden="true">◉</span> This app does not save your text or visual. Cloudflare processes the text only to create your draft.</p>
+            </form>
+
+            <section class="result-panel" id="result-panel" aria-labelledby="result-title">
+              <div class="result-empty" id="result-empty">
+                <div class="empty-illustration" aria-hidden="true">
+                  <span class="empty-card one"></span>
+                  <span class="empty-card two"></span>
+                  <span class="empty-card three"></span>
+                  <span class="empty-spark">✦</span>
+                </div>
+                <p class="result-kicker">Your visual will appear here</p>
+                <h3 id="result-title">Ready when you are.</h3>
+                <p>Paste your words on the left, then choose “Make it visual.”</p>
+              </div>
+
+              <div class="result-ready" id="result-ready" hidden>
+                <div class="result-toolbar">
+                  <div>
+                    <span class="draft-badge"><span aria-hidden="true">✦</span> AI draft</span>
+                    <p>Review before sharing</p>
+                  </div>
+                  <div class="download-actions">
+                    <button class="button button-secondary" id="download-png" type="button">Download PNG</button>
+                    <button class="button button-secondary" id="download-svg" type="button">Download SVG</button>
+                  </div>
+                </div>
+
+                <div class="visual-stage" id="visual-stage" aria-label="Generated infographic preview"></div>
+
+                <section class="structured-result" aria-labelledby="structured-title">
+                  <p class="structured-label">Text version</p>
+                  <h4 id="structured-title"></h4>
+                  <p id="structured-summary"></p>
+                  <ol id="structured-items"></ol>
+                  <p class="structured-takeaway"><strong>Takeaway:</strong> <span id="structured-takeaway"></span></p>
+                </section>
+
+                <details class="edit-drawer" open>
+                  <summary>Edit the words and check the meaning</summary>
+                  <div class="edit-fields">
+                    <label>Title<input id="edit-title" maxlength="90" /></label>
+                    <label>Short explanation<textarea id="edit-summary" rows="2" maxlength="240"></textarea></label>
+                    <div id="edit-items"></div>
+                    <label>Final takeaway<textarea id="edit-takeaway" rows="2" maxlength="220"></textarea></label>
+                    <label>Accessible description<textarea id="edit-alt-text" rows="3" maxlength="500"></textarea></label>
+                    <div class="edit-actions">
+                      <button class="button button-primary" id="apply-edits" type="button">Update visual</button>
+                      <button class="text-button" id="copy-alt-text" type="button">Copy accessible description</button>
+                    </div>
+                  </div>
+                </details>
+
+                <div class="meaning-check" role="note">
+                  <strong><span aria-hidden="true">!</span> One important check</strong>
+                  <p>This app organizes what you paste; it does not verify facts. Check names, dates, numbers, and claims before sharing.</p>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <p class="live-status" id="live-status" role="status" aria-live="polite" aria-atomic="true"></p>
+        </div>
+      </section>
+
+      <section class="built-section shell" aria-labelledby="built-title">
+        <div class="built-card">
+          <p class="eyebrow">Original build · open source</p>
+          <h2 id="built-title">A small tool with a clear job.</h2>
+          <p>
+            The interface, AI instructions, safety checks, editing experience, and Cloudflare backend are original. Visual rendering uses the open-source AntV Infographic library under its MIT license.
+          </p>
+          <div class="built-links">
+            <a href="https://github.com/recruiting-gains/ai-builds-showcase/tree/main/explain-it-visually" rel="noreferrer">View the source <span aria-hidden="true">↗</span></a>
+            <a href="https://github.com/antvis/Infographic" rel="noreferrer">AntV Infographic <span aria-hidden="true">↗</span></a>
+            <a href="/third-party-notices.txt">License notice <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="shell footer-inner">
+        <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span><span>Explain It Visually</span></a>
+        <p>Made to turn “Wait, what?” into “Oh, I get it.”</p>
+        <a href="https://github.com/recruiting-gains" rel="noreferrer">recruiting-gains on GitHub ↗</a>
+      </div>
+    </footer>
+
+    <script type="module" src="/src/client/main.ts"></script>
+  </body>
+</html>
