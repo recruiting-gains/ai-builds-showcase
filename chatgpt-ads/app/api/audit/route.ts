@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auditCampaigns, parseCampaignRows, parsePastedText } from "@/lib/auditor";
+import { auditCampaigns, MetricOutOfRangeError, parseCampaignRows, parsePastedText } from "@/lib/auditor";
 import {
   isRecord,
   isSupportedPlatform,
@@ -68,6 +68,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof RequestTooLargeError) {
       return json({ error: "The campaign request is too large." }, 413);
+    }
+    if (error instanceof MetricOutOfRangeError) {
+      return json({ error: error.message }, 400);
     }
     console.warn('{"event":"audit_request_rejected","reason":"invalid_or_unexpected_input"}');
     return json({ error: "Unable to process this audit request." }, 400);

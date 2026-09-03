@@ -98,6 +98,17 @@ describe("auditCampaigns", () => {
     expect(Object.values(result).some((value) => typeof value === "number" && !Number.isFinite(value))).toBe(false);
   });
 
+  it("rejects finite values large enough to overflow aggregate results", () => {
+    expect(() => auditCampaigns("Meta Ads", [
+      campaign({ name: "Extreme one", spend: 1e308 }),
+      campaign({ name: "Extreme two", spend: 1e308 }),
+    ])).toThrow("A campaign number is too large to process.");
+
+    expect(() => parseCampaignRows([
+      { campaign: "Extreme text value", spend: "1e308", clicks: 1 },
+    ])).toThrow("A campaign number is too large to process.");
+  });
+
   it("returns a stable empty result using the spend-at-risk contract", () => {
     const result = auditCampaigns("Meta Ads", []);
 

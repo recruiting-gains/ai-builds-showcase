@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   isSupportedPlatform,
   MAX_CAMPAIGN_ROWS,
+  MAX_METRIC_VALUE,
   readLimitedText,
   RequestTooLargeError,
   validateRawRows,
@@ -27,6 +28,13 @@ describe("campaign request validation", () => {
     });
     expect(validateRawRows([{ campaign: { nested: true } }])).toMatchObject({ ok: false });
     expect(validateRawRows([JSON.parse('{"__proto__":"unsafe"}')])).toMatchObject({ ok: false });
+  });
+
+  it("rejects finite numeric values above the safe campaign limit", () => {
+    expect(validateRawRows([{ campaign: "Extreme", spend: MAX_METRIC_VALUE + 1 }])).toEqual({
+      ok: false,
+      error: "A campaign number is too large to process.",
+    });
   });
 });
 

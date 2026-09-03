@@ -2,6 +2,8 @@
 // Parses campaign performance data and computes spend at risk, winning ads,
 // and an optimization action plan using pure math/heuristics.
 
+import { MAX_METRIC_VALUE } from "./input-validation";
+
 export interface CampaignRow {
   name: string;
   spend: number;
@@ -127,7 +129,17 @@ const REVENUE_KEY_ALIASES = [
   "website purchase conversion value",
 ];
 
+export class MetricOutOfRangeError extends RangeError {
+  constructor() {
+    super("A campaign number is too large to process.");
+    this.name = "MetricOutOfRangeError";
+  }
+}
+
 function normalizeMetric(value: number): number {
+  if (Number.isFinite(value) && value > MAX_METRIC_VALUE) {
+    throw new MetricOutOfRangeError();
+  }
   return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
@@ -266,8 +278,8 @@ function normalizeCampaignRow(row: CampaignRow, index: number): CampaignRow {
   let ctr = normalizeMetric(row.ctr);
   let cpc = normalizeMetric(row.cpc);
 
-  if (ctr === 0 && impressions > 0) ctr = (clicks / impressions) * 100;
-  if (cpc === 0 && clicks > 0) cpc = spend / clicks;
+  if (ctr === 0 && impressions > 0) ctr = normalizeMetric((clicks / impressions) * 100);
+  if (cpc === 0 && clicks > 0) cpc = normalizeMetric(spend / clicks);
 
   return {
     name,

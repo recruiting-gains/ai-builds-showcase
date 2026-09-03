@@ -9,6 +9,9 @@ export const MAX_CAMPAIGN_ROWS = 500;
 export const MAX_COLUMNS_PER_ROW = 40;
 export const MAX_CELL_CHARACTERS = 1_000;
 export const MAX_PASTED_CHARACTERS = 250_000;
+// This is far above realistic campaign metrics while keeping every aggregate
+// finite even at the 500-row request limit.
+export const MAX_METRIC_VALUE = 1_000_000_000_000;
 
 export type SupportedPlatform = (typeof SUPPORTED_PLATFORMS)[number];
 
@@ -84,6 +87,10 @@ export function validateRawRows(value: unknown): RowValidationResult {
 
       if (typeof rawValue === "number" && !Number.isFinite(rawValue)) {
         return { ok: false, error: "Campaign numbers must be finite values." };
+      }
+
+      if (typeof rawValue === "number" && rawValue > MAX_METRIC_VALUE) {
+        return { ok: false, error: "A campaign number is too large to process." };
       }
 
       row[key] = rawValue;
