@@ -1,10 +1,16 @@
 # Explain It Visually
 
-Turn an explanation, process, timeline, comparison, or set of notes into an editable infographic.
+Turn a difficult idea into a visual explanation that is easier to follow.
 
-Paste your text, choose **Auto**, **Steps**, **Timeline**, **Comparison**, or **List**, then review the AI draft and download it as a PNG or SVG.
+**[Open the live build →](https://explain-it-visually.recruiting-gains.workers.dev/)**
 
-**Live app:** <https://explain-it-visually.recruiting-gains.workers.dev/>
+![Miniature explanation machine turning a tangled idea into clear visual panels.](../docs/assets/showcase/explain-it-visually.webp)
+
+*Words go in. A clearer structure comes out.*
+
+Paste an explanation, process, timeline, comparison, or set of notes. Choose **Auto**, **Steps**, **Timeline**, **Comparison**, or **List**, then edit the draft and download it as a PNG or SVG.
+
+AI creates the first draft. The user reviews the wording, facts, and final design.
 
 ## What it does
 
@@ -14,8 +20,6 @@ Explain It Visually helps people organize written information into a visual form
 2. Choose a format, or let Auto choose.
 3. Review and edit the generated draft.
 4. Download the result.
-
-AI creates the first draft. The user reviews the wording, facts, and final design.
 
 ## Features
 
