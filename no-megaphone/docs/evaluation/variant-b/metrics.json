@@ -1,0 +1,48 @@
+{
+  "capturedAt": "2026-09-03T08:22:49.643Z",
+  "note": "Local production build measured in Chromium; timings are diagnostic, not public-network benchmarks.",
+  "navigationMs": 595,
+  "firstLoad": {
+    "resourceCount": 2,
+    "transferBytes": 56638,
+    "encodedBodyBytes": 56038,
+    "decodedBodyBytes": 56038
+  },
+  "domNodes": 720,
+  "horizontalOverflow": 0,
+  "overflowingElements": [],
+  "distributionFiles": [
+    {
+      "path": "assets/index-CVxSjvtq.css",
+      "bytes": 34506,
+      "gzipBytes": 7789
+    },
+    {
+      "path": "assets/index-DR6v2W1b.js",
+      "bytes": 21532,
+      "gzipBytes": 7723
+    },
+    {
+      "path": "favicon.svg",
+      "bytes": 403,
+      "gzipBytes": 277
+    },
+    {
+      "path": "index.html",
+      "bytes": 35692,
+      "gzipBytes": 8701
+    },
+    {
+      "path": "og-card.svg",
+      "bytes": 1328,
+      "gzipBytes": 585
+    },
+    {
+      "path": "site.webmanifest",
+      "bytes": 388,
+      "gzipBytes": 247
+    }
+  ],
+  "consoleErrors": [],
+  "externalRequests": []
+}

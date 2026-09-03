@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="A 2-minute checklist that helps you decide whether joining a public conversation would be useful—or promotional."
+    />
+    <meta name="theme-color" content="#0b0a09" />
+    <meta property="og:title" content="NO MEGAPHONE" />
+    <meta property="og:description" content="Before you comment, check if you're helping." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/og-card.svg" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title>NO MEGAPHONE — Check before you comment</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="page-grain" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="NO MEGAPHONE home">
+        <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+          <path class="mark-body" d="M12 27h10L43 15v34L22 37H12z" />
+          <path class="mark-handle" d="M20 37l5 13h8l-5-11" />
+          <path class="mark-slash" d="M8 53 54 7" />
+        </svg>
+        <span>NO MEGAPHONE</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="#read-the-room">Start</a>
+        <a href="#rules-first">Ground rules</a>
+        <a href="#privacy">Privacy</a>
+      </nav>
+      <a class="header-action" href="#read-the-room">Start the check <span aria-hidden="true">↘</span></a>
+    </header>
+
+    <main id="main-content" tabindex="-1">
+      <section class="noscript-note" aria-labelledby="noscript-title">
+        <strong id="noscript-title">JavaScript is off.</strong>
+        <p>You can read the guide, but the score needs JavaScript.</p>
+      </section>
+      <section class="hero shell" id="top" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span aria-hidden="true">●</span> A 2-minute check before you comment</p>
+          <h1 id="hero-title">Should you <em>comment?</em></h1>
+          <p class="hero-promise">
+            Answer 11 quick questions. Get a clear result: help now, keep watching, or stay quiet.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#read-the-room">Start the check <span aria-hidden="true">→</span></a>
+            <button class="button-link" id="hero-demo-button" type="button">Try an example</button>
+          </div>
+          <ul class="boundary-list" aria-label="Product boundaries">
+            <li>No login</li>
+            <li>No pasted posts</li>
+            <li>No saved answers</li>
+            <li>No generated comments</li>
+          </ul>
+        </div>
+
+        <div class="hero-art" role="img" aria-label="A crossed-out megaphone surrounded by quiet conversation signals">
+          <span class="orbit orbit-one" aria-hidden="true"></span>
+          <span class="orbit orbit-two" aria-hidden="true"></span>
+          <span class="signal signal-one" aria-hidden="true"></span>
+          <span class="signal signal-two" aria-hidden="true"></span>
+          <div class="hero-mark-wrap" aria-hidden="true">
+            <svg class="hero-mark" viewBox="0 0 160 160">
+              <title>Crossed megaphone</title>
+              <path class="mark-body" d="M29 66h25l56-31v90L54 94H29z" />
+              <path class="mark-handle" d="M50 94l12 33h22L72 99" />
+              <path class="mark-slash" d="M19 135 138 16" />
+            </svg>
+          </div>
+          <p class="art-note art-note-top"><span>01</span> LISTEN</p>
+          <p class="art-note art-note-right"><span>02</span> WEIGH</p>
+          <p class="art-note art-note-bottom"><span>03</span> DECIDE</p>
+          <div class="silence-stamp" aria-hidden="true">QUIET<br />IS VALID</div>
+        </div>
+      </section>
+
+      <section class="tool-section" id="read-the-room" aria-labelledby="tool-title">
+        <div class="shell">
+          <div class="tool-heading">
+            <div>
+              <p class="eyebrow">Start here</p>
+              <h2 id="tool-title">Should you join this conversation?</h2>
+            </div>
+            <p>Read it in another tab. Answer from what you see—never paste anything here.</p>
+          </div>
+
+          <ul class="privacy-rail" aria-label="How this check protects privacy">
+            <li><span aria-hidden="true">01</span><strong>No account access</strong><small>We never connect to a platform.</small></li>
+            <li><span aria-hidden="true">02</span><strong>No pasted content</strong><small>No links, names, or copied posts.</small></li>
+            <li><span aria-hidden="true">03</span><strong>No answer history</strong><small>Checklist answers are not stored.</small></li>
+          </ul>
+
+          <ol class="stepper" aria-label="Room check progress">
+            <li class="is-active" id="step-context"><span>1</span><div><strong>Your experience</strong><small>Private · not scored</small></div></li>
+            <li id="step-checklist"><span>2</span><div><strong>11 questions</strong><small>About 2 minutes</small></div></li>
+            <li id="step-result"><span>3</span><div><strong>Your result</strong><small>Score + next step</small></div></li>
+          </ol>
+
+          <section class="work-panel context-panel" id="context-panel" aria-labelledby="context-title">
+            <div class="panel-heading">
+              <span class="panel-number" aria-hidden="true">01</span>
+              <div>
+                <p class="panel-kicker">Your context</p>
+                <h3 id="context-title">What experience do you bring?</h3>
+                <p>For your reference only. It does not affect your score.</p>
+              </div>
+            </div>
+
+            <form id="context-form" hidden>
+              <div class="context-grid">
+                <label for="business-type">
+                  <span>Kind of work</span>
+                  <select id="business-type" required>
+                    <option value="">Choose one</option>
+                    <option value="local_service">Local service business</option>
+                    <option value="professional_service">Professional service</option>
+                    <option value="retail_product">Retail or product business</option>
+                    <option value="nonprofit">Nonprofit or community organization</option>
+                    <option value="independent_professional">Independent professional</option>
+                    <option value="other">Other work experience</option>
+                  </select>
+                </label>
+                <label for="experience-level">
+                  <span>Hands-on experience</span>
+                  <select id="experience-level" required>
+                    <option value="">Choose one</option>
+                    <option value="under_2">Under 2 years</option>
+                    <option value="2_to_5">2–5 years</option>
+                    <option value="6_to_10">6–10 years</option>
+                    <option value="10_plus">More than 10 years</option>
+                  </select>
+                </label>
+                <label for="service-area">
+                  <span>Where that experience applies</span>
+                  <select id="service-area" required>
+                    <option value="">Choose one</option>
+                    <option value="local">One local area</option>
+                    <option value="regional">A wider region</option>
+                    <option value="national">Across the country</option>
+                    <option value="location_free">Location does not matter</option>
+                  </select>
+                </label>
+              </div>
+              <div class="panel-actions">
+                <button class="button button-primary" type="submit">Continue <span aria-hidden="true">→</span></button>
+                <button class="button-link demo-button" type="button">Load example</button>
+              </div>
+              <p class="local-note"><span aria-hidden="true">◉</span> Saved only in this browser. Not scored or sent.</p>
+            </form>
+          </section>
+
+          <section class="work-panel checklist-panel" id="checklist-panel" aria-labelledby="checklist-title" hidden>
+            <div class="panel-heading">
+              <span class="panel-number" aria-hidden="true">02</span>
+              <div>
+                <p class="panel-kicker">11 quick questions</p>
+                <h3 id="checklist-title">Answer only what you can confirm.</h3>
+                <p>Read the full discussion and its rules first. Do not paste anything.</p>
+              </div>
+            </div>
+
+            <aside class="demo-scenario" id="demo-scenario" hidden>
+              <span>Fictional example</span>
+              <p>A bakery owner finds a local question about keeping an event order fresh. Business replies are allowed with disclosure, and no useful answer exists yet.</p>
+            </aside>
+
+            <aside class="context-lens" id="context-lens" aria-labelledby="context-lens-title">
+              <span aria-hidden="true">◉</span>
+              <div>
+                <h4 id="context-lens-title">Your private lens</h4>
+                <p id="context-lens-copy">Use only experience you can support firsthand.</p>
+                <small>Reminder only · not scored · not sent to the endpoint</small>
+              </div>
+            </aside>
+
+            <form id="checklist-form" novalidate>
+              <div class="checklist-progress">
+                <div><span>About 2 minutes</span><strong id="answer-count">0 / 11 observations recorded</strong></div>
+                <progress id="answer-progress" max="11" value="0">0 of 11</progress>
+              </div>
+
+              <div class="question-group-heading">
+                <span>Part 1</span><div><h4>Need</h4><p>Is useful information missing—and do you truly know the topic?</p></div>
+              </div>
+              <fieldset class="question-card">
+                <legend><span>01</span>How closely does your real work experience match the question?</legend>
+                <div class="answer-grid answer-grid-four">
+                  <label><input type="radio" name="businessRelevance" value="direct" required /><span><strong>Direct match</strong><small>I have done this work.</small></span></label>
+                  <label><input type="radio" name="businessRelevance" value="adjacent" /><span><strong>Related</strong><small>I know a nearby problem.</small></span></label>
+                  <label><input type="radio" name="businessRelevance" value="weak" /><span><strong>Loose</strong><small>The connection is limited.</small></span></label>
+                  <label><input type="radio" name="businessRelevance" value="none" /><span><strong>None</strong><small>It is outside my work.</small></span></label>
+                </div>
+              </fieldset>
+
+              <fieldset class="question-card decisive-question">
+                <legend><span>02</span>Is there a genuine helpfulness gap?</legend>
+                <p class="question-help">Look for an actual unanswered need, not a chance to be seen.</p>
+                <div class="answer-grid answer-grid-four">
+                  <label><input type="radio" name="helpfulnessGap" value="clear" required /><span><strong>Clear gap</strong><small>A specific need is unanswered.</small></span></label>
+                  <label><input type="radio" name="helpfulnessGap" value="partial" /><span><strong>Partial gap</strong><small>One useful piece is missing.</small></span></label>
+                  <label><input type="radio" name="helpfulnessGap" value="already_answered" /><span><strong>Already met</strong><small>Good answers are present.</small></span></label>
+                  <label><input type="radio" name="helpfulnessGap" value="none" /><span><strong>No request</strong><small>No real help is needed.</small></span></label>
+                </div>
+              </fieldset>
+
+              <div class="question-group-heading">
+                <span>Part 2</span><div><h4>Permission</h4><p>Community rules decide whether you belong.</p></div>
+              </div>
+              <fieldset class="question-card decisive-question">
+                <legend><span>03</span>What do the community rules say about business participation?</legend>
+                <div class="answer-grid answer-grid-four">
+                  <label><input type="radio" name="ruleFit" value="allowed" required /><span><strong>Allowed</strong><small>I read and confirmed it.</small></span></label>
+                  <label><input type="radio" name="ruleFit" value="conditional" /><span><strong>Conditional</strong><small>Limits or disclosure apply.</small></span></label>
+                  <label><input type="radio" name="ruleFit" value="unknown" /><span><strong>Unknown</strong><small>I have not confirmed.</small></span></label>
+                  <label><input type="radio" name="ruleFit" value="prohibited" /><span><strong>Prohibited</strong><small>Business participation is barred.</small></span></label>
+                </div>
+              </fieldset>
+
+              <div class="question-group-heading">
+                <span>Part 3</span><div><h4>Fit</h4><p>Does your experience fit this moment and community?</p></div>
+              </div>
+              <fieldset class="question-card">
+                <legend><span>04</span>How fresh is the discussion?</legend>
+                <div class="answer-grid answer-grid-three">
+                  <label><input type="radio" name="freshness" value="today" required /><span><strong>Current</strong><small>Today or still unfolding.</small></span></label>
+                  <label><input type="radio" name="freshness" value="recent" /><span><strong>Recent</strong><small>Within the past week.</small></span></label>
+                  <label><input type="radio" name="freshness" value="old" /><span><strong>Older</strong><small>More than a week old.</small></span></label>
+                </div>
+              </fieldset>
+
+              <fieldset class="question-card">
+                <legend><span>05</span>What is the conversation momentum?</legend>
+                <div class="answer-grid answer-grid-four">
+                  <label><input type="radio" name="momentum" value="early" required /><span><strong>Early</strong><small>Active and not crowded.</small></span></label>
+                  <label><input type="radio" name="momentum" value="active" /><span><strong>Active</strong><small>Some distinct room remains.</small></span></label>
+                  <label><input type="radio" name="momentum" value="slow" /><span><strong>Slowing</strong><small>Little current activity.</small></span></label>
+                  <label><input type="radio" name="momentum" value="saturated" /><span><strong>Saturated</strong><small>Many similar answers exist.</small></span></label>
+                </div>
+              </fieldset>
+
+              <fieldset class="question-card">
+                <legend><span>06</span>What supports the trust value of your experience?</legend>
+                <div class="answer-grid answer-grid-three">
+                  <label><input type="radio" name="trustOpportunity" value="firsthand" required /><span><strong>Firsthand</strong><small>Specific work I can disclose.</small></span></label>
+                  <label><input type="radio" name="trustOpportunity" value="informed" /><span><strong>Informed</strong><small>I know it, but not firsthand.</small></span></label>
+                  <label><input type="radio" name="trustOpportunity" value="limited" /><span><strong>Limited</strong><small>Little direct basis.</small></span></label>
+                </div>
+              </fieldset>
+
+              <fieldset class="question-card">
+                <legend><span>07</span>Does your geographic experience fit?</legend>
+                <div class="answer-grid answer-grid-five">
+                  <label><input type="radio" name="geographicFit" value="exact" required /><span><strong>Exact</strong><small>I know this place.</small></span></label>
+                  <label><input type="radio" name="geographicFit" value="nearby" /><span><strong>Nearby</strong><small>Same wider area.</small></span></label>
+                  <label><input type="radio" name="geographicFit" value="broad" /><span><strong>Broad</strong><small>General context only.</small></span></label>
+                  <label><input type="radio" name="geographicFit" value="irrelevant" /><span><strong>Mismatch</strong><small>I do not know it.</small></span></label>
+                  <label><input type="radio" name="geographicFit" value="not_applicable" /><span><strong>Not relevant</strong><small>Place does not affect it.</small></span></label>
+                </div>
+              </fieldset>
+
+              <div class="question-group-heading question-group-stop">
+                <span>Part 4</span><div><h4>Stop checks</h4><p>Sensitivity, promotion, or missing context can end the decision.</p></div>
+              </div>
+              <fieldset class="question-card stop-question">
+                <legend><span>08</span>Is this a sensitive or high-stakes personal topic?</legend>
+                <p class="question-help">Examples include health, legal matters, safety, financial crisis, employment crisis, or private hardship.</p>
+                <div class="answer-grid answer-grid-three">
+                  <label><input type="radio" name="topicSensitivity" value="ordinary" required /><span><strong>No</strong><small>It is an ordinary public topic.</small></span></label>
+                  <label><input type="radio" name="topicSensitivity" value="unsure" /><span><strong>Unsure</strong><small>Personal stakes may exist.</small></span></label>
+                  <label><input type="radio" name="topicSensitivity" value="sensitive" /><span><strong>Yes</strong><small>It is sensitive or high-stakes.</small></span></label>
+                </div>
+              </fieldset>
+
+              <fieldset class="question-card stop-question">
+                <legend><span>09</span>What is your honest primary reason for entering?</legend>
+                <div class="answer-grid answer-grid-three">
+                  <label><input type="radio" name="primaryIntent" value="help" required /><span><strong>Help</strong><small>Usefulness is the point.</small></span></label>
+                  <label><input type="radio" name="primaryIntent" value="mixed" /><span><strong>Mixed</strong><small>Help and business benefit.</small></span></label>
+                  <label><input type="radio" name="primaryIntent" value="promotion" /><span><strong>Promotion</strong><small>Attention or business is the point.</small></span></label>
+                </div>
+              </fieldset>
+
+              <fieldset class="question-card">
+                <legend><span>10</span>Could the useful answer stand on its own without a click or contact?</legend>
+                <div class="answer-grid answer-grid-three">
+                  <label><input type="radio" name="selfContainedHelp" value="yes" required /><span><strong>Yes</strong><small>The full value can stay in-room.</small></span></label>
+                  <label><input type="radio" name="selfContainedHelp" value="partial" /><span><strong>Partly</strong><small>Some value depends on leaving.</small></span></label>
+                  <label><input type="radio" name="selfContainedHelp" value="requires_click" /><span><strong>No</strong><small>A click or contact is required.</small></span></label>
+                </div>
+              </fieldset>
+
+              <fieldset class="question-card stop-question">
+                <legend><span>11</span>Do you have enough information to judge responsibly?</legend>
+                <div class="answer-grid answer-grid-three">
+                  <label><input type="radio" name="informationCompleteness" value="sufficient" required /><span><strong>Enough</strong><small>I read the rules and full context.</small></span></label>
+                  <label><input type="radio" name="informationCompleteness" value="gaps" /><span><strong>Some gaps</strong><small>One or two facts are unclear.</small></span></label>
+                  <label><input type="radio" name="informationCompleteness" value="insufficient" /><span><strong>Not enough</strong><small>The context is too incomplete.</small></span></label>
+                </div>
+              </fieldset>
+
+              <div class="evaluate-row">
+                <div>
+                  <p>No discussion content is submitted.</p>
+                  <small>Only your 11 choices are checked. The app does not save them.</small>
+                </div>
+                <button class="button button-primary evaluate-button" id="evaluate-button" type="submit">
+                  <span class="button-ready">See my result <b aria-hidden="true">→</b></span>
+                  <span class="button-loading" hidden>Checking the math…</span>
+                </button>
+              </div>
+              <p class="form-message" id="form-message" role="alert" tabindex="-1" hidden></p>
+            </form>
+          </section>
+
+          <section class="work-panel result-panel" id="result-panel" aria-labelledby="result-title" hidden>
+            <div class="panel-heading result-panel-heading">
+              <span class="panel-number" aria-hidden="true">03</span>
+              <div>
+                <p class="panel-kicker">Your result</p>
+                <h3 id="result-title" tabindex="-1">Should you join in?</h3>
+                <p>A checklist result—not a prediction or guarantee.</p>
+              </div>
+            </div>
+
+            <div class="result-hero">
+              <div class="score-dial" id="score-dial" role="img" aria-label="Score out of 100">
+                <svg class="score-progress" viewBox="0 0 100 100" aria-hidden="true">
+                  <circle class="score-progress-track" cx="50" cy="50" r="46" pathLength="100" />
+                  <circle id="score-progress-value" cx="50" cy="50" r="46" pathLength="100" />
+                </svg>
+                <div><strong id="result-score">0</strong><span>/ 100</span></div>
+              </div>
+              <div class="result-verdict">
+                <p class="result-badge" id="result-badge">Decision</p>
+                <h4 id="result-label">Stay quiet</h4>
+                <p id="result-summary">Not entering this conversation is a responsible result.</p>
+                <p class="result-context" id="result-context"></p>
+              </div>
+              <div class="result-seal" id="result-seal"><span aria-hidden="true">✓</span><strong>Responsible result</strong><small>Quiet is a valid completion.</small></div>
+            </div>
+
+            <div class="decision-override" id="decision-override" hidden>
+              <span aria-hidden="true">×</span>
+              <div><strong>Decision override applied</strong><p id="override-copy"></p></div>
+            </div>
+
+            <section class="calculation-line" aria-label="Score calculation">
+              <div><span>Positive points</span><strong id="base-score">0</strong></div>
+              <b aria-hidden="true">+</b>
+              <div><span>Risk deductions</span><strong id="penalty-total">0</strong></div>
+              <b aria-hidden="true">→</b>
+              <div><span>Before safety checks</span><strong id="pre-guardrail-score">0</strong></div>
+              <b aria-hidden="true">→</b>
+              <div class="calculation-final"><span>Final score</span><strong id="final-score">0</strong></div>
+            </section>
+
+            <div class="result-grid">
+              <section class="breakdown-card" aria-labelledby="breakdown-title">
+                <div class="result-section-heading">
+                  <div><p>Exact weights</p><h4 id="breakdown-title">Why you got this result</h4></div>
+                  <span>100 points possible</span>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th scope="col">Factor</th><th scope="col">Observation</th><th scope="col">Points</th></tr></thead>
+                    <tbody id="factor-rows"></tbody>
+                  </table>
+                </div>
+              </section>
+
+              <aside class="uncertainty-card" aria-labelledby="uncertainty-title">
+                <p>Decision certainty</p>
+                <div class="uncertainty-heading"><h4 id="uncertainty-title">Uncertainty</h4><span id="uncertainty-level">Low</span></div>
+                <p id="uncertainty-copy">Your answers were complete and specific.</p>
+                <ul id="uncertainty-list"></ul>
+              </aside>
+            </div>
+
+            <section class="penalty-section" id="penalty-section" aria-labelledby="penalty-title" hidden>
+              <div class="result-section-heading"><div><p>Subtractions</p><h4 id="penalty-title">Penalties applied</h4></div></div>
+              <ul class="decision-list" id="penalty-list"></ul>
+            </section>
+
+            <section class="guardrail-section" id="guardrail-section" aria-labelledby="guardrail-title" hidden>
+              <div class="result-section-heading"><div><p>Decisive checks</p><h4 id="guardrail-title">Caps and exclusions</h4></div></div>
+              <ul class="decision-list" id="guardrail-list"></ul>
+            </section>
+
+            <section class="next-section" aria-labelledby="next-title">
+              <div class="result-section-heading"><div><p>Next step</p><h4 id="next-title">What to do next</h4></div></div>
+              <ol id="next-steps"></ol>
+            </section>
+
+            <p class="formula-note">Same formula every time · No AI model · No checklist history</p>
+            <p class="api-status" id="api-status" role="status"></p>
+            <div class="result-actions">
+              <button class="button button-secondary" id="reset-check" type="button">Reset this check</button>
+              <a class="button-link" href="#rules-first">Review the ground rules <span aria-hidden="true">↓</span></a>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="rules-section shell" id="rules-first" aria-labelledby="rules-title">
+        <div class="rules-intro">
+          <p class="eyebrow">Before you comment</p>
+          <h2 id="rules-title">Five ground rules.</h2>
+          <p>The community’s rules always win.</p>
+        </div>
+        <ol class="rules-list">
+          <li><span>01</span><div><h3>Check the rules</h3><p>If business participation is banned, stop.</p></div></li>
+          <li><span>02</span><div><h3>Help, don’t pitch</h3><p>Answer the question—not your sales goal.</p></div></li>
+          <li><span>03</span><div><h3>Keep the value there</h3><p>Do not require a click, purchase, DM, or follow-up.</p></div></li>
+          <li><span>04</span><div><h3>Be transparent</h3><p>Disclose your business connection when it matters.</p></div></li>
+          <li><span>05</span><div><h3>Respect the room</h3><p>Match the tone and accept moderator decisions.</p></div></li>
+        </ol>
+      </section>
+
+      <section class="model-section" aria-labelledby="model-title">
+        <div class="shell model-shell">
+          <div class="model-copy">
+            <p class="eyebrow">How scoring works</p>
+            <h2 id="model-title">Clear math. No hidden AI.</h2>
+            <p>Helpful signals add points. Risky signals subtract, limit, or stop the result.</p>
+          </div>
+          <ul class="score-bands" aria-label="Score result bands">
+            <li><strong>75–100</strong><span>Helpful opening</span></li>
+            <li><strong>55–74</strong><span>Worth reading</span></li>
+            <li><strong>35–54</strong><span>Observe</span></li>
+            <li><strong>0–34</strong><span>Stay quiet</span></li>
+          </ul>
+          <p class="score-safety">Community rules always override the score.</p>
+          <details class="scoring-disclosure">
+            <summary>See the exact scoring rules</summary>
+            <div class="scoring-disclosure-content">
+              <ul class="weight-stack" aria-label="Contribution Opportunity Score weights">
+                <li><span>Helpfulness gap</span><strong>24</strong></li>
+                <li><span>Community-rule fit</span><strong>22</strong></li>
+                <li><span>Business relevance</span><strong>16</strong></li>
+                <li><span>Trust opportunity</span><strong>12</strong></li>
+                <li><span>Conversation momentum</span><strong>10</strong></li>
+                <li><span>Freshness</span><strong>8</strong></li>
+                <li><span>Geographic fit</span><strong>8</strong></li>
+              </ul>
+              <div class="model-details">
+                <details>
+                  <summary>What forces “Stay quiet”?</summary>
+                  <p>Rules say no, the topic is high-stakes, the intent is promotion, or there is not enough information.</p>
+                </details>
+                <details>
+                  <summary>What can limit the score?</summary>
+                  <p>Unknown rules, no unmet need, possible sensitivity, or an answer that requires a click.</p>
+                </details>
+                <details>
+                  <summary>What subtracts points?</summary>
+                  <p>A crowded conversation, mixed motives, click-dependent help, or missing context.</p>
+                </details>
+              </div>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section class="privacy-section shell" id="privacy" aria-labelledby="privacy-title">
+        <div>
+          <p class="eyebrow">Privacy</p>
+          <h2 id="privacy-title">We never read the discussion.</h2>
+        </div>
+        <div class="privacy-copy">
+          <p>No account connection. No pasted posts, links, names, private messages, or personal details. No checklist-answer history.</p>
+          <p>Your work context stays in this browser until you delete it.</p>
+          <p class="host-note">Cloudflare may process standard security logs. The app does not store your checklist answers.</p>
+          <button class="button button-secondary danger-button" id="delete-data-button" type="button">Delete local data</button>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-mark">
+        <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+          <path class="mark-body" d="M12 27h10L43 15v34L22 37H12z" />
+          <path class="mark-handle" d="M20 37l5 13h8l-5-11" />
+          <path class="mark-slash" d="M8 53 54 7" />
+        </svg>
+        <div><strong>NO MEGAPHONE</strong><span>Listen for need, not attention.</span></div>
+      </div>
+      <p>Independent project. Not affiliated with any platform or community.</p>
+      <a href="#top">Back to top <span aria-hidden="true">↑</span></a>
+    </footer>
+
+    <dialog id="delete-dialog" aria-labelledby="delete-dialog-title">
+      <form method="dialog">
+        <span class="dialog-mark" aria-hidden="true">×</span>
+        <h2 id="delete-dialog-title">Delete local data?</h2>
+        <p>This clears your saved context and current checklist on this device.</p>
+        <div class="dialog-actions">
+          <button class="button button-secondary" type="submit" value="cancel">Cancel</button>
+          <button class="button button-danger" id="confirm-delete" type="submit" value="confirm">Delete it</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="/src/client/main.ts"></script>
+  </body>
+</html>
