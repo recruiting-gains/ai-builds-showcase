@@ -21,6 +21,12 @@ A full-stack Next.js 14 (App Router) + TypeScript + Tailwind CSS landing page an
 npm run dev        # start local dev server on http://localhost:3000
 ```
 
+## Deploy Your Own
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/recruiting-gains/ai-builds-showcase/tree/main/chatgpt-ads)
+
+Clicking this deploys a copy of `chatgpt-ads` straight to **your own** Cloudflare account — no credentials are ever shared with the original author. Cloudflare clones the repo into your GitHub, builds it with the settings from `wrangler.toml`/`package.json` below, and provisions the Pages project for you automatically.
+
 ## Deploy
 
 ### Vercel
