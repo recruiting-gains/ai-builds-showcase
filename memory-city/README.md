@@ -1,8 +1,12 @@
 # Memory City
 
-Memory City turns a note, lesson, or question into a living 3D city of connected ideas.
+Turn a note, lesson, or question into a living 3D city of connected ideas.
 
-**Live app:** <https://memory-city.recruiting-gains.workers.dev/>
+**[Open the live build →](https://memory-city.recruiting-gains.workers.dev/)**
+
+![Miniature city with glowing paths connecting ideas, themes, and open questions.](../docs/assets/showcase/memory-city.webp)
+
+*Buildings are ideas. Districts are themes. Roads show how thoughts connect.*
 
 Every part of the city has a plain meaning:
 
