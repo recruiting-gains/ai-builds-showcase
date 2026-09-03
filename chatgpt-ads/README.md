@@ -33,14 +33,16 @@ vercel --prod
 
 This app can also be deployed to Cloudflare Pages via [`@cloudflare/next-on-pages`](https://github.com/cloudflare/next-on-pages), without affecting the Vercel deployment above.
 
-In the Cloudflare Pages project settings, use:
+`wrangler.toml` in this directory codifies the build output directory and the `nodejs_compat` compatibility flag, so connecting this repo to Cloudflare Pages' Git integration mostly just works — no manual flag toggling required in the dashboard. In Cloudflare Pages project settings, set:
 
 | Setting | Value |
 | --- | --- |
 | Root directory | `chatgpt-ads` |
 | Build command | `npx @cloudflare/next-on-pages@1` |
 | Build output directory | `.vercel/output/static` |
-| Compatibility flag | `nodejs_compat` |
+| Compatibility flag | `nodejs_compat` (also set via `wrangler.toml`) |
+
+Once connected, every push to `main` triggers a production deploy and every branch/PR push gets its own preview deploy automatically — same as Vercel's Git integration.
 
 You can also build locally with:
 
