@@ -1,12 +1,24 @@
 # ChatGPT Ads
 
-ChatGPT Ads is a transparent campaign health-check tool that recognizes common Google, Meta, TikTok, and LinkedIn ad-export columns.
+See what needs attention in an exported campaign report.
 
-**Live app:** <https://chatgpt-ads.recruiting-gains.workers.dev/>
+**[Open the live build →](https://chatgpt-ads.recruiting-gains.workers.dev/)**
+
+![Miniature campaign desk sorting exported data through transparent review rules.](../docs/assets/showcase/chatgpt-ads.webp)
+
+*Campaign data moves through visible rules before it is sorted into healthy, review, and winner groups.*
 
 Upload a CSV or paste a campaign table. The app calculates overall performance, identifies campaign spend that needs review, finds campaigns that clear every winner guardrail, and returns a practical five-step checklist.
 
-Despite the project name, this version does **not** call ChatGPT or another AI model. It uses deterministic calculations and clearly stated thresholds, so the same input always produces the same result. It is an independent portfolio project and is not affiliated with OpenAI or any advertising platform.
+> **Important:** despite the project name, this version does not call ChatGPT or another AI model. It uses deterministic calculations and stated thresholds, so the same input produces the same result.
+
+## Try it
+
+1. Export a campaign table or use the sample.
+2. Upload the CSV or paste the rows.
+3. Review the totals, flags, qualified winners, and checklist.
+
+It is an independent portfolio project and is not affiliated with OpenAI or any advertising platform.
 
 ## What it checks
 
