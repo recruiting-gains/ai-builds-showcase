@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "pages:build": "npx @cloudflare/next-on-pages@1",
     "start": "next start",
     "lint": "next lint"
   },
@@ -15,6 +16,7 @@
     "react-dom": "^18"
   },
   "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.13.16",
     "@types/node": "^20",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^18",

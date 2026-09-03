@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auditCampaigns, parseCampaignRows, parsePastedText } from "@/lib/auditor";
 
+// Edge runtime keeps this route compatible with Cloudflare Pages (via
+// @cloudflare/next-on-pages) as well as Vercel's Edge/Node runtimes.
+export const runtime = "edge";
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

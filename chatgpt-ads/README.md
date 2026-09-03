@@ -23,8 +23,29 @@ npm run dev        # start local dev server on http://localhost:3000
 
 ## Deploy
 
+### Vercel
+
 ```bash
 vercel --prod
+```
+
+### Cloudflare Pages
+
+This app can also be deployed to Cloudflare Pages via [`@cloudflare/next-on-pages`](https://github.com/cloudflare/next-on-pages), without affecting the Vercel deployment above.
+
+In the Cloudflare Pages project settings, use:
+
+| Setting | Value |
+| --- | --- |
+| Root directory | `chatgpt-ads` |
+| Build command | `npx @cloudflare/next-on-pages@1` |
+| Build output directory | `.vercel/output/static` |
+| Compatibility flag | `nodejs_compat` |
+
+You can also build locally with:
+
+```bash
+npm run pages:build
 ```
 
 ## Project Structure
