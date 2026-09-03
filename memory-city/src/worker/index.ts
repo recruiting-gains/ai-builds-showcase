@@ -1,4 +1,6 @@
 import {
+  DISTRICTS,
+  EDGE_KINDS,
   LIMITS,
   type AddEntryResponse,
   type ApiErrorResponse,
@@ -10,11 +12,18 @@ import {
   type MemoryPlan,
 } from "../shared/contracts";
 import {
+  isRecord,
   parseAddEntryRequest,
   parseMemoryPlan,
   ValidationError,
 } from "../shared/validation";
 import { buildMessages, MEMORY_PLAN_SCHEMA } from "./prompt";
+import {
+  completeVectorCleanup,
+  enqueueVectorCleanup,
+  finalizeCityDeletion,
+  runScheduledCleanup,
+} from "./lifecycle";
 
 const TEXT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast" as const;
 const EMBEDDING_MODEL = "@cf/baai/bge-base-en-v1.5" as const;
@@ -78,6 +87,45 @@ interface EdgeRow {
   target_node_id: string;
   relationship: string;
   kind: CityEdge["kind"];
+}
+
+function isEntryRow(value: unknown): value is EntryRow {
+  return isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.title === "string" &&
+    typeof value.source_text === "string" &&
+    typeof value.summary === "string" &&
+    typeof value.created_at === "string";
+}
+
+function isNodeRow(value: unknown): value is NodeRow {
+  return isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.entry_id === "string" &&
+    typeof value.label === "string" &&
+    typeof value.description === "string" &&
+    typeof value.district === "string" &&
+    (DISTRICTS as readonly string[]).includes(value.district) &&
+    typeof value.depth === "number" &&
+    Number.isInteger(value.depth) &&
+    typeof value.created_at === "string";
+}
+
+function isEdgeRow(value: unknown): value is EdgeRow {
+  return isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.source_node_id === "string" &&
+    typeof value.target_node_id === "string" &&
+    typeof value.relationship === "string" &&
+    typeof value.kind === "string" &&
+    (EDGE_KINDS as readonly string[]).includes(value.kind);
+}
+
+function checkedRows<T>(rows: readonly unknown[], guard: (value: unknown) => value is T): T[] {
+  if (!rows.every(guard)) {
+    throw new HttpError(500, "CITY_DATA_INVALID", "The city could not be opened safely. Please try again.");
+  }
+  return [...rows];
 }
 
 class HttpError extends Error {
@@ -222,14 +270,14 @@ async function citySnapshot(env: Env, city: CityRow): Promise<CitySnapshot> {
   if (!entryResult || !nodeResult || !edgeResult) {
     throw new HttpError(500, "CITY_READ_FAILED", "The city could not be opened. Please try again.");
   }
-  const entries = (entryResult.results as unknown as EntryRow[]).map<CityEntry>((row) => ({
+  const entries = checkedRows(entryResult.results, isEntryRow).map<CityEntry>((row) => ({
     id: row.id,
     title: row.title,
     summary: row.summary,
     sourceText: row.source_text,
     createdAt: row.created_at,
   }));
-  const nodes = (nodeResult.results as unknown as NodeRow[]).map<CityNode>((row) => ({
+  const nodes = checkedRows(nodeResult.results, isNodeRow).map<CityNode>((row) => ({
     id: row.id,
     entryId: row.entry_id,
     label: row.label,
@@ -238,7 +286,7 @@ async function citySnapshot(env: Env, city: CityRow): Promise<CitySnapshot> {
     depth: row.depth,
     createdAt: row.created_at,
   }));
-  const edges = (edgeResult.results as unknown as EdgeRow[]).map<CityEdge>((row) => ({
+  const edges = checkedRows(edgeResult.results, isEdgeRow).map<CityEdge>((row) => ({
     id: row.id,
     source: row.source_node_id,
     target: row.target_node_id,
@@ -464,8 +512,14 @@ async function handleAddEntry(request: Request, env: Env, requestId: string, cit
   if (vectors) {
     const existingRows = await env.DB.prepare("SELECT id FROM nodes WHERE city_id = ?").bind(cityId).all<{ id: string }>();
     const existingIds = new Set(existingRows.results.map((row) => row.id));
-    const searches = await Promise.all(vectors.map((vector) => env.CONCEPT_INDEX.query(vector, { topK: 3, namespace: cityId, returnMetadata: "all" })));
-    searches.forEach((result, index) => {
+    const searches = await Promise.allSettled(vectors.map((vector) => env.CONCEPT_INDEX.query(vector, { topK: 3, namespace: cityId, returnMetadata: "all" })));
+    let failedSearches = 0;
+    searches.forEach((outcome, index) => {
+      if (outcome.status === "rejected") {
+        failedSearches += 1;
+        return;
+      }
+      const result = outcome.value;
       const node = nodes[index];
       if (!node) return;
       for (const match of result.matches) {
@@ -480,10 +534,24 @@ async function handleAddEntry(request: Request, env: Env, requestId: string, cit
         break;
       }
     });
+    if (failedSearches > 0) {
+      console.warn(JSON.stringify({ event: "semantic_query_partial_failure", requestId, cityId, failedSearches, attemptedSearches: vectors.length }));
+    }
+  }
+
+  const vectorIds = nodes.map((node) => node.id);
+  let vectorCleanupQueued = false;
+  if (vectors) {
+    try {
+      await enqueueVectorCleanup(env, cityId, entryId, vectorIds);
+      vectorCleanupQueued = true;
+    } catch (error) {
+      console.error(JSON.stringify({ event: "vector_cleanup_enqueue_failed", requestId, cityId, entryId, errorClass: error instanceof Error ? error.name : "UnknownError" }));
+    }
   }
 
   let vectorsSubmitted = false;
-  if (vectors) {
+  if (vectors && vectorCleanupQueued) {
     try {
       await env.CONCEPT_INDEX.upsert(nodes.map((node, index) => ({
         id: node.id,
@@ -511,11 +579,18 @@ async function handleAddEntry(request: Request, env: Env, requestId: string, cit
   try {
     await env.DB.batch(statements);
   } catch (error) {
-    if (vectorsSubmitted) {
+    if (vectorCleanupQueued && vectorsSubmitted) {
       try {
-        await env.CONCEPT_INDEX.deleteByIds(nodes.map((node) => node.id));
+        await env.CONCEPT_INDEX.deleteByIds(vectorIds);
+        await completeVectorCleanup(env, entryId);
       } catch (cleanupError) {
         console.error(JSON.stringify({ event: "vector_compensation_failed", requestId, cityId, errorClass: cleanupError instanceof Error ? cleanupError.name : "UnknownError" }));
+      }
+    } else if (vectorCleanupQueued) {
+      try {
+        await completeVectorCleanup(env, entryId);
+      } catch (cleanupError) {
+        console.error(JSON.stringify({ event: "vector_cleanup_cancel_failed", requestId, cityId, entryId, errorClass: cleanupError instanceof Error ? cleanupError.name : "UnknownError" }));
       }
     }
     try {
@@ -534,6 +609,14 @@ async function handleAddEntry(request: Request, env: Env, requestId: string, cit
     throw new HttpError(409, "CITY_CHANGED", "That city changed while this block was being built. Refresh and try again.");
   }
 
+  if (vectorCleanupQueued) {
+    try {
+      await completeVectorCleanup(env, entryId);
+    } catch (error) {
+      console.warn(JSON.stringify({ event: "vector_cleanup_completion_deferred", requestId, cityId, entryId, errorClass: error instanceof Error ? error.name : "UnknownError" }));
+    }
+  }
+
   const refreshed = await env.DB.prepare(`SELECT ${CITY_COLUMNS} FROM cities WHERE id = ? AND state = 'active'`).bind(cityId).first<CityRow>();
   if (!refreshed) throw new HttpError(500, "CITY_SAVE_FAILED", "The city could not finish this block. Your note may still be safe; refresh and try again.");
   const response: AddEntryResponse = {
@@ -544,41 +627,6 @@ async function handleAddEntry(request: Request, env: Env, requestId: string, cit
   };
   console.log(JSON.stringify({ event: "city_grown", requestId, cityId, nodesAdded: nodes.length, semanticLinksAdded, inputCharacters: body.text.length, durationMs: Date.now() - startedAt }));
   return jsonResponse(response, requestId, 201);
-}
-
-async function finalizeCityDeletion(env: Env, cityId: string): Promise<boolean> {
-  await env.DB.prepare("UPDATE cities SET state = 'deleting' WHERE id = ? AND state = 'active'")
-    .bind(cityId).run();
-  const rows = await env.DB.prepare("SELECT id FROM nodes WHERE city_id = ?").bind(cityId).all<{ id: string }>();
-  if (rows.results.length > 0) {
-    try {
-      await env.CONCEPT_INDEX.deleteByIds(rows.results.map((row) => row.id));
-    } catch {
-      return false;
-    }
-  }
-  await env.DB.prepare("DELETE FROM cities WHERE id = ? AND state = 'deleting'").bind(cityId).run();
-  return true;
-}
-
-async function cleanupExpiredCities(env: Env): Promise<void> {
-  const now = new Date().toISOString();
-  const expired = await env.DB.prepare(
-    "SELECT id FROM cities WHERE expires_at <= ? ORDER BY expires_at LIMIT 100",
-  ).bind(now).all<{ id: string }>();
-  let deleted = 0;
-  let pending = 0;
-  for (let index = 0; index < expired.results.length; index += 5) {
-    const batch = expired.results.slice(index, index + 5);
-    const outcomes = await Promise.all(batch.map((city) => finalizeCityDeletion(env, city.id)));
-    for (const outcome of outcomes) {
-      if (outcome) deleted += 1;
-      else pending += 1;
-    }
-  }
-  const backlog = await env.DB.prepare("SELECT COUNT(*) AS count FROM cities WHERE expires_at <= ?")
-    .bind(now).first<{ count: number }>();
-  console.log(JSON.stringify({ event: "expired_city_cleanup", examined: expired.results.length, deleted, pending, remaining: backlog?.count ?? 0 }));
 }
 
 async function handleDeleteCity(request: Request, env: Env, requestId: string, cityId: string): Promise<Response> {
@@ -631,6 +679,6 @@ export default {
     }
   },
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(cleanupExpiredCities(env));
+    ctx.waitUntil(runScheduledCleanup(env));
   },
 } satisfies ExportedHandler<Env>;

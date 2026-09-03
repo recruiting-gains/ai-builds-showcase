@@ -5,28 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Memory City turns notes and questions into a living 3D city of connected ideas."
+      content="Turn a learning note into an interactive 3D city of ideas and connections."
     />
     <meta name="theme-color" content="#05070d" />
     <meta property="og:title" content="Memory City — Watch what you learn become a city" />
     <meta
       property="og:description"
-      content="Add a thought. Watch its main ideas become buildings, neighborhoods, and roads you can explore."
+      content="Add a learning note. Watch its main ideas become buildings, districts, and roads you can explore."
     />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Memory City" />
+    <meta property="og:url" content="https://memory-city.recruiting-gains.workers.dev/" />
+    <meta property="og:locale" content="en_US" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Memory City — Watch what you learn become a city" />
+    <meta
+      name="twitter:description"
+      content="Turn one learning note into a 3D map of its main ideas and connections."
+    />
+    <link rel="canonical" href="https://memory-city.recruiting-gains.workers.dev/" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/site.webmanifest" />
     <title>Memory City — Your knowledge, made visible</title>
   </head>
-  <body>
-    <a class="skip-link" href="#city-builder">Skip to the city builder</a>
+  <body id="top">
+    <a class="skip-link" href="#create-city">Skip to create your city</a>
     <div class="page-atmosphere" aria-hidden="true">
       <span class="aurora aurora-one"></span>
       <span class="aurora aurora-two"></span>
       <span class="grain"></span>
     </div>
 
-    <header class="site-header" id="top">
+    <header class="site-header">
       <a class="brand" href="#top" aria-label="Memory City home">
         <svg class="brand-mark" viewBox="0 0 44 44" aria-hidden="true">
           <path d="M8 28 22 36 37 27 22 19 8 28Z" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -38,9 +48,9 @@
       <nav aria-label="Main navigation">
         <a href="#how-it-works">How it works</a>
         <a href="#city-language">City language</a>
-        <a href="#city-builder">Build yours</a>
+        <a href="#create-city">Build yours</a>
       </nav>
-      <a class="header-action" href="#city-builder">Start building <span aria-hidden="true">↗</span></a>
+      <a class="header-action" href="#create-city">Start building <span aria-hidden="true">↗</span></a>
     </header>
 
     <main>
@@ -53,7 +63,7 @@
             near one another, and turns them into a world you can explore.
           </p>
           <div class="hero-actions">
-            <a class="button button-primary" href="#city-builder">
+            <a class="button button-primary" href="#create-city">
               Build my first block <span aria-hidden="true">↗</span>
             </a>
             <button class="button button-quiet" id="tour-demo" type="button">
@@ -163,7 +173,7 @@
             </article>
             <article class="language-card language-neighborhood">
               <div class="language-icon" aria-hidden="true"><span></span><span></span><span></span></div>
-              <p class="card-index">02 / NEIGHBORHOOD</p>
+              <p class="card-index">02 / DISTRICT</p>
               <h3>Related ideas</h3>
               <p>Ideas of the same kind gather into a recognizable part of town.</p>
             </article>
@@ -199,7 +209,7 @@
         <div class="builder-intro shell">
           <p class="eyebrow">The city builder</p>
           <h2 id="builder-title">Give one thought a place to live.</h2>
-          <p>Try the real experience below. The city is private to this browser unless you share its private key.</p>
+          <p>Turn one learning note into a visual map of its main ideas and connections.</p>
         </div>
 
         <div class="app-frame shell-wide">
@@ -215,31 +225,39 @@
             </div>
             <div class="view-actions" aria-label="City view controls">
               <button class="toolbar-button active" id="show-city" type="button" aria-pressed="true">◇ City</button>
-              <button class="toolbar-button" id="show-list" type="button" aria-pressed="false">☷ List</button>
+              <button class="toolbar-button" id="show-list" type="button" aria-pressed="false">☷ Read ideas</button>
               <button class="toolbar-button motion-toggle" data-target="workspace" type="button" aria-pressed="false">Ⅱ <span>Motion</span></button>
             </div>
           </div>
 
           <div class="app-layout">
-            <aside class="input-rail">
+            <aside class="input-rail" id="create-city" aria-labelledby="form-title">
               <div class="rail-heading">
                 <span class="rail-step">+</span>
-                <div><h3>Grow the city</h3><p>Start with one useful thought.</p></div>
+                <div><h3 id="form-title">Create your own city</h3><p>Start with one useful thought.</p></div>
               </div>
               <form id="memory-form" novalidate>
                 <label for="memory-text">What did you learn?</label>
+                <div class="privacy-note" id="privacy-note">
+                  <strong>Before you add a note</strong>
+                  <p>
+                    Your note is sent to Cloudflare AI to organize it and is stored with your city for up to
+                    180 days after the last note you save. This browser keeps the only access key. There is no account or recovery yet, so
+                    do not include private or sensitive information.
+                  </p>
+                </div>
                 <textarea
                   id="memory-text"
                   name="text"
                   rows="9"
                   minlength="40"
                   maxlength="5000"
-                  aria-describedby="memory-help character-count form-message"
+                  aria-describedby="privacy-note memory-help character-count form-message"
                   placeholder="Example: Deep sleep helps the brain organize and strengthen new memories. Sleep cycles repeat through the night, and each stage supports the brain differently."
                   required
                 ></textarea>
                 <div class="input-meta">
-                  <span id="memory-help">Do not add private or sensitive information.</span>
+                  <span id="memory-help">40–5,000 characters</span>
                   <span id="character-count">0 / 5,000</span>
                 </div>
                 <div class="example-row">
@@ -256,19 +274,17 @@
 
               <div class="build-progress" id="build-progress" aria-live="polite" hidden>
                 <span class="progress-line"><i></i></span>
-                <ol>
-                  <li class="active">Finding the main ideas</li>
-                  <li>Connecting related thoughts</li>
-                  <li>Raising the buildings</li>
-                </ol>
+                <strong>Organizing your note…</strong>
+                <p>This usually takes a few moments. Keep this tab open.</p>
               </div>
 
-              <div class="district-filters">
-                <p>Show districts</p>
-                <button type="button" class="filter-chip concepts active" data-district="concepts" aria-pressed="true"><i></i> Concepts</button>
-                <button type="button" class="filter-chip skills active" data-district="skills" aria-pressed="true"><i></i> Skills</button>
-                <button type="button" class="filter-chip evidence active" data-district="evidence" aria-pressed="true"><i></i> Evidence</button>
-                <button type="button" class="filter-chip questions active" data-district="questions" aria-pressed="true"><i></i> Questions</button>
+              <div class="district-filters" role="group" aria-label="Focus on a district">
+                <p>Focus on</p>
+                <button type="button" class="filter-chip all active" data-district="all" aria-pressed="true"><i></i> All ideas</button>
+                <button type="button" class="filter-chip concepts" data-district="concepts" aria-pressed="false"><i></i> Concepts</button>
+                <button type="button" class="filter-chip skills" data-district="skills" aria-pressed="false"><i></i> Skills</button>
+                <button type="button" class="filter-chip evidence" data-district="evidence" aria-pressed="false"><i></i> Evidence</button>
+                <button type="button" class="filter-chip questions" data-district="questions" aria-pressed="false"><i></i> Questions</button>
               </div>
             </aside>
 
@@ -285,16 +301,19 @@
               <div class="district-label district-skills" aria-hidden="true"><i></i>Skills</div>
               <div class="district-label district-evidence" aria-hidden="true"><i></i>Evidence</div>
               <div class="district-label district-questions" aria-hidden="true"><i></i>Questions</div>
-              <div class="stage-help">Drag to turn · Scroll to zoom · Select a building</div>
+              <div class="stage-help">
+                <span class="pointer-help">Drag to turn · Scroll to zoom · Select a building</span>
+                <span class="touch-help">Swipe to turn · Pinch to zoom · Tap a building</span>
+              </div>
               <button class="reset-view" id="workspace-reset" type="button">⌂ Reset view</button>
 
               <article class="idea-inspector" id="idea-inspector" hidden>
                 <button class="inspector-close" type="button" aria-label="Close idea details">×</button>
                 <p class="inspector-kicker"><span></span><b></b></p>
-                <h3></h3>
+                <h3 tabindex="-1"></h3>
                 <p class="inspector-description"></p>
                 <div class="inspector-depth">
-                  <span>Connected material</span><i><b></b></i><strong></strong>
+                  <span>Connection strength</span><i><b></b></i><strong></strong>
                 </div>
                 <p class="inspector-source"></p>
                 <div class="inspector-connections">
@@ -305,7 +324,7 @@
 
               <div class="list-view" id="city-list" hidden>
                 <div class="list-view-heading">
-                  <div><p class="eyebrow">Accessible city view</p><h3>Every idea, in plain text</h3></div>
+                  <div><p class="eyebrow">Read ideas</p><h3>Every idea, in plain text</h3></div>
                   <p>Select an idea to see its meaning and connections.</p>
                 </div>
                 <div class="list-districts" id="list-districts"></div>
@@ -314,16 +333,26 @@
           </div>
 
           <div class="app-footerbar">
-            <p><span aria-hidden="true">◉</span> Your city key stays in this browser · inactive cities expire after 180 days.</p>
-            <div>
-              <button class="text-control" id="export-city" type="button">↓ Export city</button>
-              <button class="text-control danger-control" id="delete-city" type="button">Delete my city</button>
+            <div class="storage-note">
+              <span aria-hidden="true">◉</span>
+              <p>
+                <strong>Access key saved only in this browser.</strong>
+                Clearing site data or changing devices can prevent reopening. The city is deleted
+                180 days after your last saved note.
+              </p>
+            </div>
+            <div class="app-footer-actions">
+              <small id="json-export-help">Downloaded JSON is for your records; it cannot be imported back into Memory City.</small>
+              <div>
+                <button class="text-control" id="export-city" type="button" aria-describedby="json-export-help">↓ Download JSON copy</button>
+                <button class="text-control danger-control" id="delete-city" type="button">Delete my city</button>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="truth-section shell" aria-labelledby="truth-title">
+      <section class="truth-section shell" id="data-privacy" aria-labelledby="truth-title">
         <div class="truth-visual" aria-hidden="true">
           <div class="truth-orbit"><span></span><span></span><span></span></div>
           <div class="truth-tower"><i></i><i></i><i></i><i></i></div>
@@ -335,7 +364,7 @@
           <p>The AI can misunderstand a thought. Your original note stays preserved so you can always check where an idea came from.</p>
           <ul>
             <li><span>01</span><div><strong>Your source stays attached</strong><p>Open a building to trace it back to the note that created it.</p></div></li>
-            <li><span>02</span><div><strong>You control the data</strong><p>Export the city as a file or delete the whole private city at any time.</p></div></li>
+            <li><span>02</span><div><strong>You control the data</strong><p>Download a readable JSON copy for your records or permanently delete the city. JSON copies cannot be restored in Memory City yet.</p></div></li>
             <li><span>03</span><div><strong>The map is a suggestion</strong><p>Connections are useful starting points, not guaranteed facts.</p></div></li>
           </ul>
         </div>
@@ -347,7 +376,7 @@
           <p class="eyebrow">An empty lot is waiting</p>
           <h2 id="final-title">Your next idea could be the first building.</h2>
           <p>Begin with one sentence. You can add everything else later.</p>
-          <a class="button button-primary" href="#city-builder">Start my city <span aria-hidden="true">↗</span></a>
+          <a class="button button-primary" href="#create-city">Start my city <span aria-hidden="true">↗</span></a>
         </div>
       </section>
     </main>
@@ -358,14 +387,17 @@
         <span>Memory City</span>
       </a>
       <p>An original experiment that turns thoughts into explorable places.</p>
-      <a href="https://github.com/recruiting-gains/ai-builds-showcase/tree/main/memory-city" target="_blank" rel="noopener noreferrer">View the build on GitHub ↗</a>
+      <nav class="footer-links" aria-label="Footer navigation">
+        <a href="#data-privacy">Data &amp; privacy</a>
+        <a href="https://github.com/recruiting-gains/ai-builds-showcase/tree/main/memory-city" target="_blank" rel="noopener noreferrer">View the build on GitHub ↗</a>
+      </nav>
     </footer>
 
     <dialog id="delete-dialog" aria-labelledby="delete-title">
       <form method="dialog" class="dialog-card">
         <span class="dialog-symbol" aria-hidden="true">⌁</span>
         <h2 id="delete-title">Delete this city?</h2>
-        <p>This permanently removes its notes, buildings, and roads. Export a copy first if you might want it later.</p>
+        <p>Deleting permanently removes this city. You can download a JSON copy for your records first, but it cannot currently be restored in Memory City.</p>
         <div class="dialog-actions">
           <button class="button button-quiet" value="cancel">Keep my city</button>
           <button class="button button-danger" id="confirm-delete" value="delete">Delete everything</button>

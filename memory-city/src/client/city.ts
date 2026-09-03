@@ -46,6 +46,7 @@ export interface CityVisualizationController {
   flyToNode(nodeId: string): boolean;
   resetView(animate?: boolean): void;
   setMotion(enabled: boolean): void;
+  setSuspended(suspended: boolean): void;
   setDistrictFilter(filter: CityDistrictFilter): void;
   dispose(): void;
 }
@@ -152,6 +153,7 @@ export class MemoryCityVisualization implements CityVisualizationController {
   private pointerDown: { x: number; y: number } | null = null;
   private isIntersecting = true;
   private isDocumentVisible = !document.hidden;
+  private isSuspended = false;
   private isDisposed = false;
   private needsRender = true;
   private motionEnabled: boolean;
@@ -181,7 +183,7 @@ export class MemoryCityVisualization implements CityVisualizationController {
     this.renderer = new THREE.WebGLRenderer({
       alpha: true,
       antialias: this.quality === "high",
-      powerPreference: "high-performance",
+      powerPreference: this.quality === "low" ? "low-power" : "high-performance",
     });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -193,7 +195,6 @@ export class MemoryCityVisualization implements CityVisualizationController {
     this.canvas.style.width = "100%";
     this.canvas.style.height = "100%";
     this.canvas.style.display = "block";
-    this.canvas.style.touchAction = "none";
     this.canvas.style.cursor = "grab";
     this.container.append(this.canvas);
 
@@ -214,6 +215,12 @@ export class MemoryCityVisualization implements CityVisualizationController {
     this.controls.maxAzimuthAngle = Infinity;
     this.controls.rotateSpeed = 0.55;
     this.controls.zoomSpeed = 0.7;
+    // OrbitControls defaults to `touch-action: none`, which traps the page on
+    // phones. `pan-y` lets a one-finger vertical gesture keep scrolling the
+    // document while horizontal drags can still orbit the city.
+    this.canvas.style.touchAction = window.matchMedia("(pointer: coarse)").matches
+      ? "pan-y"
+      : "none";
     this.controls.addEventListener("change", this.handleControlsChange);
     this.controls.addEventListener("start", this.handleControlsStart);
     this.controls.addEventListener("end", this.handleControlsEnd);
@@ -345,6 +352,19 @@ export class MemoryCityVisualization implements CityVisualizationController {
     this.controls.enableDamping = enabled;
     if (!enabled) {
       this.finishAnimationsImmediately();
+    }
+    this.requestRender();
+    this.syncAnimationLoop();
+  }
+
+  setSuspended(suspended: boolean): void {
+    if (this.isSuspended === suspended || this.isDisposed) {
+      return;
+    }
+    this.isSuspended = suspended;
+    if (suspended) {
+      this.syncAnimationLoop();
+      return;
     }
     this.requestRender();
     this.syncAnimationLoop();
@@ -1409,7 +1429,12 @@ export class MemoryCityVisualization implements CityVisualizationController {
   }
 
   private canRender(): boolean {
-    return this.isIntersecting && this.isDocumentVisible && !this.isDisposed;
+    return (
+      this.isIntersecting &&
+      this.isDocumentVisible &&
+      !this.isSuspended &&
+      !this.isDisposed
+    );
   }
 
   private renderFrame = (now: number): void => {
@@ -1447,7 +1472,8 @@ export class MemoryCityVisualization implements CityVisualizationController {
     this.renderWidth = width;
     this.renderHeight = height;
     const aspect = width / height;
-    const viewHeight = width < 620 ? 19 : 17;
+    const baseViewHeight = width < 620 ? 19 : 17;
+    const viewHeight = width < 620 ? Math.max(baseViewHeight, 23 / aspect) : baseViewHeight;
     this.camera.left = (-viewHeight * aspect) / 2;
     this.camera.right = (viewHeight * aspect) / 2;
     this.camera.top = viewHeight / 2;

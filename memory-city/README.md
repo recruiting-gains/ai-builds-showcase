@@ -18,8 +18,8 @@ Every part of the city has a plain meaning:
 2. Paste one thought, note, or question.
 3. Watch the main ideas rise as new buildings.
 4. Select a building to read its meaning and trace it to the original note.
-5. Focus on one district or switch to the full text list.
-6. Export the complete private city as JSON.
+5. View every district, focus on one district, or switch to the full text list.
+6. Download the complete city as a JSON record.
 7. Permanently delete the city and its semantic-search records.
 
 The 3D city supports mouse, trackpad, and touch navigation. Motion can be paused, reduced-motion preferences are respected, rendering pauses offscreen, and the complete city is mirrored in a keyboard-accessible list.
@@ -50,7 +50,8 @@ The request path is:
 - **Workers AI** organizes each note and creates embeddings.
 - **D1** stores cities, original notes, buildings, and roads.
 - **Vectorize** finds semantically related ideas in one city namespace.
-- **Worker Rate Limiting** bounds public city creation and AI use.
+- **A D1 cleanup ledger** keeps every submitted vector ID recoverable until the matching note commit is confirmed.
+- **Worker Rate Limiting** applies a per-location guard to public city creation and AI use; it is not treated as a billing-accurate global quota.
 - **Cloudflare Observability** records structured operational events without note text or private keys.
 
 The production resources are named:
@@ -90,11 +91,17 @@ This means:
 - Someone cannot open a city with its ID alone.
 - Clearing browser storage removes the key from that browser.
 - There is no recovery email or password reset.
-- Exporting before clearing browser data is the safe way to keep a personal copy.
+- A downloaded JSON file is a personal record only. The app cannot currently import it or restore a city from it.
 - Sharing the private key gives another person full control, so it should not be shared.
-- A private city expires 180 days after its last saved note. An hourly cleanup removes its D1 records and submits its Vectorize records for deletion.
+- A private city expires 180 days after its last saved note. Merely opening the city does not extend that date.
+- An hourly cleanup removes its D1 records and submits its Vectorize records for deletion.
+- Manual deletion immediately marks the city for deletion. If D1 or Vectorize is temporarily unavailable, hourly cleanup prioritizes that city and retries instead of leaving it stranded.
 
 All state-changing API requests are same-origin only. Private responses are not cached. The site uses a restrictive Content Security Policy and does not load third-party scripts.
+
+Before a note is submitted, the interface explains that its text is sent to Cloudflare AI for organization and stored with the city in D1. The browser holds the only raw access key. Visitors are warned not to submit private or sensitive information.
+
+Vectorize is treated as an optional semantic layer: a temporary semantic-query failure does not prevent the source note and its within-note relationships from being saved. Vector writes are recorded in D1 before submission, and abandoned writes remain in the cleanup ledger until a scheduled retry can remove them safely.
 
 ## Data and AI limits
 
@@ -102,7 +109,7 @@ All state-changing API requests are same-origin only. Private responses are not 
 - One city: up to 16 notes and 96 buildings
 - One note: 3–7 buildings and up to 10 model-proposed connections
 - Request body: at most 24 KB
-- Public rate limit: 8 city or AI actions per minute per key
+- Public rate-limit guard: 8 city or AI actions per minute per key and Cloudflare location
 
 Workers AI can misunderstand a note, choose a surprising district, or miss a relationship. The original text remains attached so the result can be checked. Model-created text is always rendered with text nodes, never as HTML.
 
