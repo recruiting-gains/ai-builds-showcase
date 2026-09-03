@@ -1,14 +1,25 @@
 # AI Workflow Lab
 
-Two intentionally small AI automations in one full-stack Cloudflare project:
+Turn meeting notes or one rough idea into useful, structured output.
 
-1. **Meeting → Action Plan** turns pasted notes into a summary, decisions,
-   owned action items, and a follow-up email.
-2. **Idea → Content Kit** turns one source into a LinkedIn draft, short thread,
-   newsletter blurb, title ideas, and hashtags.
+**[Open the live build →](https://ai-workflow-lab.recruiting-gains.workers.dev/)**
 
-The project is designed to be reverse engineered. It has no login, database,
-payment system, browser-exposed API key, or background job.
+![Miniature workshop moving rough notes and ideas through validation into useful outputs.](../docs/assets/showcase/ai-workflow-lab.webp)
+
+*Two workflow lanes show rough material becoming an action plan or a reusable content kit.*
+
+## What it does
+
+- **Meeting → Action Plan** turns pasted notes into a summary, decisions, owned action items, and a follow-up email.
+- **Idea → Content Kit** turns one source into a LinkedIn draft, short thread, newsletter blurb, title ideas, and hashtags.
+
+## Try it
+
+1. Pick one of the two workflows.
+2. Paste meeting notes or source material.
+3. Generate a structured draft, then review it before using it.
+
+The project is intentionally small enough to reverse engineer. It has no login, database, payment system, browser-exposed API key, or background job.
 
 ## Why these are good first workflows
 
@@ -165,8 +176,8 @@ service configuration, interface, or branding were copied from those projects.
 
 ## Project status
 
-This is an educational demo, not a production publishing system. It is an
-independent student project and is not affiliated with Cloudflare, GitHub,
+This is a learning-focused portfolio demo, not a production publishing system.
+It is an independent project and is not affiliated with Cloudflare, GitHub,
 OpenAI, Meta, or the projects listed above.
 
 The repository's root [MIT License](../LICENSE) applies to this project.
