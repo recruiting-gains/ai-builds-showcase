@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">NO MEGAPHONE</title>
+  <desc id="desc">The best contribution might be silence.</desc>
+  <rect width="1200" height="630" fill="#0b0a09"/>
+  <path d="M0 80h1200M0 550h1200" stroke="#342f2a"/>
+  <circle cx="915" cy="315" r="204" fill="none" stroke="#342f2a" stroke-width="2"/>
+  <circle cx="915" cy="315" r="145" fill="none" stroke="#ff4d00" stroke-width="2" stroke-dasharray="8 14"/>
+  <path d="M824 293h50l112-62v180l-112-62h-50zM866 349l24 66h44l-24-56" fill="none" stroke="#ff4d00" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M785 454 1023 216" stroke="#f4eddf" stroke-width="17" stroke-linecap="round"/>
+  <text x="88" y="128" fill="#ff4d00" font-family="Arial, sans-serif" font-size="25" font-weight="700" letter-spacing="6">NO MEGAPHONE</text>
+  <text x="88" y="250" fill="#f4eddf" font-family="Georgia, serif" font-size="72">The best contribution</text>
+  <text x="88" y="338" fill="#f4eddf" font-family="Georgia, serif" font-size="72">might be <tspan fill="#ff4d00" font-style="italic">silence.</tspan></text>
+  <text x="88" y="454" fill="#bdb3a4" font-family="Arial, sans-serif" font-size="27" letter-spacing="1">LISTEN FOR NEED, NOT ATTENTION.</text>
+</svg>
