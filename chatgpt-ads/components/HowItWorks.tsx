@@ -2,17 +2,17 @@ const STEPS = [
   {
     number: 1,
     title: "Upload CSV or Paste Data",
-    description: "Bring your campaign export from Google, Meta, TikTok, or LinkedIn — no formatting required.",
+    description: "Bring a campaign export from Google, Meta, TikTok, or LinkedIn, or paste a simple table.",
   },
   {
     number: 2,
-    title: "AI Audit Engine analyzes ROAS, CTR, CPC",
-    description: "Our engine crunches every metric across every campaign in seconds.",
+    title: "Transparent rules check the numbers",
+    description: "The app calculates totals and checks ROAS, CTR, and CPC against clearly explained thresholds.",
   },
   {
     number: 3,
-    title: "Get Wasted Spend + Winners + Action Plan",
-    description: "Walk away with a clear picture of what to cut, what to scale, and what to do next.",
+    title: "Review risks, strengths, and next steps",
+    description: "See which spend needs attention, which campaigns meet the winner rules, and what to review next.",
   },
 ];
 

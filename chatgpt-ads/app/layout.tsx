@@ -2,9 +2,34 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ChatGPT Ads — The Paid-Ads Operating System",
+  metadataBase: new URL("https://chatgpt-ads.recruiting-gains.workers.dev"),
+  title: "ChatGPT Ads — Transparent Campaign Health Check",
   description:
-    "Turn ChatGPT into a complete marketing agency. Audit campaigns, find wasted spend, discover winning ads, and get an optimization plan — instantly, free.",
+    "Turn a campaign export into clear totals, spend to review, qualified winners, and a practical action checklist using transparent rules.",
+  applicationName: "ChatGPT Ads",
+  alternates: {
+    canonical: "/",
+  },
+  icons: {
+    icon: "/icon.svg",
+  },
+  manifest: "/manifest.webmanifest",
+  openGraph: {
+    type: "website",
+    url: "/",
+    title: "ChatGPT Ads — Transparent Campaign Health Check",
+    description: "Upload a campaign CSV and get a fast, rule-based health check with no account or AI API.",
+    siteName: "ChatGPT Ads",
+  },
+  twitter: {
+    card: "summary",
+    title: "ChatGPT Ads — Transparent Campaign Health Check",
+    description: "Upload a campaign CSV and get a fast, rule-based health check with no account or AI API.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({

@@ -1,0 +1,16 @@
+{
+  "name": "ChatGPT Ads Campaign Health Check",
+  "short_name": "ChatGPT Ads",
+  "description": "A transparent, rule-based campaign health check.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fffbf0",
+  "theme_color": "#0f2d1f",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

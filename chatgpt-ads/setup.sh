@@ -13,4 +13,5 @@ npm run build
 echo ""
 echo "Setup complete! No API keys required."
 echo "  - Run locally:   npm run dev"
-echo "  - Deploy:        vercel --prod"
+echo "  - Verify:        npm run check"
+echo "  - Deploy:        npm run deploy"

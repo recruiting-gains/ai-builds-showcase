@@ -8,17 +8,23 @@ const FAQS = [
   },
   {
     question: "Does it work with all platforms?",
-    answer: "Yes — Google Ads, Meta Ads, TikTok Ads, and LinkedIn Ads exports are all supported.",
+    answer:
+      "It recognizes common campaign columns from Google Ads, Meta Ads, TikTok Ads, and LinkedIn Ads. Export labels can vary, so if a column is not recognized, rename it to the template labels: campaign, spend, clicks, impressions, conversions, ROAS, CTR, and CPC.",
   },
   {
     question: "Is my data safe?",
     answer:
-      "Your data is processed entirely to generate your audit results and is never sold or shared with third parties. No API keys or accounts are required.",
+      "The submitted table is sent to this site's Cloudflare Worker, processed in memory, and returned as a result. The app does not save campaign contents, create an account, or send the data to an AI provider.",
   },
   {
-    question: "How accurate is it?",
+    question: "Is ChatGPT or another AI model reading my data?",
     answer:
-      "The engine uses proven media-buying heuristics (ROAS, CTR, and CPC thresholds) to calculate results directly from your numbers — no guesswork, no AI hallucinations.",
+      "No. ChatGPT Ads is the project name, but this version uses visible, deterministic rules and ordinary calculations. No AI API is called.",
+  },
+  {
+    question: "How should I use the results?",
+    answer:
+      "Treat them as an educational first pass, not financial advice. Platform goals, margins, attribution, and campaign context vary, so review the source data before changing a budget.",
   },
 ];
 

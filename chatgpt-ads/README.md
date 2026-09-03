@@ -1,97 +1,93 @@
-# ChatGPT Ads — The Paid-Ads Operating System
+# ChatGPT Ads
 
-A full-stack Next.js 14 (App Router) + TypeScript + Tailwind CSS landing page and live demo tool that audits ad campaign data — **no AI API keys required**. All auditing logic runs on a deterministic, real-math engine (`lib/auditor.ts`).
+ChatGPT Ads is a transparent campaign health-check tool that recognizes common Google, Meta, TikTok, and LinkedIn ad-export columns.
 
-## Features
+**Live app:** <https://chatgpt-ads.recruiting-gains.workers.dev/>
 
-- Landing page with hero, social proof, problem/solution, how-it-works, features grid, live demo, example results, FAQ, and final CTA.
-- **Live Demo Tool**: upload a CSV or paste campaign data (Google, Meta, TikTok, or LinkedIn) and get an instant audit.
-- **Real audit engine** (no external AI calls):
-  - Computes total spend, average ROAS/CTR/CPC.
-  - Flags **wasted spend**: ROAS < 1.2x with spend > $100, CTR < 0.8%, or CPC > $3.
-  - Surfaces **top 3 winning ads** by ROAS.
-  - Generates a 5-step **optimization plan** based on the data.
-- Fully responsive, beige (`#FFFBF0`) background with dark green (`#0F2D1F`) text.
-- Vercel-ready, zero environment variables.
+Upload a CSV or paste a campaign table. The app calculates overall performance, identifies campaign spend that needs review, finds campaigns that clear every winner guardrail, and returns a practical five-step checklist.
 
-## Getting Started
+Despite the project name, this version does **not** call ChatGPT or another AI model. It uses deterministic calculations and clearly stated thresholds, so the same input always produces the same result. It is an independent portfolio project and is not affiliated with OpenAI or any advertising platform.
 
-```bash
-./setup.sh        # npm install + npm run build
-npm run dev        # start local dev server on http://localhost:3000
+## What it checks
+
+- Total spend, clicks, impressions, and conversions
+- Spend-weighted ROAS
+- Overall CTR calculated from total clicks and impressions
+- Overall CPC calculated from total spend and clicks
+- Campaigns that need review because ROAS is missing or below `1.2x` on more than `$100`, CTR is below `0.8%`, or CPC is above `$3`
+- Up to three qualified winners with ROAS of at least `2x` that are not flagged by any other guardrail
+- A five-step review checklist based on the submitted numbers
+
+“Spend at risk” means the complete spend associated with a campaign that crossed at least one review rule. It is not a claim that every flagged dollar was lost. Results are an educational first pass, not financial advice.
+
+## Privacy and limits
+
+- No account, ad-platform login, API key, database, or campaign-history storage
+- Submitted data is processed in memory by the Cloudflare Worker and is not sent to an AI provider
+- CSV files must be `512 KB` or smaller
+- Requests are limited to `500` rows, `40` columns per row, and bounded cell sizes
+- Invalid platforms, nested input, incorrect file types, and oversized requests are rejected
+- API responses are not cached
+
+Avoid submitting personal information, credentials, or secrets. Standard hosting security and operational metadata may still be handled by Cloudflare as the infrastructure provider.
+
+## Architecture
+
+```text
+Browser
+  ├─ Next.js landing page and accessible campaign form
+  ├─ CSV upload or pasted table
+  └─ Results rendered from validated JSON
+           │
+           ▼
+Cloudflare Worker (OpenNext)
+  ├─ validates request type and size
+  ├─ validates platform, rows, columns, and cells
+  ├─ parses CSV and common campaign column aliases
+  ├─ computes deterministic campaign metrics and guardrails
+  └─ returns a no-store JSON response
 ```
 
-## Deploy Your Own
+The production stack is Next.js 16, React 19, TypeScript, Tailwind CSS, OpenNext, and Cloudflare Workers. There are no runtime secrets or external APIs.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/recruiting-gains/ai-builds-showcase/tree/main/chatgpt-ads)
+## Run locally
 
-Clicking this deploys a copy of `chatgpt-ads` straight to **your own** Cloudflare account — no credentials are ever shared with the original author. Cloudflare clones the repo into your GitHub, builds it with the settings from `wrangler.toml`/`package.json` below, and provisions the Pages project for you automatically.
+Requirements: Node.js 22 or newer and npm.
+
+```bash
+npm ci
+npm run dev
+```
+
+## Verify
+
+```bash
+npm run check
+npm run deploy:check
+npm audit
+```
+
+The checks cover ESLint, TypeScript through the production build, campaign-engine tests, input-limit tests, the Next.js build, the OpenNext conversion, and a Wrangler deployment dry run.
 
 ## Deploy
 
-### Vercel
+Authenticate Wrangler to the target Cloudflare account, then run:
 
 ```bash
-vercel --prod
+npm run deploy
 ```
 
-### Cloudflare Pages
+The Worker name is `chatgpt-ads`, configured in `wrangler.jsonc`. The production address is `chatgpt-ads.recruiting-gains.workers.dev`.
 
-This app can also be deployed to Cloudflare Pages via [`@cloudflare/next-on-pages`](https://github.com/cloudflare/next-on-pages), without affecting the Vercel deployment above.
+## Project structure
 
-`wrangler.toml` in this directory codifies the build output directory and the `nodejs_compat` compatibility flag, so connecting this repo to Cloudflare Pages' Git integration mostly just works — no manual flag toggling required in the dashboard. In Cloudflare Pages project settings, set:
-
-| Setting | Value |
-| --- | --- |
-| Root directory | `chatgpt-ads` |
-| Build command | `npx @cloudflare/next-on-pages@1` |
-| Build output directory | `.vercel/output/static` |
-| Compatibility flag | `nodejs_compat` (also set via `wrangler.toml`) |
-
-Once connected, every push to `main` triggers a production deploy and every branch/PR push gets its own preview deploy automatically — same as Vercel's Git integration.
-
-You can also build locally with:
-
-```bash
-npm run pages:build
+```text
+app/                       Next.js page, metadata, and API routes
+components/                Landing-page sections, form, and result UI
+lib/auditor.ts             Deterministic calculations and guardrails
+lib/input-validation.ts    Request, platform, row, column, and size limits
+public/                    Icon, manifest, and asset cache rules
+test/                      Campaign-engine and request-validation tests
+open-next.config.ts        OpenNext adapter configuration
+wrangler.jsonc             Cloudflare Worker and static-asset configuration
 ```
-
-## Project Structure
-
-```
-chatgpt-ads/
-  app/
-    page.tsx              # Landing page
-    layout.tsx
-    globals.css
-    api/
-      audit/route.ts      # POST { platform, data } -> audit result
-      upload/route.ts      # Parses uploaded CSV with papaparse
-  components/
-    Hero.tsx
-    Features.tsx
-    HowItWorks.tsx
-    AuditTool.tsx
-    Results.tsx
-    FAQ.tsx
-  lib/
-    auditor.ts             # Real audit engine (no AI keys)
-  vercel.json
-  setup.sh
-```
-
-## API
-
-### `POST /api/audit`
-
-```json
-{ "platform": "Meta Ads", "data": [{ "name": "Summer Sale", "spend": 450, "clicks": 120, "impressions": 15000, "conversions": 8 }] }
-```
-
-Returns `{ totalSpend, avgRoas, avgCtr, avgCpc, wastedSpend, winningAds, optimizationPlan, summary }`.
-
-### `POST /api/upload`
-
-Accepts `multipart/form-data` with a `file` field (CSV) and returns parsed rows for use with `/api/audit`.
-
-No environment variables or API keys are required anywhere in this project.

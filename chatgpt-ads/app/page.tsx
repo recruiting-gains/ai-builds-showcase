@@ -1,4 +1,3 @@
-import Link from "next/link";
 import Hero from "@/components/Hero";
 import Features from "@/components/Features";
 import HowItWorks from "@/components/HowItWorks";
@@ -21,8 +20,8 @@ export default function Home() {
     <main className="min-h-screen bg-beige text-dark-green">
       {/* Nav */}
       <header className="sticky top-0 z-50 border-b border-dark-green/10 bg-beige/90 backdrop-blur">
-        <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <span className="text-xl font-black">ChatGPT Ads</span>
+        <nav className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
+          <span className="shrink-0 text-lg font-black sm:text-xl">ChatGPT Ads</span>
           <div className="hidden items-center gap-8 md:flex">
             <a href="#features" className="font-medium hover:text-green-700">
               Features
@@ -36,7 +35,7 @@ export default function Home() {
           </div>
           <a
             href="#demo"
-            className="rounded-lg bg-dark-green px-5 py-2.5 font-bold text-beige transition hover:bg-green-800"
+            className="shrink-0 rounded-lg bg-dark-green px-3 py-2.5 text-sm font-bold text-beige transition hover:bg-green-800 sm:px-5 sm:text-base"
           >
             Try Audit
           </a>
@@ -45,20 +44,13 @@ export default function Home() {
 
       <Hero />
 
-      {/* Social proof */}
+      {/* Trust strip */}
       <section className="border-y border-dark-green/10 bg-white/40 py-10">
-        <p className="text-center text-sm font-semibold uppercase tracking-wide text-dark-green/60">
-          Trusted by media buyers at
-        </p>
-        <div className="mx-auto mt-6 flex max-w-4xl items-center justify-center gap-12">
-          {["Agency One", "Growth Labs", "AdScale"].map((name) => (
-            <div
-              key={name}
-              className="flex h-12 w-40 items-center justify-center rounded-md bg-dark-green/10 text-sm font-semibold text-dark-green/50"
-            >
-              {name}
-            </div>
-          ))}
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-10 gap-y-4 px-6 text-center text-sm font-bold text-dark-green/75">
+          <span>✓ No account</span>
+          <span>✓ No API key</span>
+          <span>✓ No saved campaign contents</span>
+          <span>✓ No AI provider receives the data</span>
         </div>
       </section>
 
@@ -67,9 +59,9 @@ export default function Home() {
         <h2 className="text-center text-3xl font-black md:text-4xl">Sound familiar?</h2>
         <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
           {[
-            { title: "Wasting ad spend?", copy: "Budget bleeding into campaigns that never convert." },
-            { title: "Guessing which ads work?", copy: "No clear signal on what to scale versus kill." },
-            { title: "No optimization plan?", copy: "Data without a next step is just noise." },
+            { title: "Too many campaign rows?", copy: "A long export makes it hard to see where attention is needed first." },
+            { title: "Unsure what looks healthy?", copy: "ROAS, CTR, and CPC tell different parts of the story." },
+            { title: "Need a starting point?", copy: "A transparent checklist can guide a deeper, human review." },
           ].map((card) => (
             <div key={card.title} className="rounded-xl border border-dark-green/10 bg-white/60 p-6 text-center shadow-sm">
               <h3 className="text-xl font-bold">{card.title}</h3>
@@ -82,9 +74,10 @@ export default function Home() {
       {/* Solution */}
       <section className="bg-dark-green px-6 py-16 text-beige">
         <div className="mx-auto max-w-3xl text-center">
-          <h2 className="text-3xl font-black md:text-4xl">The Paid-Ads OS</h2>
+          <h2 className="text-3xl font-black md:text-4xl">A plain-English campaign health check</h2>
           <p className="mt-4 text-lg text-beige/90">
-            That audits your campaigns, finds your winners, and builds your optimization plan — automatically.
+            It turns a campaign table into totals, spend that needs review, qualified winners, and a five-step checklist.
+            Every result comes from visible rules—not a hidden AI judgment.
           </p>
         </div>
       </section>
@@ -97,26 +90,49 @@ export default function Home() {
       <section className="mx-auto max-w-6xl px-6 py-16">
         <h2 className="text-center text-3xl font-black md:text-4xl">Example Results</h2>
         <p className="mt-3 text-center text-dark-green/80">
-          Here&apos;s a sample audit output from real campaign data — see the kind of insight you&apos;ll get.
+          This fictional demo data shows the type of result the tool creates. It does not represent a real advertiser.
         </p>
         <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <ExampleStat label="Total Spend" value={`$${EXAMPLE_RESULT.totalSpend.toLocaleString()}`} />
           <ExampleStat label="Avg ROAS" value={`${EXAMPLE_RESULT.avgRoas}x`} />
-          <ExampleStat label="Wasted Spend" value={`$${EXAMPLE_RESULT.wastedSpend.amount.toLocaleString()}`} />
+          <ExampleStat label="Spend to Review" value={`$${EXAMPLE_RESULT.spendAtRisk.amount.toLocaleString()}`} />
           <ExampleStat label="Winning Ads Found" value={`${EXAMPLE_RESULT.winningAds.length}`} />
         </div>
       </section>
 
       <FAQ />
 
+      <section id="privacy" className="border-y border-dark-green/10 bg-white/45 px-6 py-16">
+        <div className="mx-auto max-w-3xl">
+          <p className="text-sm font-bold uppercase tracking-[0.16em] text-green-700">Data &amp; privacy</p>
+          <h2 className="mt-3 text-3xl font-black md:text-4xl">Your campaign contents are not saved by this app.</h2>
+          <div className="mt-6 space-y-4 leading-relaxed text-dark-green/80">
+            <p>
+              When you run a check, the CSV or pasted table travels to this site&apos;s Cloudflare Worker. It is processed in
+              memory to calculate the response and is not written to an application database or sent to ChatGPT or another
+              AI provider.
+            </p>
+            <p>
+              The site does not require an account, advertising-platform login, tracking pixel, or API key. Avoid submitting
+              personal information or secrets. Standard hosting security and operational metadata may still be handled by
+              Cloudflare as the infrastructure provider.
+            </p>
+            <p className="font-semibold text-dark-green">
+              The results are an educational starting point—not financial advice or a replacement for campaign context,
+              attribution analysis, or professional judgment.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Final CTA */}
       <section className="bg-dark-green px-6 py-20 text-center text-beige">
-        <h2 className="text-3xl font-black md:text-4xl">Ready to turn ChatGPT into your agency?</h2>
+        <h2 className="text-3xl font-black md:text-4xl">Ready to see what needs attention?</h2>
         <a
           href="#demo"
           className="mt-8 inline-block rounded-lg bg-beige px-8 py-4 text-lg font-bold text-dark-green transition hover:bg-white"
         >
-          Run Your Audit
+          Run a Campaign Check
         </a>
       </section>
 
@@ -134,12 +150,15 @@ export default function Home() {
             <a href="#demo" className="hover:text-green-700">
               Demo
             </a>
-            <Link href="/" className="hover:text-green-700">
+            <a href="#privacy" className="hover:text-green-700">
               Privacy
-            </Link>
+            </a>
           </div>
           <span className="text-sm text-dark-green/60">© {new Date().getFullYear()} ChatGPT Ads</span>
         </div>
+        <p className="mx-auto mt-6 max-w-4xl text-center text-xs leading-relaxed text-dark-green/55">
+          Independent portfolio project. Not affiliated with or endorsed by OpenAI, Google, Meta, TikTok, or LinkedIn.
+        </p>
       </footer>
     </main>
   );
