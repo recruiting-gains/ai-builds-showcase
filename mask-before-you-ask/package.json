@@ -1,0 +1,34 @@
+{
+  "name": "mask-before-you-ask",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A private, browser-only checkpoint for masking sensitive details before sharing text.",
+  "scripts": {
+    "build": "vite build && node scripts/prepare-assets.mjs",
+    "cf-typegen": "wrangler types",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:e2e && npm run deploy:check",
+    "deploy": "npm run build && wrangler deploy",
+    "deploy:check": "npm run build && wrangler deploy --dry-run",
+    "dev": "npm run build && wrangler dev --port 8787 --live-reload",
+    "format:check": "biome format .",
+    "lint": "biome lint .",
+    "serve:e2e": "node scripts/serve-e2e.mjs",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "npm run build && playwright test",
+    "typecheck": "tsc --noEmit -p tsconfig.client.json && tsc --noEmit -p tsconfig.worker.json && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.e2e.json"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@biomejs/biome": "2.5.12",
+    "@cloudflare/workers-types": "5.20260903.1",
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^26.4.1",
+    "@vitest/coverage-v8": "4.1.11",
+    "typescript": "7.0.2",
+    "vite": "^7.1.5",
+    "vitest": "4.1.11",
+    "wrangler": "4.129.0"
+  }
+}

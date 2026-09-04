@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Find and mask common private details before sharing text with an AI tool. The check runs in your browser and nothing is saved."
+    />
+    <meta name="theme-color" content="#07111f" />
+    <meta property="og:title" content="Mask Before You Ask" />
+    <meta
+      property="og:description"
+      content="A private, in-browser check for common sensitive details before you share text with AI."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title>Mask Before You Ask — Keep private details out of your prompt</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#privacy-checker">Skip to the privacy checker</a>
+    <div class="page-atmosphere" aria-hidden="true">
+      <span class="glow glow-mint"></span>
+      <span class="glow glow-coral"></span>
+      <span class="page-grid"></span>
+      <span class="page-grain"></span>
+    </div>
+
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Mask Before You Ask home">
+        <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
+          <path d="M24 4 40 10v12c0 10.8-6.4 18.2-16 22-9.6-3.8-16-11.2-16-22V10z" />
+          <path d="m16.5 24 4.7 4.7 10.7-11" />
+        </svg>
+        <span>Mask Before You Ask</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="#how-it-works">How it works</a>
+        <a href="#privacy">Privacy</a>
+      </nav>
+      <a
+        class="header-link"
+        href="https://github.com/recruiting-gains/ai-builds-showcase/tree/main/mask-before-you-ask"
+      >
+        View source <span aria-hidden="true">↗</span>
+      </a>
+    </header>
+
+    <noscript>
+      <div class="noscript-note">
+        <strong>JavaScript is off.</strong>
+        This privacy checker runs on your device and needs JavaScript to find and mask details.
+      </div>
+    </noscript>
+
+    <main id="top">
+      <section class="hero shell" aria-labelledby="hero-title">
+        <div class="hero-story">
+          <p class="eyebrow"><span aria-hidden="true">●</span> A private check before you share</p>
+          <h1 id="hero-title">Share the question. <em>Keep your private details.</em></h1>
+          <p class="hero-lede">
+            Paste what you plan to share with AI. Review what looks sensitive, mask it, and copy a
+            cleaner version.
+          </p>
+
+          <ul class="trust-list" aria-label="Privacy promises">
+            <li><span aria-hidden="true">✓</span> Runs in this browser</li>
+            <li><span aria-hidden="true">✓</span> No account</li>
+            <li><span aria-hidden="true">✓</span> Nothing saved</li>
+          </ul>
+
+          <figure class="hero-picture">
+            <img
+              src="/privacy-checkpoint.webp"
+              width="1600"
+              height="900"
+              alt="Miniature privacy desk where a note passes through a shield and emerges with its private details covered."
+            />
+            <figcaption>
+              <span><b aria-hidden="true"></b> Private detail</span>
+              <span><b aria-hidden="true"></b> Ready to share</span>
+            </figcaption>
+          </figure>
+        </div>
+
+        <section
+          class="workspace"
+          id="privacy-checker"
+          aria-labelledby="workspace-title"
+          tabindex="-1"
+        >
+          <div class="workspace-topbar">
+            <div class="workspace-title">
+              <span class="status-light" aria-hidden="true"></span>
+              <div>
+                <strong id="workspace-title">Privacy checkpoint</strong>
+                <small>Your text stays in this tab</small>
+              </div>
+            </div>
+            <span class="local-badge"><span aria-hidden="true">⌁</span> On-device check</span>
+          </div>
+
+          <ol class="progress-steps" aria-label="Privacy check progress">
+            <li class="is-active" data-progress-step="paste" aria-current="step">
+              <span>1</span><div><strong>Paste</strong><small>Add your text</small></div>
+            </li>
+            <li data-progress-step="review">
+              <span>2</span><div><strong>Review</strong><small>Choose details</small></div>
+            </li>
+            <li data-progress-step="copy">
+              <span>3</span><div><strong>Copy</strong><small>Use the clean version</small></div>
+            </li>
+          </ol>
+
+          <div class="workspace-body">
+            <form class="stage stage-paste" id="scan-form" data-stage="paste" novalidate>
+              <div class="stage-heading">
+                <p class="stage-number">01 / PASTE</p>
+                <h2>What are you about to share?</h2>
+                <p>Add the text here first. It is checked in this browser, not sent to an AI model.</p>
+              </div>
+
+              <label class="field-label" for="source-text">Your text</label>
+              <textarea
+                id="source-text"
+                name="sourceText"
+                rows="11"
+                maxlength="50000"
+                autocomplete="off"
+                autocapitalize="none"
+                autocorrect="off"
+                spellcheck="false"
+                aria-describedby="source-help character-count scan-message"
+                placeholder="Paste an email, note, form response, or AI question here…"
+                required
+              ></textarea>
+              <div class="field-meta">
+                <span id="source-help">Do not paste passwords or complete financial records.</span>
+                <span id="character-count">0 / 50,000</span>
+              </div>
+
+              <div class="optional-field">
+                <label class="field-label" for="names-to-hide">
+                  Names or words to hide <span>Optional</span>
+                </label>
+                <input
+                  id="names-to-hide"
+                  name="namesToHide"
+                  type="text"
+                  maxlength="1000"
+                  autocomplete="off"
+                  autocapitalize="none"
+                  autocorrect="off"
+                  spellcheck="false"
+                  aria-describedby="names-help"
+                  placeholder="Example: Jordan Lee, Acme Project"
+                />
+                <p id="names-help" class="field-help">Separate several names or phrases with commas. Names are not guessed.</p>
+              </div>
+
+              <p class="form-message" id="scan-message" role="alert" hidden></p>
+
+              <div class="stage-actions stage-actions-split">
+                <div class="quiet-actions">
+                  <button class="button button-quiet" id="load-example" type="button">Try a safe example</button>
+                  <button class="button button-text" id="clear-input" type="button" disabled>Clear</button>
+                </div>
+                <button class="button button-primary" id="scan-button" type="submit" disabled>
+                  Find private details <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            </form>
+
+            <section class="stage stage-review" data-stage="review" aria-labelledby="review-title" hidden>
+              <div class="stage-heading stage-heading-row">
+                <div>
+                  <p class="stage-number">02 / REVIEW</p>
+                  <h2 id="review-title" tabindex="-1">Review possible matches</h2>
+                  <p id="review-summary">Choose what should be replaced before you continue.</p>
+                </div>
+                <span class="finding-count" id="finding-count">0 found</span>
+              </div>
+
+              <aside class="review-note">
+                <span aria-hidden="true">!</span>
+                <p><strong>You make the final call.</strong> Coral marks are strong matches. Amber marks need a closer look.</p>
+              </aside>
+
+              <div class="source-card">
+                <div class="card-topline">
+                  <h3>Original text</h3>
+                  <span>Only visible in this tab</span>
+                </div>
+                <section
+                  class="source-preview"
+                  id="source-preview"
+                  aria-label="Original text with possible private details marked"
+                ></section>
+              </div>
+
+              <div class="no-findings" id="no-findings" hidden>
+                <span aria-hidden="true">✓</span>
+                <div>
+                  <h3>No common private details were found.</h3>
+                  <p>That is not a guarantee. Read the text once more, or go back and add a name or phrase to hide.</p>
+                </div>
+              </div>
+
+              <fieldset class="findings-fieldset" id="findings-fieldset">
+                <legend>Details to mask</legend>
+                <div class="findings-list" id="findings-list"></div>
+              </fieldset>
+
+              <p class="selection-message" id="selection-message" aria-live="polite"></p>
+
+              <div class="stage-actions">
+                <button class="button button-quiet" id="back-to-paste" type="button">
+                  <span aria-hidden="true">←</span> Edit text
+                </button>
+                <button class="button button-primary" id="mask-button" type="button">
+                  Mask selected details <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            </section>
+
+            <section class="stage stage-copy" data-stage="copy" aria-labelledby="copy-title" hidden>
+              <div class="success-heading">
+                <span class="success-mark" aria-hidden="true">✓</span>
+                <div>
+                  <p class="stage-number">03 / COPY</p>
+                  <h2 id="copy-title" tabindex="-1">Your cleaned copy is ready.</h2>
+                  <p id="copy-summary">Private details were replaced with useful labels.</p>
+                </div>
+              </div>
+
+              <div class="output-card">
+                <div class="card-topline">
+                  <label for="cleaned-text">Cleaned text</label>
+                  <span id="replacement-count">0 replacements</span>
+                </div>
+                <textarea
+                  id="cleaned-text"
+                  rows="12"
+                  readonly
+                  autocomplete="off"
+                  autocapitalize="none"
+                  autocorrect="off"
+                  spellcheck="false"
+                  aria-describedby="output-help"
+                ></textarea>
+              </div>
+
+              <p class="output-help" id="output-help">
+                This catches common patterns, not everything. Read the cleaned copy before sharing it.
+              </p>
+
+              <div class="stage-actions stage-actions-split">
+                <div class="quiet-actions">
+                  <button class="button button-quiet" id="change-selections" type="button">Change selections</button>
+                  <button class="button button-text" id="start-over" type="button">Start over</button>
+                </div>
+                <button class="button button-primary copy-button" id="copy-button" type="button">
+                  <span class="copy-label">Copy cleaned text</span> <span aria-hidden="true">⧉</span>
+                </button>
+              </div>
+            </section>
+          </div>
+
+          <div class="workspace-footnote">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V8a5 5 0 0 1 10 0v2m-11 0h12v10H6z" /></svg>
+            <p><strong>No model reads this.</strong> Detection and masking happen locally. Closing or clearing the page removes the working copy.</p>
+          </div>
+        </section>
+      </section>
+
+      <section class="plain-strip" aria-label="A simple explanation of the product">
+        <p><strong>Your meaning stays.</strong> Common private details become clear labels such as <code>[EMAIL]</code> and <code>[PHONE NUMBER]</code>.</p>
+      </section>
+
+      <section class="how-section shell" id="how-it-works" aria-labelledby="how-title">
+        <div class="section-heading">
+          <p class="eyebrow">Three small steps</p>
+          <h2 id="how-title">A quick checkpoint before the prompt.</h2>
+          <p>You stay in control from the first paste to the final copy.</p>
+        </div>
+        <ol class="how-grid">
+          <li>
+            <span class="how-number">01</span>
+            <div class="how-icon icon-paste" aria-hidden="true"><span></span><i></i><i></i><i></i></div>
+            <h3>Paste</h3>
+            <p>Add the question, note, or email you plan to share. Nothing leaves the page.</p>
+          </li>
+          <li>
+            <span class="how-number">02</span>
+            <div class="how-icon icon-review" aria-hidden="true"><span></span><i></i><i></i></div>
+            <h3>Review</h3>
+            <p>Check each possible match. Add a name or phrase the pattern check cannot know.</p>
+          </li>
+          <li>
+            <span class="how-number">03</span>
+            <div class="how-icon icon-copy" aria-hidden="true"><span>[EMAIL]</span><i>✓</i></div>
+            <h3>Copy</h3>
+            <p>Use the cleaned version in the AI tool of your choice, after one final read.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="privacy-section" id="privacy" aria-labelledby="privacy-title">
+        <div class="shell privacy-layout">
+          <div class="privacy-copy">
+            <p class="eyebrow"><span aria-hidden="true">●</span> Privacy by design</p>
+            <h2 id="privacy-title">The safest server is the one that never receives your text.</h2>
+            <p>
+              The site is delivered by Cloudflare, but the words you paste are checked by code already
+              running in your browser. They are not uploaded, stored, or used to train a model.
+            </p>
+          </div>
+          <ul class="privacy-points">
+            <li><span>01</span><div><strong>No account</strong><p>There is no sign-in and no personal profile.</p></div></li>
+            <li><span>02</span><div><strong>No text history</strong><p>The app does not keep previous checks.</p></div></li>
+            <li><span>03</span><div><strong>No AI analysis</strong><p>Transparent browser rules find common patterns.</p></div></li>
+            <li><span>04</span><div><strong>No false promise</strong><p>A final human review is still necessary.</p></div></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="limits-section shell" aria-labelledby="limits-title">
+        <div class="limits-card">
+          <div>
+            <p class="eyebrow">Know the limit</p>
+            <h2 id="limits-title">A useful filter—not a guarantee.</h2>
+          </div>
+          <p>
+            The checker can notice common formats such as email addresses, phone numbers, payment-card-like
+            numbers, internet addresses, private links, dates, and labeled account references. Context is
+            messy, so review every mark and add any person, place, or project name you want hidden.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-inner">
+        <a class="brand footer-brand" href="#top">
+          <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
+            <path d="M24 4 40 10v12c0 10.8-6.4 18.2-16 22-9.6-3.8-16-11.2-16-22V10z" />
+            <path d="m16.5 24 4.7 4.7 10.7-11" />
+          </svg>
+          <span>Mask Before You Ask</span>
+        </a>
+        <p>An original, independent project for the AI Builds Showcase.</p>
+        <div class="footer-links">
+          <a href="https://github.com/recruiting-gains/ai-builds-showcase">Portfolio</a>
+          <a href="https://github.com/recruiting-gains/ai-builds-showcase/tree/main/mask-before-you-ask">Source</a>
+        </div>
+      </div>
+    </footer>
+
+    <div class="sr-only" id="status-message" role="status" aria-live="polite" aria-atomic="true"></div>
+    <script type="module" src="/src/client/main.ts"></script>
+  </body>
+</html>

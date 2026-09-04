@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Mask Before You Ask shield</title>
+  <rect width="64" height="64" rx="16" fill="#07111f"/>
+  <path d="M32 8 51 15v14c0 13-7.6 22-19 27-11.4-5-19-14-19-27V15z" fill="#7cf0b8" fill-opacity=".14" stroke="#7cf0b8" stroke-width="3"/>
+  <path d="m22 31 6 6 14-15" fill="none" stroke="#f6faff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/>
+</svg>

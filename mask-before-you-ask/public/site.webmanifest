@@ -1,0 +1,18 @@
+{
+  "name": "Mask Before You Ask",
+  "short_name": "Mask Before",
+  "description": "Find and mask common private details before sharing text with AI.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#07111f",
+  "theme_color": "#07111f",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

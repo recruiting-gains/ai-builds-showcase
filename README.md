@@ -2,9 +2,9 @@
 
 I build practical tools that make complicated work clearer and easier to use.
 
-![Miniature build lab with five connected working areas representing the projects in this portfolio.](./docs/assets/showcase/portfolio-hub.webp)
+![Miniature build lab with connected working areas representing the projects in this portfolio.](./docs/assets/showcase/portfolio-hub.webp)
 
-*Five working models. Five different problems. One build-test-improve process.*
+*Six working models. Six different problems. One build-test-improve process.*
 
 Every project here goes beyond a first answer: I build it, test it, debug it, deploy it, and learn from the result.
 
@@ -70,6 +70,19 @@ Every project here goes beyond a first answer: I build it, test it, debug it, de
       Checks exported campaign data with clear rules and shows what needs attention. No AI model is used.
       <br>
       <a href="https://chatgpt-ads.recruiting-gains.workers.dev/"><strong>Open live build ↗</strong></a> · <a href="./chatgpt-ads">Read how it works</a>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2">
+      <a href="./mask-before-you-ask">
+        <img src="./docs/assets/showcase/mask-before-you-ask.webp" alt="Miniature privacy desk where a note passes through a shield and emerges with its private details covered.">
+      </a>
+      <br>
+      <strong><a href="./mask-before-you-ask">Mask Before You Ask</a></strong>
+      <br>
+      Finds common private details in text and replaces them before you share it with AI.
+      <br>
+      <a href="https://mask-before-you-ask.recruiting-gains.workers.dev/"><strong>Open live build ↗</strong></a> · <a href="./mask-before-you-ask">Read how it works</a>
     </td>
   </tr>
 </table>
