@@ -4,13 +4,26 @@ I build practical tools that make complicated work clearer and easier to use.
 
 ![Miniature build lab with connected working areas representing the projects in this portfolio.](./docs/assets/showcase/portfolio-hub.webp)
 
-*Six working models. Six different problems. One build-test-improve process.*
+*A growing collection of working models. Different problems. One build-test-improve process.*
 
 Every project here goes beyond a first answer: I build it, test it, debug it, deploy it, and learn from the result.
 
 ## Live builds
 
 <table>
+  <tr>
+    <td colspan="2">
+      <a href="https://thenfold.recruiting-gains.workers.dev/">
+        <img src="./docs/assets/showcase/thenfold.webp" alt="A golden folded business change moving through transparent review layers into a connected network of answers and actions.">
+      </a>
+      <br>
+      <strong><a href="https://thenfold.recruiting-gains.workers.dev/">Thenfold</a></strong>
+      <br>
+      A 3D rehearsal room for business changes: compare what is active with what is proposed, inspect the represented connections, and let a person decide what happens next.
+      <br>
+      <a href="https://thenfold.recruiting-gains.workers.dev/"><strong>Open live build ↗</strong></a> · <a href="https://thenfold.recruiting-gains.workers.dev/how-it-works/">See how it works</a> · <a href="https://thenfold.recruiting-gains.workers.dev/available/">Available for licensed installation</a>
+    </td>
+  </tr>
   <tr>
     <td colspan="2">
       <a href="./memory-city">
