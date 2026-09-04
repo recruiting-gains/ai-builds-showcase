@@ -165,4 +165,4 @@ wrangler.jsonc   Cloudflare bindings and deployment configuration
 
 LoopLab is an independent project by Cruz for [AI Builds Showcase](https://github.com/recruiting-gains/ai-builds-showcase). It is not affiliated with or endorsed by OpenAI, Anthropic, Meta, Cloudflare, or Andrej Karpathy.
 
-Project code is covered by the parent repository's [MIT license](../LICENSE). Dependencies and bundled fonts retain their own licenses. The original laboratory artwork and its creation prompt are documented in [Asset Notes](./docs/ASSET-NOTES.md).
+Project code is covered by the parent repository's [MIT license](../LICENSE). Dependencies and bundled fonts retain their own licenses; the deployed copy includes [third-party notices](./public/THIRD-PARTY-NOTICES.txt). The original laboratory artwork and its creation prompt are documented in [Asset Notes](./docs/ASSET-NOTES.md).
