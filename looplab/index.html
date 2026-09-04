@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#080d16" />
+    <meta
+      name="description"
+      content="A playable lab for better AI prompts. Compare two prompts on ten fixed examples, inspect every failure, and improve one change at a time."
+    />
+    <meta
+      property="og:title"
+      content="LoopLab — Stop guessing. Start testing."
+    />
+    <meta
+      property="og:description"
+      content="Two prompts. One fair test. Step inside a 3D AI experiment lab and see what actually improves."
+    />
+    <meta
+      property="og:image"
+      content="https://looplab.recruiting-gains.workers.dev/looplab-lab.webp"
+    />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:url"
+      content="https://looplab.recruiting-gains.workers.dev/"
+    />
+    <link
+      rel="canonical"
+      href="https://looplab.recruiting-gains.workers.dev/"
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>LoopLab — Stop guessing. Start testing.</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#experiment">Skip to experiment controls</a>
+    <header class="site-header shell">
+      <a class="brand" href="/" aria-label="LoopLab home"
+        ><svg viewBox="0 0 40 40" aria-hidden="true">
+          <path
+            d="M25 8H15a12 12 0 0 0 0 24h3V21h-5m2 11h10a12 12 0 0 0 0-24h-3v11h5"
+          /></svg
+        ><span
+          >loop<span class="brand-light">lab</span
+          ><small>THE PROMPT PLAYGROUND</small></span
+        ></a
+      >
+      <nav aria-label="Main">
+        <button class="text-button" id="how-button">How it works</button
+        ><a
+          class="github-link"
+          href="https://github.com/recruiting-gains/ai-builds-showcase/tree/main/looplab"
+          target="_blank"
+          rel="noopener noreferrer"
+          >View source <span aria-hidden="true">↗</span></a
+        >
+      </nav>
+    </header>
+    <main class="shell">
+      <section class="intro" aria-labelledby="title">
+        <div>
+          <p class="eyebrow">
+            <span class="signal"></span> SMALL EXPERIMENTS. BETTER ANSWERS.
+          </p>
+          <h1 id="title">Stop guessing.<br /><span>Start testing.</span></h1>
+        </div>
+        <div class="intro-note">
+          <p>
+            Your prompt is a hypothesis. <br />Let’s put it through the lab.
+          </p>
+          <div class="intro-chips">
+            <span>2 prompts</span><span>10 test cases</span
+            ><span>Every result explained</span>
+          </div>
+        </div>
+      </section>
+      <section
+        class="arena"
+        aria-label="Interactive three-dimensional experiment lab"
+      >
+        <div class="arena-top">
+          <span class="lab-label"
+            ><i></i> EXPERIMENT 01
+            <span class="muted">/ EVENT DETAILS</span></span
+          ><button
+            class="scene-control"
+            id="motion-button"
+            aria-pressed="false"
+            aria-label="Pause lab animation"
+          >
+            Pause motion <span aria-hidden="true">Ⅱ</span>
+          </button>
+        </div>
+        <div class="scene-wrap" id="scene-wrap">
+          <img
+            class="scene-fallback"
+            id="scene-fallback"
+            src="/looplab-lab.webp"
+            alt="Two glowing testing lanes inside a miniature science-fiction lab"
+          />
+          <div id="lab-scene" aria-hidden="true"></div>
+        </div>
+        <div class="arena-caption">
+          <span class="tiny-pill">LIVE WORKBENCH</span>
+          <h2>Two prompts.<br />One fair test.</h2>
+          <p>Same model. Same examples.<br />Only your instructions change.</p>
+          <button class="primary run-trigger" id="arena-run">
+            Run experiment <span aria-hidden="true">↗</span>
+          </button>
+        </div>
+        <div class="arena-score lane-a">
+          <span class="mono">LANE A</span
+          ><strong id="arena-a">—<small>/10</small></strong
+          ><span>cases passed</span>
+        </div>
+        <div class="arena-score lane-b">
+          <span class="mono">LANE B</span
+          ><strong id="arena-b">—<small>/10</small></strong
+          ><span>cases passed</span>
+        </div>
+        <div class="scene-bottom">
+          <span id="scene-status"
+            ><i class="signal"></i> Lab ready. Your move.</span
+          ><button class="text-button" id="reset-view">
+            Reset view <span aria-hidden="true">⤾</span>
+          </button>
+        </div>
+      </section>
+      <section
+        id="experiment"
+        class="experiment"
+        aria-labelledby="experiment-heading"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">01 / SET YOUR HYPOTHESIS</p>
+            <h2 id="experiment-heading">
+              One small change can change the answer.
+            </h2>
+          </div>
+          <button class="text-button" id="reset-prompts">
+            Restore starter prompts <span aria-hidden="true">↺</span>
+          </button>
+        </div>
+        <div class="prompt-grid">
+          <div class="prompt-card a">
+            <div class="prompt-top">
+              <label for="prompt-a"><b>A</b> Your baseline</label
+              ><span class="prompt-count" id="count-a">0 / 1600</span>
+            </div>
+            <textarea
+              id="prompt-a"
+              maxlength="1600"
+              spellcheck="false"
+              aria-describedby="prompt-help"
+            >
+Extract the event location, date, and supplies from this announcement.</textarea
+            >
+            <p>Start with a simple instruction.</p>
+          </div>
+          <div class="prompt-card b">
+            <div class="prompt-top">
+              <label for="prompt-b"><b>B</b> Your challenger</label
+              ><span class="prompt-count" id="count-b">0 / 1600</span>
+            </div>
+            <textarea
+              id="prompt-b"
+              maxlength="1600"
+              spellcheck="false"
+              aria-describedby="prompt-help"
+            ></textarea>
+            <p>Make one change. See if it helps.</p>
+          </div>
+        </div>
+        <div class="run-bar">
+          <div>
+            <p id="prompt-help">
+              Extract <b>location</b>, <b>date</b>, and <b>supplies</b> from 10
+              fictional announcements.
+            </p>
+            <p class="muted">
+              Live model: <span id="model-label">Loading…</span> · 20 responses
+              per experiment
+            </p>
+          </div>
+          <button id="run-button" class="primary run-trigger">
+            Run experiment <span aria-hidden="true">▶</span></button
+          ><button id="pause-run" class="secondary" hidden>
+            Pause after this case</button
+          ><button id="resume-run" class="primary" hidden>
+            Resume experiment <span aria-hidden="true">▶</span></button
+          ><button id="new-run" class="secondary" hidden>Start fresh</button>
+        </div>
+        <div
+          class="progress-track"
+          role="progressbar"
+          aria-label="Experiment progress"
+          aria-valuemin="0"
+          aria-valuemax="20"
+          aria-valuenow="0"
+        >
+          <span id="progress-fill"></span>
+        </div>
+        <p id="run-status" class="run-status" role="status" aria-live="polite">
+          Loading the fixed test set…
+        </p>
+        <div id="error-message" class="error-message" role="alert" hidden></div>
+      </section>
+      <section class="results" aria-labelledby="results-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">02 / FOLLOW THE EVIDENCE</p>
+            <h2 id="results-heading">Every result has a story.</h2>
+          </div>
+          <div class="results-actions">
+            <button class="text-button" id="export-button" disabled>
+              Download results <span aria-hidden="true">↓</span>
+            </button>
+          </div>
+        </div>
+        <div class="scoreboard" id="scoreboard" hidden></div>
+        <div class="results-toolbar">
+          <div role="group" aria-label="Filter cases">
+            <button class="filter active" data-filter="all" aria-pressed="true">
+              All cases <span>10</span></button
+            ><button class="filter" data-filter="failures" aria-pressed="false">
+              Open the failures
+            </button>
+          </div>
+          <span class="result-hint"
+            >Select a case to see the evidence
+            <span aria-hidden="true">↘</span></span
+          >
+        </div>
+        <div id="case-grid" class="case-grid"></div>
+        <p id="empty-results" class="empty-results" hidden></p>
+      </section>
+      <section id="loop-log" class="loop-log" aria-labelledby="loop-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">03 / KEEP LEARNING</p>
+            <h2 id="loop-heading">Small changes. Visible progress.</h2>
+          </div>
+          <span class="tag">THIS TAB’S EXPERIMENTS</span>
+        </div>
+        <div id="history-list" class="history-list">
+          <p class="muted">
+            Your completed experiments will appear here. Compare a result before
+            deciding what to keep.
+          </p>
+        </div>
+      </section>
+      <section class="method-note">
+        <div class="method-symbol" aria-hidden="true">↻</div>
+        <div>
+          <h2>The loop is the lesson.</h2>
+          <p>
+            Make a hypothesis. Change one instruction. Run the same tests.
+            Inspect the failures. Keep what the evidence supports.
+          </p>
+          <button class="text-button" id="method-button">
+            Explore the method <span aria-hidden="true">↗</span>
+          </button>
+        </div>
+        <div class="method-tags">
+          <span>Fixed answer key</span><span>Transparent scoring</span
+          ><span>No promised winner</span>
+        </div>
+      </section>
+    </main>
+    <footer class="shell">
+      <div>
+        <a
+          class="footer-brand"
+          href="https://github.com/recruiting-gains/ai-builds-showcase"
+          >An AI Builds Showcase experiment
+          <span aria-hidden="true">↗</span></a
+        >
+        <p>
+          Built by Cruz · Independent project · Powered by Cloudflare Workers AI
+        </p>
+      </div>
+      <button class="text-button" id="privacy-button">Privacy & limits</button>
+    </footer>
+    <dialog id="case-dialog" aria-labelledby="case-title">
+      <div class="dialog-top">
+        <span class="eyebrow" id="case-category">TEST CASE</span
+        ><button
+          class="close-button"
+          data-close
+          aria-label="Close case details"
+        >
+          ×
+        </button>
+      </div>
+      <h2 id="case-title"></h2>
+      <div id="case-detail"></div>
+    </dialog>
+    <dialog id="info-dialog" aria-labelledby="info-title">
+      <div class="dialog-top">
+        <span class="eyebrow">LOOPLAB / FIELD GUIDE</span
+        ><button class="close-button" data-close aria-label="Close field guide">
+          ×
+        </button>
+      </div>
+      <h2 id="info-title"></h2>
+      <div id="info-content"></div>
+    </dialog>
+    <noscript
+      ><p class="noscript shell">
+        LoopLab needs JavaScript to run experiments. You can still read the
+        source and method on GitHub.
+      </p></noscript
+    >
+    <script type="module" src="/src/client/main.ts"></script>
+  </body>
+</html>

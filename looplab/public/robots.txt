@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Sitemap: https://looplab.recruiting-gains.workers.dev/sitemap.xml

@@ -13,6 +13,19 @@ Every project here goes beyond a first answer: I build it, test it, debug it, de
 <table>
   <tr>
     <td colspan="2">
+      <a href="https://looplab.recruiting-gains.workers.dev/">
+        <img src="./docs/assets/showcase/looplab.webp" alt="Two mint and amber experiment lanes inside a miniature 3D science-fiction laboratory.">
+      </a>
+      <br>
+      <strong><a href="https://looplab.recruiting-gains.workers.dev/">LoopLab</a></strong>
+      <br>
+      A playable prompt laboratory: compare two AI instructions on the same ten examples, inspect every answer, and keep the changes the evidence supports.
+      <br>
+      <a href="https://looplab.recruiting-gains.workers.dev/"><strong>Open live build ↗</strong></a> · <a href="./looplab">Read how it works</a> · <a href="./looplab/docs/LOOP-METHOD.md">Explore the experiment loop</a>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2">
       <a href="https://thenfold.recruiting-gains.workers.dev/">
         <img src="./docs/assets/showcase/thenfold.webp" alt="A golden folded business change moving through transparent review layers into a connected network of answers and actions.">
       </a>
