@@ -7,7 +7,8 @@ private let mint = NSColor(calibratedRed: 0.56, green: 0.94, blue: 0.80, alpha: 
 final class PreviewView: NSView {
     let videoLayer: AVCaptureVideoPreviewLayer
     var hand: HandFrame? { didSet { needsDisplay = true } }
-    var cameraOn = false { didSet { needsDisplay = true } }
+    var cameraOn = false { didSet { updateVideoVisibility() } }
+    var showVideo = false { didSet { updateVideoVisibility() } }
     override var isFlipped: Bool { true }
 
     init(session: AVCaptureSession) {
@@ -18,10 +19,15 @@ final class PreviewView: NSView {
         layer?.cornerRadius = 16
         layer?.masksToBounds = true
         videoLayer.videoGravity = .resizeAspect
+        videoLayer.isHidden = true
         layer?.addSublayer(videoLayer)
-        setAccessibilityLabel("Local camera preview. Camera is off until you choose Start camera preview.")
+        setAccessibilityLabel("Optional local camera preview. Hidden by default; hiding it does not turn off tracking.")
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }
+    private func updateVideoVisibility() {
+        videoLayer.isHidden = !cameraOn || !showVideo
+        needsDisplay = true
+    }
     override func layout() {
         super.layout()
         videoLayer.frame = bounds
@@ -32,16 +38,16 @@ final class PreviewView: NSView {
     }
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        if !cameraOn {
-            let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 18, weight: .medium), .foregroundColor: mint]
-            let text = "CAMERA OFF  ·  CONTROL OFF" as NSString
+        if !cameraOn || !showVideo {
+            let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 14, weight: .medium), .foregroundColor: mint]
+            let text = (cameraOn ? "PREVIEW HIDDEN  ·  CAMERA ON" : "CAMERA OFF  ·  CONTROL OFF") as NSString
             let size = text.size(withAttributes: attrs)
             text.draw(at: NSPoint(x: (bounds.width - size.width) / 2, y: bounds.midY - 10), withAttributes: attrs)
         }
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate {
     private var window: NSWindow!
     private let camera = CameraEngine()
     private let gestures = GestureEngine()
@@ -54,6 +60,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var timer: Timer?
     private var statusItem: NSStatusItem!
     private var stopMenuItem: NSMenuItem!
+    private var startPointerMenuItem: NSMenuItem!
+    private var startClicksMenuItem: NSMenuItem!
+    private var statusMenuItem: NSMenuItem!
+    private var reasonMenuItem: NSMenuItem!
+    private var menuStart = MenuBarStartRequest()
+    private var lastHandAt: Double?
     private var stateLabel = NSTextField(labelWithString: "CONTROL OFF")
     private var detailLabel = NSTextField(wrappingLabelWithString: "Start with a camera preview. Your Mac’s cursor will not move.")
     private var cameraLabel = NSTextField(wrappingLabelWithString: "Camera off. Nothing is recorded or uploaded.")
@@ -61,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var cameraButton = NSButton()
     private var controlButton = NSButton()
     private var clicks = NSButton(checkboxWithTitle: "Allow left clicks and dragging", target: nil, action: nil)
+    private var previewToggle = NSButton(checkboxWithTitle: "Show camera preview (optional)", target: nil, action: nil)
     private var displayPicker = NSPopUpButton()
     private var screenIDs: [CGDirectDisplayID] = []
     private var observers: [NSObjectProtocol] = []
@@ -76,7 +89,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self.preview.hand = nil
             self.cameraLabel.stringValue = message
             // A failed/stale camera sample is never eligible for pointer recovery.
-            self.stopControl("Control stopped: " + message + " Start again when ready.")
+            self.lastHandAt = nil
+            if self.menuStart.isPending { self.stopEverything("Start canceled: " + message) }
+            else { self.stopControl("Control stopped: " + message + " Start again when ready.") }
         }
         camera.onStatus = { [weak self] message, running in
             guard let self else { return }
@@ -84,7 +99,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self.cameraLabel.stringValue = message
             self.preview.cameraOn = running
             self.preview.needsLayout = true
-            if !running { self.stopControl("Mac control is off. " + message) }
+            if !running {
+                self.lastHandAt = nil
+                // Preparing/starting are not terminal failures. A pending menu
+                // intent still waits for the first fresh current-session frame.
+                if !self.camera.isRequested { self.stopControl("Mac control is off. " + message) }
+            }
             self.refresh()
         }
         let workspaceCenter = NSWorkspace.shared.notificationCenter
@@ -97,6 +117,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         })
         timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self else { return }
+            if self.menuStart.isPending,
+               !self.menuStart.validate(now: ProcessInfo.processInfo.systemUptime, authorized: self.hasControlPermissionAndMonitors) {
+                self.stopEverything("Menu start canceled or timed out. Choose Start again when ready.")
+            }
             let actions = self.gate.tick(now: ProcessInfo.processInfo.systemUptime, authorized: self.canControl)
             self.pointer.post(actions)
             self.refresh()
@@ -107,7 +131,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private var canControl: Bool { SystemPointer.isTrusted && globalMonitor != nil && localMonitor != nil && cameraRunning }
+    private var hasControlPermissionAndMonitors: Bool { SystemPointer.isTrusted && globalMonitor != nil && localMonitor != nil }
+    private var canControl: Bool { hasControlPermissionAndMonitors && cameraRunning }
 
     private var emergencyMask: NSEvent.EventTypeMask { [.keyDown, .mouseMoved, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel, .leftMouseDragged] }
 
@@ -134,12 +159,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if event.type == .keyDown {
             if event.keyCode == 53, camera.isRequested || cameraRunning || gate.state != .off {
                 stopEverything("Emergency stop: Escape. Camera and control are off.")
-            } else if gate.state != .off {
+            } else if gate.state != .off || menuStart.isPending {
                 stopControl("Paused: keyboard input took over. Start again when ready.")
             }
             return // Never reads, records, or transmits typed characters.
         }
-        guard gate.state != .off else { return }
+        guard gate.state != .off || menuStart.isPending else { return }
         if event.cgEvent?.getIntegerValueField(.eventSourceUserData) == SystemPointer.eventTag { return }
         if event.type == .mouseMoved || event.type == .leftMouseDragged {
             guard abs(event.deltaX) + abs(event.deltaY) > 0 else { return }
@@ -150,6 +175,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func receive(_ frame: HandFrame?, capturedAt: Double) {
         preview.hand = frame
         let now = ProcessInfo.processInfo.systemUptime
+        if menuStart.isPending, cameraRunning {
+            if let mode = menuStart.take(capturedAt: capturedAt, now: now, authorized: canControl) {
+                gestures.reset()
+                countdownStarted = now
+                guard gate.arm(now: now, mode: mode, authorized: canControl) else {
+                    stopEverything("Menu start could not arm safely. Choose Start again.")
+                    return
+                }
+            } else if !menuStart.isPending {
+                stopEverything("Menu start canceled: camera data or permission was not ready. Choose Start again.")
+                return
+            }
+        }
+        lastHandAt = frame?.timestamp
         guard let frame else {
             if cameraRunning { cameraLabel.stringValue = "Camera on. Show one open hand in good light." }
             _ = gestures.update(nil)
@@ -167,7 +206,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func toggleCamera() {
         if camera.isRequested || cameraRunning { stopEverything("Camera and Mac control are off.") }
-        else { cameraButton.isEnabled = false; cameraLabel.stringValue = "Starting camera preview. Approve Camera when macOS asks."; camera.start() }
+        else { cameraButton.isEnabled = false; cameraLabel.stringValue = "Starting camera. Approve Camera when macOS asks. Preview stays hidden unless selected."; camera.start() }
     }
 
     @objc private func toggleControl() {
@@ -182,6 +221,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         refresh()
     }
 
+    @objc private func startPointerFromMenu() { startFromMenu(mode: .pointerOnly) }
+    @objc private func startClicksFromMenu() { startFromMenu(mode: .clickAndDrag) }
+
+    private func startFromMenu(mode: ControlMode) {
+        guard gate.state == .off, !menuStart.isPending else { return }
+        // Never queue computer control across a first-time permission dialog.
+        guard SystemPointer.isTrusted, AVCaptureDevice.authorizationStatus(for: .video) == .authorized else {
+            showWindow()
+            stopControl("First approve Camera using Start camera and Accessibility using Set up Accessibility. Then choose a menu-bar Start option. Nothing was started.")
+            return
+        }
+        installEmergencyMonitors()
+        guard hasControlPermissionAndMonitors else {
+            stopEverything("Cannot install emergency monitors. Menu start was not enabled.")
+            return
+        }
+        clicks.state = mode == .clickAndDrag ? .on : .off
+        previewToggle.state = .off
+        preview.showVideo = false
+        lastHandAt = nil
+        menuStart.begin(mode: mode, now: ProcessInfo.processInfo.systemUptime, authorized: true)
+        window.orderOut(nil)
+        camera.start()
+        refresh()
+    }
+
+    @objc private func previewChanged() { preview.showVideo = previewToggle.state == .on }
+
     @objc private func accessibilitySetup() {
         stopControl("Mac control is off while you review Accessibility permission.")
         SystemPointer.requestPermission()
@@ -194,13 +261,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if screenIDs.indices.contains(displayPicker.indexOfSelectedItem) { pointer.displayID = screenIDs[displayPicker.indexOfSelectedItem] }
     }
     @objc private func emergencyStop() { stopEverything("Emergency stop. Camera and control are off.") }
-    @objc private func showWindow() { window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
+    @objc private func showWindow() {
+        stopControl("Control paused for setup. Use a Start button when ready.")
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
     @objc private func quit() { stopEverything("Airframe Mac is closing."); NSApp.terminate(nil) }
 
     private func stopControl(_ reason: String) {
+        let canceledStartup = menuStart.isPending
+        menuStart.cancel()
         pointer.post(gate.stop(reason))
         gestures.reset()
+        lastHandAt = nil
         removeEmergencyMonitors()
+        if canceledStartup {
+            camera.stop()
+            cameraRunning = false
+            preview?.cameraOn = false
+        }
         refresh()
     }
     private func stopEverything(_ reason: String) {
@@ -214,25 +293,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func refresh() {
         guard window != nil else { return }
-        if gate.state == .off, globalMonitor != nil { removeEmergencyMonitors() }
+        if gate.state == .off, !menuStart.isPending, globalMonitor != nil { removeEmergencyMonitors() }
         cameraButton.isEnabled = true
-        cameraButton.title = cameraRunning ? "Stop camera" : camera.isRequested ? "Cancel camera setup" : "Start camera preview"
+        cameraButton.title = cameraRunning ? "Stop camera" : camera.isRequested ? "Cancel camera setup" : "Start camera"
         permissionLabel.stringValue = SystemPointer.isTrusted ? "✓ Accessibility approved for this app." : "Accessibility not approved. Preview still works."
-        controlButton.isEnabled = cameraRunning
+        controlButton.isEnabled = cameraRunning && !menuStart.isPending
         controlButton.title = gate.state == .off ? "Start Mac control" : "Pause Mac control"
-        clicks.isEnabled = gate.state == .off
-        displayPicker.isEnabled = gate.state == .off
-        stopMenuItem.isEnabled = camera.isRequested || cameraRunning || gate.state != .off
+        clicks.isEnabled = gate.state == .off && !menuStart.isPending
+        displayPicker.isEnabled = gate.state == .off && !menuStart.isPending
+        stopMenuItem.isEnabled = camera.isRequested || cameraRunning || gate.state != .off || menuStart.isPending
+        startPointerMenuItem.isEnabled = gate.state == .off && !menuStart.isPending
+        startClicksMenuItem.isEnabled = startPointerMenuItem.isEnabled
         switch gate.state {
-        case .off: stateLabel.stringValue = "CONTROL OFF"; statusItem.button?.title = "A· OFF"
+        case .off: stateLabel.stringValue = menuStart.isPending ? "STARTING CAMERA · CONTROL OFF" : "CONTROL OFF"
         case .countdown:
             let count = max(1, Int(ceil(3 - (ProcessInfo.processInfo.systemUptime - countdownStarted))))
-            stateLabel.stringValue = "STARTING IN \(count)…"; statusItem.button?.title = "A· WAIT"
-        case .waitingForHand: stateLabel.stringValue = "SHOW AN OPEN HAND"; statusItem.button?.title = "A· WAIT"
-        case .recoveringHand: stateLabel.stringValue = "POINTER FROZEN · FINDING HAND"; statusItem.button?.title = "A· HOLD"
-        case .active: stateLabel.stringValue = clicks.state == .on ? "LIVE · CLICK + DRAG" : "LIVE · POINTER ONLY"; statusItem.button?.title = "A· LIVE"
+            stateLabel.stringValue = "STARTING IN \(count)…"
+        case .waitingForHand: stateLabel.stringValue = "SHOW AN OPEN HAND"
+        case .recoveringHand: stateLabel.stringValue = "POINTER FROZEN · FINDING HAND"
+        case .active: stateLabel.stringValue = clicks.state == .on ? "LIVE · CLICK + DRAG" : "LIVE · POINTER ONLY"
         }
-        detailLabel.stringValue = gate.reason
+        detailLabel.stringValue = menuStart.isPending ? "Waiting for fresh camera data. Move the mouse or press Escape to cancel." : gate.reason
+        refreshMenuIndicator()
+    }
+
+    private func refreshMenuIndicator() {
+        let indicator = MenuBarIndicator.resolve(state: gate.state, pending: menuStart.isPending,
+            cameraRequested: camera.isRequested, cameraRunning: cameraRunning, authorized: canControl,
+            lastHandAt: lastHandAt, now: ProcessInfo.processInfo.systemUptime)
+        let color: NSColor = indicator == .tracking ? .systemGreen : indicator == .off ? .secondaryLabelColor : .systemOrange
+        let countdown = gate.state == .countdown ? " \(max(1, Int(ceil(3 - (ProcessInfo.processInfo.systemUptime - countdownStarted)))))" : ""
+        let title = NSMutableAttributedString(string: "●", attributes: [.foregroundColor: color, .font: NSFont.systemFont(ofSize: 12, weight: .bold)])
+        title.append(NSAttributedString(string: " A \(indicator.shortLabel)\(countdown)", attributes: [.foregroundColor: NSColor.labelColor, .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)]))
+        statusItem.button?.attributedTitle = title
+        let mode = clicks.state == .on ? "Pinch clicks enabled" : "Pointer only"
+        statusItem.button?.setAccessibilityLabel("Airframe: \(indicator.description). \(mode).")
+        statusItem.button?.toolTip = "\(indicator.description) · \(mode). Click for Start, Stop, or setup."
+        statusMenuItem.title = "\(indicator.description) · \(mode)"
+        reasonMenuItem.title = detailLabel.stringValue
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        // Even a gesture-opened menu must not remain under synthetic click control.
+        if gate.state != .off || menuStart.isPending { stopControl("Control paused while the Airframe menu is open. Choose Start to resume.") }
+        refresh()
     }
 
     private func buildMenu() {
@@ -245,9 +349,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.title = "A· OFF"
         let menu = NSMenu()
-        menu.addItem(withTitle: "Show Airframe Mac", action: #selector(showWindow), keyEquivalent: "")
+        menu.autoenablesItems = false
+        menu.delegate = self
+        statusMenuItem = menu.addItem(withTitle: "Camera and control off", action: nil, keyEquivalent: "")
+        statusMenuItem.isEnabled = false
+        reasonMenuItem = menu.addItem(withTitle: "Choose Start when ready.", action: nil, keyEquivalent: "")
+        reasonMenuItem.isEnabled = false
+        menu.addItem(.separator())
+        startPointerMenuItem = menu.addItem(withTitle: "Start pointer only — camera on, preview hidden", action: #selector(startPointerFromMenu), keyEquivalent: "")
+        startClicksMenuItem = menu.addItem(withTitle: "Start with pinch clicks — camera on, preview hidden", action: #selector(startClicksFromMenu), keyEquivalent: "")
         stopMenuItem = menu.addItem(withTitle: "STOP CAMERA & CONTROL", action: #selector(emergencyStop), keyEquivalent: "")
         menu.addItem(.separator())
+        menu.addItem(withTitle: "Show setup / optional camera preview", action: #selector(showWindow), keyEquivalent: "")
         menu.addItem(withTitle: "Quit Airframe Mac", action: #selector(quit), keyEquivalent: "")
         for item in appMenu.items + menu.items { item.target = self }
         statusItem.menu = menu
@@ -282,14 +395,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func buildWindow() {
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 850, height: 705), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 850, height: 735), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "Airframe Mac — Local Gesture Control"
         window.delegate = self
-        window.minSize = NSSize(width: 820, height: 700)
+        window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: 820, height: 735)
         window.appearance = NSAppearance(named: .darkAqua)
         window.backgroundColor = NSColor(calibratedRed: 0.04, green: 0.075, blue: 0.095, alpha: 1)
         window.center()
-        let title = label("airframe.  /  MAC 0.1.1", size: 30, bold: true); title.textColor = mint
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+        let title = label("airframe.  /  MAC \(version)", size: 30, bold: true); title.textColor = mint
         let subtitle = label("Your hands. Your whole workspace.", size: 20, bold: true)
         let intro = label("A local companion for controlling your Mac’s cursor across apps. No browser connection, cloud commands, or video uploads.")
         preview = PreviewView(session: camera.session)
@@ -297,22 +412,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         preview.widthAnchor.constraint(equalToConstant: 430).isActive = true
         preview.heightAnchor.constraint(equalToConstant: 300).isActive = true
         cameraLabel.font = .systemFont(ofSize: 12)
-        let left = stack([preview, cameraLabel, label("Point to aim • Pinch to press • Open to release", size: 13, bold: true), label("Pointer-only: a brief miss freezes the cursor for up to 1.25s.\nReturn an open hand near its last position and hold steady.\nLong loss or click mode: press Start again. Use good light.", size: 12)])
-        cameraButton = button("Start camera preview", action: #selector(toggleCamera), prominent: true)
+        previewToggle.target = self; previewToggle.action = #selector(previewChanged)
+        let left = stack([preview, previewToggle, cameraLabel, label("Point to aim • Pinch to press • Open to release", size: 13, bold: true), label("Pointer-only: a brief miss freezes the cursor for up to 1.25s.\nReturn an open hand near its last position and hold steady.\nLong loss or click mode: press Start again. Use good light.", size: 12)])
+        cameraButton = button("Start camera", action: #selector(toggleCamera), prominent: true)
         controlButton = button("Start Mac control", action: #selector(toggleControl))
         clicks.target = self; clicks.action = #selector(modeChanged)
         clicks.setAccessibilityHelp("Off by default. When enabled and Mac control is started, pinching presses the left mouse button and holding drags. Releasing may activate the item underneath.")
         displayPicker.target = self; displayPicker.action = #selector(displayChanged)
         reloadDisplays()
         permissionLabel.font = .systemFont(ofSize: 11)
-        let right = stack([label("01  CAMERA PREVIEW", size: 11, bold: true), cameraButton,
+        let right = stack([label("01  CAMERA · PREVIEW OPTIONAL", size: 11, bold: true), cameraButton,
                            label("02  PERMISSION", size: 11, bold: true), button("Set up Accessibility", action: #selector(accessibilitySetup)), permissionLabel,
                            label("03  CONTROL", size: 11, bold: true), displayPicker, clicks, controlButton,
                            button("STOP CAMERA & CONTROL", action: #selector(emergencyStop))], spacing: 10)
         right.widthAnchor.constraint(equalToConstant: 320).isActive = true
         stateLabel.font = .monospacedSystemFont(ofSize: 15, weight: .semibold); stateLabel.textColor = mint
         detailLabel.font = .systemFont(ofSize: 12)
-        let warning = label("ESCAPE stops in Airframe, and system-wide while armed. Mouse/trackpad or keyboard input pauses control.\nStop before locking or leaving. Experimental: no right-click, scrolling, typing, login-screen or safety-critical use.", size: 11)
+        let warning = label("Use A in the top menu bar to start with this window hidden. Green = live; amber = waiting or camera only.\nClosing this window stops capture; Airframe stays in the menu bar. Escape stops while starting or armed.\nMouse/keyboard pauses control. Stop before locking or leaving. Experimental; no right-click, scrolling or typing.", size: 11)
         warning.textColor = .secondaryLabelColor
         let all = stack([title, subtitle, intro, stack([left, right], horizontal: true, spacing: 24), stateLabel, detailLabel, warning], spacing: 13)
         all.translatesAutoresizingMaskIntoConstraints = false
@@ -321,7 +437,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) { stopEverything("Airframe closed.") }
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showWindow()
+        return true
+    }
     func applicationWillTerminate(_ notification: Notification) {
         stopEverything("Airframe quit.")
         if let localMonitor { NSEvent.removeMonitor(localMonitor) }

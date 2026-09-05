@@ -54,6 +54,7 @@ mkdir -p "$stage_app/Contents/MacOS" "$stage_app/Contents/Resources/docs"
 /usr/bin/ditto "$native_dir/docs/SAFETY.md" "$stage_app/Contents/Resources/SAFETY.md"
 /usr/bin/ditto "$native_dir/docs/SAFETY.md" "$stage_app/Contents/Resources/docs/SAFETY.md"
 /usr/bin/ditto "$native_dir/docs/RELEASE-0.1.1.md" "$stage_app/Contents/Resources/docs/RELEASE-0.1.1.md"
+/usr/bin/ditto "$native_dir/docs/RELEASE-0.1.2.md" "$stage_app/Contents/Resources/docs/RELEASE-0.1.2.md"
 
 # '-' is an ad-hoc local signature. It is not a Developer ID certificate and
 # does not notarize the app. Do not add hardened runtime without camera QA.

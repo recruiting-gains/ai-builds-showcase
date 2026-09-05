@@ -2,7 +2,23 @@
 
 The website moves panels inside a browser. This separate native app is intended to let a consenting user move the **actual Mac pointer** using a camera and hand gestures. It is a local Swift/AppKit application using Apple's Vision framework—not a browser permission bypass, network daemon, or remote-control service.
 
-This is an experimental local build for **Apple silicon Macs running macOS 14 or later**. The camera and computer control must be enabled separately. Start with preview only and keep a physical mouse or trackpad available.
+This is an experimental local build for **Apple silicon Macs running macOS 14 or later**. Camera permission alone never starts computer control. Use camera-only setup first and keep a physical mouse or trackpad available. Once permissions are approved, explicit menu-bar Start options can start the camera and control together with the window hidden.
+
+## Menu-bar mode in v0.1.2
+
+Airframe can stay in your Mac's top menu bar without a face preview on your screen. **The app must remain running and the camera must be on for tracking.** You do not need the Airframe website open.
+
+1. Open Airframe Mac once. Launch always leaves camera and control off; it does not add a login item or run at startup.
+2. If needed, use **Start camera** and **Set up Accessibility** to approve permissions. **Show camera preview (optional)** is unchecked by default. Enable it only when you want to check framing; hiding it does not turn the camera off.
+3. Click **A OFF** in the top menu bar and choose **Start pointer only — camera on, preview hidden** or **Start with pinch clicks — camera on, preview hidden**. Selecting the second option explicitly enables clicks for that session. The window hides and any face preview is disabled. Neither option queues a start across an unapproved permission dialog.
+4. Keep the mouse still after choosing Start. The indicator is amber while the camera starts, shows a **three-second countdown**, and waits for a steady open hand. It becomes **green / A LIVE** only with armed control and a fresh detected hand.
+5. Choose **STOP CAMERA & CONTROL** when finished, or press Escape while starting or armed. Quit Airframe to remove it from the menu bar entirely.
+
+**Indicator meanings:** gray **OFF** means no requested/running camera or control. Amber **WAIT** means starting or waiting for an open hand; **HOLD** means pointer movement is frozen; **CAM** means the camera is on or starting but control is off. Green **LIVE** means fresh hand tracking with control active. macOS's own camera privacy light remains independent and must not be hidden.
+
+Opening the Airframe menu or setup pauses control. Moving the physical mouse/trackpad or typing also pauses it. A canceled hidden startup turns its camera off; canceling cannot silently re-arm later. Closing the main window stops camera/control but leaves the app in the menu bar so you can start again there. If it was quit, open the app again first. No always-on daemon, remote commands, login auto-start, or recording was added.
+
+See [v0.1.2 release notes](docs/RELEASE-0.1.2.md) for verification and hands-on checks.
 
 ## Build without starting the camera
 
@@ -34,7 +50,7 @@ Both test forms use simulated observations and do not establish real-camera trac
 
 1. Read [Safety and limitations](docs/SAFETY.md). Use a harmless, empty workspace—not a payment page, terminal, unsaved document, or sensitive account.
 2. Open the app yourself. Its initial state must leave the camera and computer control off.
-3. Enable camera preview explicitly and approve the Camera request if you choose. Confirm that your hand is detected and that the preview direction feels correct before enabling control.
+3. Choose **Start camera** and approve the Camera request if you choose. Optionally select **Show camera preview** to check hand framing and direction before enabling control.
 4. Grant Accessibility permission only if you want the app to control the Mac pointer. Camera permission alone is not consent to computer control. If the app cannot establish its emergency-stop monitors, do not enable control.
 5. Start in pointer-only mode. Computer control uses an explicit countdown; clicking is a separate opt-in. Keep your other hand near Escape or the physical mouse/trackpad.
 6. Use Stop when finished. Escape is available inside the Airframe window, and the app installs a system-wide Escape monitor while Mac control is armed. Do not assume a protected macOS context will deliver every key event. Stop the camera separately if it is still in preview mode, and confirm its indicator is off before assuming capture has ended.

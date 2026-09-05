@@ -12,6 +12,9 @@ Keep this release experimental. Do not use it for payments, purchases, sending m
 
 - Launch begins with camera capture off and OS input disarmed.
 - Starting camera preview does not arm computer control.
+- In v0.1.2, explicit menu-bar Start options disclose camera use and click mode, hide the optional preview, and create a one-shot startup intent. They require already-approved Camera/Accessibility permissions and emergency monitors, and must receive a fresh current-session observation before beginning the unchanged countdown. The intent expires after 10 seconds, is canceled by every hard stop, and cannot survive permission changes or late callbacks.
+- Hidden preview does not mean camera off. A green LIVE indicator requires active control with a detected-hand timestamp no more than 200 ms old. Camera-only, starting, waiting, and recovery states remain amber; full stop is gray. Color is accompanied by text, an accessible label, and menu detail. System camera privacy indicators remain enabled.
+- Opening the Airframe menu or setup pauses control; closing the main window stops camera/control and keeps only the menu-bar app available. A canceled hidden startup also stops the camera. Quit stops everything. No auto-start/login item is installed.
 - Accessibility trust is checked; permissions are changed only by the user through macOS.
 - The app must install both local and global emergency-stop monitoring before arming. If monitoring is unavailable, arming is refused.
 - Arming requires an explicit action and visible three-second countdown. Pointer-only is the default. Clicking requires an additional explicit opt-in.
@@ -85,3 +88,5 @@ At the time of the original snapshot above, no physical-camera or real-pointer a
 The pointer-only recovery change requires a new hands-on trial. Test brief versus long loss, a returning pinched or distant hand, lighting changes, display changes, real Escape/physical takeover while frozen, and click-mode immediate release. Do not infer those physical results from synthetic tests. Camera frames are not recorded or uploaded for evaluation. Build automation never launches a camera or control session.
 
 The change preserves explicit start, permission checks, camera freshness limits, and the physical-input stop routes. It does not provide identity recognition: proximity and open-hand checks reduce abrupt reacquisition, but cannot prove a returning hand belongs to the same person. See [v0.1.1 release notes](RELEASE-0.1.1.md) for this update's verification record. No software-only safety guarantee covers a process/OS crash or all protected contexts.
+
+After v0.1.1 was installed, the user reported more consistent movement and working pinch-to-click. These are user-reported observations, not recorded benchmarks or confirmation of every safety scenario. The new v0.1.2 menu-bar flow requires its own consented hands-on test. Build/test automation does not start the camera or native control. See [v0.1.2 release notes](RELEASE-0.1.2.md).

@@ -17,15 +17,15 @@
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.1</string>
+  <string>0.1.2</string>
   <key>CFBundleVersion</key>
-  <string>2</string>
+  <string>3</string>
   <key>LSMinimumSystemVersion</key>
   <string>14.0</string>
   <key>NSHighResolutionCapable</key>
   <true/>
   <key>NSCameraUsageDescription</key>
-  <string>Airframe uses your camera to recognize hand gestures on this Mac. Camera preview is optional and starts only when you enable it. Video is not recorded or uploaded. Moving or clicking the Mac pointer requires a separate explicit control step.</string>
+  <string>Airframe uses your camera to recognize hand gestures on this Mac. Capture starts only when you choose Start camera or a menu-bar Start option. The optional face preview is hidden by default; tracking still needs the camera. Video is not recorded or uploaded. Camera permission alone does not start Mac control; control requires an explicit Start action and Accessibility approval.</string>
   <key>AirframeBuildManagedArtifact</key>
   <string>airframe-native-build-v1</string>
 </dict>
