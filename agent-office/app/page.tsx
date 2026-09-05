@@ -1,4 +1,6 @@
 'use client';
+import { flushSync } from 'react-dom';
+import { assignLayouts } from '@/lib/preferences.mjs';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
   Bot,
@@ -291,6 +293,22 @@ export default function Home() {
     .filter((a) => a.state === 'waiting' || a.state === 'needs-help')
     .map((a) => a.id + a.state)
     .join('|');
+  const visibleFloorIds = visible.floors.map((f) => f.id).join('|');
+  useEffect(() => {
+    setLayoutPrefs((previous) => {
+      const next = assignLayouts(
+        previous,
+        visibleFloorIds ? visibleFloorIds.split('|') : [],
+        layouts.map((l) => l.id),
+      );
+      if (next !== previous) {
+        try {
+          localStorage.setItem('agent-office-layouts', JSON.stringify(next));
+        } catch {}
+      }
+      return next;
+    });
+  }, [visibleFloorIds]);
   useEffect(() => {
     if (
       previous.current &&
@@ -389,18 +407,21 @@ export default function Home() {
           (i.layout !== undefined && !layouts.some((l) => l.id === i.layout))
         )
           throw Error('Unknown floor or layout');
-        actionRef.current.setFloorId(i.floorId);
-        actionRef.current.setView('floor');
-        if (typeof i.layout === 'string') {
-          const id = i.layout;
-          setLayoutPrefs((p) => {
-            const n = { ...p, [i.floorId as string]: id };
-            try {
-              localStorage.setItem('agent-office-layouts', JSON.stringify(n));
-            } catch {}
-            return n;
-          });
-        }
+        const selectedFloorId = i.floorId;
+        flushSync(() => {
+          actionRef.current.setFloorId(selectedFloorId);
+          actionRef.current.setView('floor');
+          if (typeof i.layout === 'string') {
+            const id = i.layout;
+            setLayoutPrefs((p) => {
+              const n = { ...p, [i.floorId as string]: id };
+              try {
+                localStorage.setItem('agent-office-layouts', JSON.stringify(n));
+              } catch {}
+              return n;
+            });
+          }
+        });
         return {
           selectedFloor: i.floorId,
           view: 'floor',

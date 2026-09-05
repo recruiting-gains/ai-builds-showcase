@@ -4,7 +4,7 @@
 
 - Production static export and TypeScript checking passed.
 - Local native Swift build and ad-hoc signing passed.
-- Eleven automated tests cover path/root scope, event projection, structured failure handling, immediate agent assignment, stale status, bounded history, interrupted uploads, missing configuration, and hook-to-server integration.
+- Twelve automated tests cover path/root scope, event projection, structured failure handling, immediate agent assignment, stale status, bounded history, interrupted uploads, missing configuration, hook-to-server integration, and stable layout rotation.
 - HTTP tests cover missing tokens, foreign Origin, forged Host, unsupported operations, symlink traversal, and oversized events.
 - Hook tests assert exactly empty JSON output and no stderr even when configuration is missing.
 - Original artwork inspected; robot alpha verified.

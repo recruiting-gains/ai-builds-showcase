@@ -80,11 +80,11 @@ export class OfficeStore {
       });
     }
     const floor = this.floors.get(root);
+    const rawId = signal.agentId ?? signal.sessionId;
+    if (!floor.agents.has(rawId) && floor.agents.size >= 32) return false;
     if (signal.agentId && signal.event === 'SubagentStart')
       this.parents.set(signal.agentId, { root, parent: signal.sessionId });
     if (signal.agentId && !this.parents.has(signal.agentId)) return false;
-    const rawId = signal.agentId ?? signal.sessionId;
-    if (!floor.agents.has(rawId) && floor.agents.size >= 32) return false;
     let state = 'working';
     switch (signal.event) {
       case 'SessionStart':
