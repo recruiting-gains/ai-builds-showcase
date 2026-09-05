@@ -1,0 +1,76 @@
+name: Security checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: Scan repository history for secrets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install a checksum-verified scanner
+        env:
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          curl --fail --location --silent --show-error --retry 3 \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            --output "$RUNNER_TEMP/gitleaks.tar.gz"
+          printf '%s  %s\n' "$GITLEAKS_SHA256" "$RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+      - name: Scan without exposing matched values in logs
+        run: |
+          "$RUNNER_TEMP/gitleaks" git . --log-opts="--all --full-history" \
+            --config .github/gitleaks.toml --gitleaks-ignore-path "$RUNNER_TEMP" \
+            --ignore-gitleaks-allow --redact=100 --no-banner --no-color \
+            --max-target-megabytes=10 --max-archive-depth=2 --timeout=240
+  dependencies:
+    name: Audit ${{ matrix.project }} dependencies
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [agent-office, ai-workflow-lab, airframe, chatgpt-ads, explain-it-visually, looplab, mask-before-you-ask, memory-city, no-megaphone]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+      - name: Check the committed lockfile without running package scripts
+        working-directory: ${{ matrix.project }}
+        run: npm audit --audit-level=moderate --ignore-scripts
+  workflow-lab:
+    name: AI Workflow Lab security regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ai-workflow-lab
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts
+      - run: npm run cf-typegen
+      - run: npm run typecheck
+      - run: npm test

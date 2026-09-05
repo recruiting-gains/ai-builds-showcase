@@ -8,6 +8,13 @@
     "binding": "AI",
     "remote": true
   },
+  "ratelimits": [
+    {
+      "name": "WORKFLOW_RATE_LIMITER",
+      "namespace_id": "2026090501",
+      "simple": { "limit": 5, "period": 60 }
+    }
+  ],
   "assets": {
     "binding": "ASSETS",
     "directory": "./public",

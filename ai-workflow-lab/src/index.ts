@@ -18,27 +18,9 @@ import {
 } from "./validation";
 
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast" as const;
-const MAX_REQUEST_BYTES = 30_000;
+export const MAX_REQUEST_BYTES = 30_000;
 
 type ApiPayload = Record<string, unknown> | unknown[] | string | number | boolean | null;
-
-function describePayloadShape(value: unknown): Record<string, string> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return { result: Array.isArray(value) ? "array:" + value.length : typeof value };
-  }
-
-  return Object.fromEntries(
-    Object.entries(value).map(([key, field]) => {
-      if (Array.isArray(field)) {
-        return [key, "array:" + field.length];
-      }
-      if (typeof field === "string") {
-        return [key, "string:" + field.length];
-      }
-      return [key, typeof field];
-    })
-  );
-}
 
 function jsonResponse(
   payload: ApiPayload,
@@ -60,24 +42,69 @@ function jsonResponse(
 
 async function readJson(request: Request): Promise<unknown> {
   const contentType = request.headers.get("content-type") ?? "";
-  if (!contentType.toLowerCase().includes("application/json")) {
+  if (contentType.split(";")[0]?.trim().toLowerCase() !== "application/json") {
     throw new RequestError("Content-Type must be application/json.", 415);
   }
 
-  const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+  const lengthHeader = request.headers.get("content-length");
+  if (lengthHeader !== null && (!/^\d+$/.test(lengthHeader) || !Number.isSafeInteger(Number(lengthHeader)))) {
+    throw new RequestError("Request length is invalid.");
+  }
+  if (lengthHeader !== null && Number(lengthHeader) > MAX_REQUEST_BYTES) {
     throw new RequestError("Request is too large.", 413);
   }
-
-  const body = await request.text();
-  if (new TextEncoder().encode(body).byteLength > MAX_REQUEST_BYTES) {
-    throw new RequestError("Request is too large.", 413);
-  }
-
+  if (!request.body) throw new RequestError("Request body must be valid JSON.");
+  // A declared length is only an early rejection. Stop consuming actual bytes
+  // before buffering an unbounded or chunked request into Worker memory.
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false });
+  let bytes = 0;
+  let body = "";
   try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > MAX_REQUEST_BYTES) {
+        throw new RequestError("Request is too large.", 413);
+      }
+      body += decoder.decode(value, { stream: true });
+    }
+    body += decoder.decode();
     return JSON.parse(body) as unknown;
-  } catch {
+  } catch (error) {
+    await reader.cancel().catch(() => undefined);
+    if (error instanceof RequestError) throw error;
     throw new RequestError("Request body must be valid JSON.");
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function requireSameOrigin(request: Request): void {
+  const origin = request.headers.get("Origin");
+  const site = request.headers.get("Sec-Fetch-Site");
+  if ((origin && origin !== new URL(request.url).origin) ||
+      (site && !["same-origin", "none"].includes(site))) {
+    throw new RequestError("Use the controls on this website to run a workflow.", 403);
+  }
+}
+
+async function requireWorkflowAllowance(request: Request, env: Env): Promise<void> {
+  // Both workflows share a limit. Cloudflare supplies this header at the edge;
+  // browser-controlled IDs would let anonymous clients choose fresh quotas.
+  const address = request.headers.get("CF-Connecting-IP") ?? "local-development";
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(address));
+  const key = "workflow:" + Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  let allowed = false;
+  try {
+    allowed = (await env.WORKFLOW_RATE_LIMITER.limit({ key })).success === true;
+  } catch {
+    // A missing or unavailable limiter must never silently expose paid inference.
+    throw new RequestError("The workflow safety limit is temporarily unavailable. Please try again later.", 503);
+  }
+  if (!allowed) {
+    throw new RequestError("Too many workflows were requested. Wait one minute and try again.", 429);
   }
 }
 
@@ -108,7 +135,8 @@ async function runMeeting(request: Request, env: Env): Promise<MeetingResult> {
       JSON.stringify({
         event: "schema_mismatch",
         workflow: "meeting-plan",
-        shape: describePayloadShape(parsed)
+        // Never record provider-controlled property names: they can echo input.
+        resultType: Array.isArray(parsed) ? "array" : typeof parsed
       })
     );
     throw new Error("The AI response did not match the meeting schema.");
@@ -156,7 +184,7 @@ async function runRepurposer(request: Request, env: Env): Promise<ContentResult>
       JSON.stringify({
         event: "schema_mismatch",
         workflow: "content-repurposer",
-        shape: describePayloadShape(parsed)
+        resultType: Array.isArray(parsed) ? "array" : typeof parsed
       })
     );
     throw new Error("The AI response did not match the content schema.");
@@ -193,6 +221,11 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   }
 
   try {
+    requireSameOrigin(request);
+    if (url.pathname !== "/api/meeting-plan" && url.pathname !== "/api/repurpose") {
+      return jsonResponse({ error: "API route not found." }, 404, requestId);
+    }
+    await requireWorkflowAllowance(request, env);
     let result: MeetingResult | ContentResult;
     let workflow: string;
 
@@ -229,15 +262,18 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
         route: url.pathname,
         status,
         durationMs: Date.now() - startedAt,
-        error: error instanceof Error ? error.message : "Unknown error"
+        // Provider messages may echo submitted content. Log classification only.
+        error: error instanceof RequestError ? "request_rejected" : "upstream_or_internal_failure"
       })
     );
-    return jsonResponse({ error: message }, status, requestId);
+    const response = jsonResponse({ error: message }, status, requestId);
+    if (status === 429) response.headers.set("Retry-After", "60");
+    return response;
   }
 }
 
 export default {
-  async fetch(request, env): Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) {
       return handleApi(request, env);

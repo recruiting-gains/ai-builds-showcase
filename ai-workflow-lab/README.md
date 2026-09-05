@@ -134,11 +134,21 @@ Supported tones are <code>clear</code>, <code>friendly</code>,
 - Inputs are sent to Workers AI for the requested transformation and are not
   written to a project database.
 - The interface never inserts AI output as HTML; it renders it as text.
-- Requests must be JSON and are limited by content length and total body size.
+- Requests must use the exact JSON media type. Foreign browser origins are
+  rejected, and a streaming reader cancels request bodies above 30,000 bytes.
+- Both workflows share a configured allowance of five requests per minute per
+  client IP at each Cloudflare location. Only a hash enters the limiter; if
+  that binding is missing or unavailable, inference fails closed. Shared
+  networks can share an allowance. This is abuse throttling, not login or a
+  guaranteed account-wide spending cap; review Cloudflare usage before
+  inviting a large audience.
 - The model is told to treat pasted material as source, not as instructions.
 - A JSON schema defines every output field, and the Worker validates the result.
 - Responses disable caching and include defensive browser headers.
-- Logs contain workflow names, timing, status, and request IDs—not user input.
+- Application logs contain workflow names, timing, status, and request IDs;
+  provider error messages and model-controlled property names are not logged
+  because they can echo input. Normal
+  hosting request metadata remains subject to Cloudflare's logging settings.
 - <code>.env</code>, <code>.dev.vars</code>, <code>.wrangler</code>, and common
   generated files are ignored.
 

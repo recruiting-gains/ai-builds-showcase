@@ -1,0 +1,3 @@
+title = "Showcase secret scanning"
+[extend]
+useDefault = true
