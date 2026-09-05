@@ -270,7 +270,7 @@ try {
 
   for (const width of [1440, 380]) {
     const setup = await preparePage(width);
-    const beforeSetup = cameraRequests;
+    const beforeSetup: number = cameraRequests;
     await setup.goto(new URL('/mac/', baseURL).href, { waitUntil: 'networkidle' });
     await expect(setup.getByText('Experimental v0.1.1', { exact: true })).toBeVisible();
     await expect(setup.getByRole('link', { name: 'Get the Mac companion' }))
