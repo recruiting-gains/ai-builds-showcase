@@ -1,0 +1,43 @@
+name: Codex Usage Bar Red checks
+
+on:
+  push:
+    paths:
+      - 'codex-usage-bar-red/**'
+      - '.github/workflows/codex-usage-bar-red.yml'
+  pull_request:
+    paths:
+      - 'codex-usage-bar-red/**'
+      - '.github/workflows/codex-usage-bar-red.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codex-usage-bar-red-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: macOS · model/parser checks and ARM64 packaging
+    runs-on: macos-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: codex-usage-bar-red
+        shell: bash
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Run synthetic model and parser tests
+        run: bash scripts/test-local.sh
+      - name: Build ARM64 app and verify bundle
+        env:
+          CODEX_USAGE_ARCHS: arm64
+        run: |
+          ./build-app.sh dist-ci
+          codesign --verify --deep --strict --verbose=2 'dist-ci/Codex Usage Bar Red.app'
+          plutil -lint 'dist-ci/Codex Usage Bar Red.app/Contents/Info.plist'

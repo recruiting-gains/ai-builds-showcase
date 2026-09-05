@@ -8,6 +8,29 @@ I build practical tools that make complicated work clearer and easier to use.
 
 Every project here goes beyond a first answer: I build it, test it, debug it, deploy it, and learn from the result.
 
+## Desktop tools
+
+<table>
+  <tr>
+    <td width="40%">
+      <a href="./codex-usage-bar-red">
+        <img src="./docs/assets/showcase/codex-usage-bar-red.jpg" width="360" alt="Real photo of Codex Usage Bar Red on a MacBook Touch Bar: a red weekly allowance bar, percentage remaining, and reset time.">
+      </a>
+    </td>
+    <td>
+      <strong><a href="./codex-usage-bar-red">Codex Usage Bar Red</a></strong>
+      <br><br>
+      Know how much Codex allowance you have left—right above your keyboard. Red Touch Bar and menu-bar indicators show your real allowance, reset times, and a warning when a reading is out of date.
+      <br><br>
+      An MIT-licensed adaptation of <a href="https://github.com/yizhigou/codex-usage-bar">yizhigou’s Codex Usage Bar</a>, with a red theme, corrected allowance labels, and reliability improvements. Real hardware photo; no simulated interface.
+      <br><br>
+      <a href="https://github.com/recruiting-gains/ai-builds-showcase/releases/tag/codex-usage-bar-red-v2.1.1"><strong>Download for Mac ↗</strong></a> · <a href="./codex-usage-bar-red">Setup &amp; source</a> · <a href="./codex-usage-bar-red/docs/VERIFICATION.md">What was tested</a>
+      <br><br>
+      <sub>Experimental desktop utility · Apple Silicon download · macOS 14+ · physical Touch Bar required for keyboard display · not Apple-notarized.</sub>
+    </td>
+  </tr>
+</table>
+
 ## Live builds
 
 <table>
@@ -142,6 +165,6 @@ The goal is not to collect unfinished demos. Each project is a working experimen
 
 ## Independence
 
-These are independent, original projects. They are not affiliated with GitHub, Cloudflare, OpenAI, or any other product shown or discussed.
+These are independent projects. Original builds and open-source adaptations are identified on their project pages, with attribution and license notices retained. They are not affiliated with GitHub, Cloudflare, OpenAI, or any other product shown or discussed.
 
 The repository's [MIT License](./LICENSE) applies unless a project says otherwise.

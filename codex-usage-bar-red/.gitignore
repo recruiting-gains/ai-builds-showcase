@@ -1,0 +1,30 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Build and release output
+dist*/
+DerivedData/
+Resources/AppIcon.iconset/
+*.app
+*.dSYM
+*.zip
+*.sha256
+
+# Xcode and macOS
+xcuserdata/
+*.xcuserstate
+.DS_Store
+
+# Signing and notarization material
+*.cer
+*.p12
+*.provisionprofile
+*.mobileprovision
+*.key
+
+# Local environment
+.env
+.env.*
+!.env.example
