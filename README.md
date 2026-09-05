@@ -13,6 +13,19 @@ Every project here goes beyond a first answer: I build it, test it, debug it, de
 <table>
   <tr>
     <td colspan="2">
+      <a href="https://airframe.recruiting-gains.workers.dev/">
+        <img src="./airframe/public/airframe-preview.png" alt="Airframe’s actual browser interface: floating mint, blue, and amber panels around a three-dimensional orbit, with camera controls beside the workspace. Camera is off in this screenshot.">
+      </a>
+      <br>
+      <strong><a href="https://airframe.recruiting-gains.workers.dev/">Airframe</a></strong>
+      <br>
+      A touchless workspace: point to aim, pinch to grab, and move panels with your hand. Hand tracking stays on your device; mouse, touch, and keyboard work too. Controls this website—not your whole computer.
+      <br>
+      <a href="https://airframe.recruiting-gains.workers.dev/"><strong>Open live build ↗</strong></a> · <a href="./airframe">Read how it works</a> · <a href="./airframe/docs/TRACKING.md">Explore the gesture engineering</a>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2">
       <a href="https://looplab.recruiting-gains.workers.dev/">
         <img src="./docs/assets/showcase/looplab.webp" alt="Two mint and amber experiment lanes inside a miniature 3D science-fiction laboratory.">
       </a>

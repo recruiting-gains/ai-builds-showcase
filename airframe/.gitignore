@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars*
+test-results/
+public/vision/
+public/models/
+worker-configuration.d.ts
+*.local
