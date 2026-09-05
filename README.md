@@ -10,6 +10,16 @@ Every project here goes beyond a first answer: I build it, test it, debug it, de
 
 ## Desktop tools
 
+### Agent Office
+
+[![Midnight Lab — original miniature office room artwork](./agent-office/public/rooms/midnight-lab.png)](./agent-office)
+
+A cozy animated office for project activity. Choose among five rooms, switch floors, and inspect little robot coworkers. A Mac menu-bar companion keeps the office nearby.
+
+**Experimental preview:** the playable demo uses labeled sample activity. The private local adapter is tested, but automatic connection to the current Codex desktop session is not yet verified. No task conversations are published.
+
+[Explore the source and setup](./agent-office) · [See what was tested](./agent-office/docs/VERIFICATION.md)
+
 <table>
   <tr>
     <td width="40%">

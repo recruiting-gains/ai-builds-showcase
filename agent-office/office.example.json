@@ -1,0 +1,4 @@
+{
+  "allowedPaths": ["/absolute/path/to/your/approved/project"],
+  "projects": [{"threadId":"your-approved-task-id","label":"My project"}]
+}
