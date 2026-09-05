@@ -11,7 +11,11 @@ import Vision
 final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     /// The UI may attach a preview layer; session configuration belongs to this engine.
     let session = AVCaptureSession()
-    var onFrame: ((HandFrame?) -> Void)?
+    /// Nil means a fresh, successful inference could not reliably find the hand.
+    /// Both nil and nonnil results carry the sample's monotonic presentation time.
+    var onFrame: ((HandFrame?, Double) -> Void)?
+    /// Capture, inference, and stale-delivery failures are never recoverable absence.
+    var onFault: ((String) -> Void)?
     /// The Boolean is true only while this generation's capture session is running.
     var onStatus: ((String, Bool) -> Void)?
 
@@ -45,8 +49,7 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
 
     private struct FrameDelivery {
         let generation: UInt64
-        let frame: HandFrame?
-        let requiresRunning: Bool
+        let payload: TrackingDelivery
     }
 
     private enum SetupFailure: Error {
@@ -54,6 +57,11 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         case cannotAddInput
         case cannotAddOutput
         case couldNotStart
+    }
+
+    private enum ObservationFailure: Error {
+        case invalidTiming
+        case invalidGeometry
     }
 
     override init() {
@@ -80,6 +88,7 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         wantsCamera = true
         isDeliveringFrames = false
         activeOutputID = nil
+        pendingDelivery = nil
         stateLock.unlock()
 
         sendStatus("Preparing camera permission…", running: false, generation: token)
@@ -133,9 +142,9 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         wantsCamera = false
         isDeliveringFrames = false
         activeOutputID = nil
+        pendingDelivery = nil
         stateLock.unlock()
 
-        sendFrame(nil, generation: token, requiresRunning: false)
         sendStatus("Stopping camera…", running: false, generation: token)
         sessionQueue.async { [weak self] in
             guard let self else { return }
@@ -246,7 +255,7 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
     }
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        let timestamp = ProcessInfo.processInfo.systemUptime
+        let receivedAt = ProcessInfo.processInfo.systemUptime
         stateLock.lock()
         let token = generation
         // A queued callback from an old capture output must not acquire the
@@ -258,29 +267,63 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
             inferenceGeneration = token
             lastInferenceTime = -Double.infinity
         }
-        guard timestamp - lastInferenceTime >= 1.0 / 24.0 else { return }
-        lastInferenceTime = timestamp
+        guard receivedAt - lastInferenceTime >= 1.0 / 24.0 else { return }
+        lastInferenceTime = receivedAt
 
         autoreleasepool {
             guard CMSampleBufferDataIsReady(sampleBuffer), let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-                sendFrame(nil, generation: token)
+                sendFault("Camera supplied an invalid image buffer. Controls are paused.", generation: token)
                 return
             }
             let width = CVPixelBufferGetWidth(buffer)
             let height = CVPixelBufferGetHeight(buffer)
-            guard width > 0, height > 0 else { sendFrame(nil, generation: token); return }
+            guard width > 0, height > 0 else {
+                sendFault("Camera image dimensions are invalid. Controls are paused.", generation: token)
+                return
+            }
+            guard let capturedAt = captureTimestamp(for: sampleBuffer) else {
+                sendFault("Camera sample timing could not be verified. Controls are paused.", generation: token)
+                return
+            }
+            let timing = TrackingDelivery.observation(nil, capturedAt: capturedAt)
+                .validated(at: ProcessInfo.processInfo.systemUptime)
+            if case .fault = timing {
+                enqueue(timing, generation: token)
+                return
+            }
             do {
                 // Synchronous Vision work occurs only on the serial delegate queue;
                 // late capture frames are discarded rather than queued for analysis.
                 try VNImageRequestHandler(cvPixelBuffer: buffer, orientation: .up, options: [:]).perform([handRequest])
-                let frame = Self.makeFrame(from: handRequest.results?.first, timestamp: timestamp,
-                                           aspectRatio: Double(width) / Double(height))
-                sendFrame(frame, generation: token)
+                let frame = try Self.makeFrame(from: handRequest.results?.first, timestamp: capturedAt,
+                                               aspectRatio: Double(width) / Double(height))
+                enqueue(.observation(frame, capturedAt: capturedAt), generation: token)
             } catch {
-                // An inference failure is tracking loss, never permission to retain a drag.
-                sendFrame(nil, generation: token)
+                sendFault("Hand detection encountered an error. Controls are paused.", generation: token)
             }
         }
+    }
+
+    /// Apple documents every AVCaptureOutput timestamp on synchronizationClock.
+    /// Convert to the host clock to measure age, then subtract that age from a
+    /// contemporaneous uptime value. This never assumes the clocks share an epoch.
+    /// Reported presentation time is not authenticated sensor exposure time;
+    /// camera drivers and virtual cameras can still introduce unreported latency.
+    private func captureTimestamp(for sampleBuffer: CMSampleBuffer) -> Double? {
+        guard let sessionClock = session.synchronizationClock else { return nil }
+        let presentation = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        guard presentation.isNumeric else { return nil }
+        let hostClock = CMClockGetHostTimeClock()
+        let hostPresentation = CMSyncConvertTime(presentation, from: sessionClock, to: hostClock)
+        guard hostPresentation.isNumeric else { return nil }
+        let uptime = ProcessInfo.processInfo.systemUptime
+        let hostNow = CMClockGetTime(hostClock)
+        guard hostNow.isNumeric else { return nil }
+        let age = CMTimeGetSeconds(CMTimeSubtract(hostNow, hostPresentation))
+        guard age.isFinite, age >= 0 else { return nil }
+        let capturedAt = uptime - age
+        guard capturedAt.isFinite, capturedAt >= 0 else { return nil }
+        return capturedAt
     }
 
     private func isCurrent(_ token: UInt64, requiresWanted: Bool = false, requiresRunning: Bool = false) -> Bool {
@@ -297,15 +340,24 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         }
     }
 
-    private func sendFrame(_ frame: HandFrame?, generation token: UInt64, requiresRunning: Bool = true) {
+    private func sendFault(_ message: String, generation token: UInt64) {
+        enqueue(.fault(message), generation: token)
+    }
+
+    private func enqueue(_ payload: TrackingDelivery, generation token: UInt64) {
+        let now = ProcessInfo.processInfo.systemUptime
         stateLock.lock()
-        guard generation == token, !requiresRunning || (wantsCamera && isDeliveringFrames) else {
+        guard generation == token, wantsCamera && isDeliveringFrames else {
             stateLock.unlock()
             return
         }
-        // Coalesce to one pending main-queue delivery. A busy UI cannot accumulate
-        // a backlog of old hand positions and play them back after it recovers.
-        pendingDelivery = FrameDelivery(generation: token, frame: frame, requiresRunning: requiresRunning)
+        // Keep one event, but never erase an unhandled fault or first absence
+        // with a newer hand. Click/drag must observe loss before another hand.
+        // Aging pending absences/observations become faults before replacement.
+        // Old-generation faults cannot poison this generation's first delivery.
+        let pending = pendingDelivery?.generation == token ? pendingDelivery?.payload.validated(at: now) : nil
+        let next = TrackingDelivery.coalesce(pending: pending, incoming: payload.validated(at: now))
+        pendingDelivery = FrameDelivery(generation: token, payload: next)
         let shouldSchedule = !frameDeliveryScheduled
         frameDeliveryScheduled = true
         stateLock.unlock()
@@ -318,11 +370,12 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
             self.pendingDelivery = nil
             self.frameDeliveryScheduled = false
             self.stateLock.unlock()
-            guard let delivery, self.isCurrent(delivery.generation, requiresRunning: delivery.requiresRunning) else { return }
-            if let frame = delivery.frame, ProcessInfo.processInfo.systemUptime - frame.timestamp > 0.2 {
-                self.onFrame?(nil)
-            } else {
-                self.onFrame?(delivery.frame)
+            guard let delivery, self.isCurrent(delivery.generation, requiresRunning: true) else { return }
+            switch delivery.payload.validated(at: ProcessInfo.processInfo.systemUptime) {
+            case let .observation(frame, capturedAt):
+                self.onFrame?(frame, capturedAt)
+            case let .fault(message):
+                self.onFault?(message)
             }
         }
     }
@@ -334,18 +387,25 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         return request
     }
 
-    private static func makeFrame(from hand: VNHumanHandPoseObservation?, timestamp: Double, aspectRatio: Double) -> HandFrame? {
-        guard let hand, timestamp.isFinite, timestamp >= 0, aspectRatio.isFinite, aspectRatio > 0,
+    private static func makeFrame(from hand: VNHumanHandPoseObservation?, timestamp: Double, aspectRatio: Double) throws -> HandFrame? {
+        guard timestamp.isFinite, timestamp >= 0 else { throw ObservationFailure.invalidTiming }
+        guard aspectRatio.isFinite, aspectRatio > 0 else { throw ObservationFailure.invalidGeometry }
+        guard let hand,
               let wrist = try? hand.recognizedPoint(.wrist),
               let middle = try? hand.recognizedPoint(.middleMCP),
               let index = try? hand.recognizedPoint(.indexTip),
               let thumb = try? hand.recognizedPoint(.thumbTip) else { return nil }
         let points = [wrist, middle, index, thumb]
+        guard points.allSatisfy({ $0.confidence.isFinite && (0...1).contains($0.confidence) }) else {
+            throw ObservationFailure.invalidGeometry
+        }
+        // Low-confidence joint coordinates are not trustworthy geometry. Treat
+        // them as uncertain detection, not as a capture/inference exception.
+        guard points.allSatisfy({ $0.confidence >= 0.55 }) else { return nil }
         guard points.allSatisfy({ point in
-            point.confidence.isFinite && (0.55...1).contains(point.confidence)
-                && point.location.x.isFinite && point.location.y.isFinite
+            point.location.x.isFinite && point.location.y.isFinite
                 && (0...1).contains(point.location.x) && (0...1).contains(point.location.y)
-        }) else { return nil }
+        }) else { throw ObservationFailure.invalidGeometry }
         func normalized(_ point: VNRecognizedPoint) -> Point2D {
             // Vision uses a lower-left origin. Core uses mirrored, top-left coordinates.
             Point2D(x: 1 - Double(point.location.x), y: 1 - Double(point.location.y))
@@ -361,7 +421,7 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
     static func detectHand(in image: CGImage, timestamp: Double) throws -> HandFrame? {
         let request = makeHandRequest()
         try VNImageRequestHandler(cgImage: image, orientation: .up, options: [:]).perform([request])
-        return makeFrame(from: request.results?.first, timestamp: timestamp,
-                         aspectRatio: Double(image.width) / Double(image.height))
+        return try makeFrame(from: request.results?.first, timestamp: timestamp,
+                             aspectRatio: Double(image.width) / Double(image.height))
     }
 }

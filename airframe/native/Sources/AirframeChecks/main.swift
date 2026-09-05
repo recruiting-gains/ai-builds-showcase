@@ -235,7 +235,7 @@ group("Stop releases a held button exactly once") {
 }
 group("Hand loss and cancellation disarm and release") {
     let lost = heldGate()
-    check(lost.noHand(now: 13.2) == [.up(center)] && lost.state == .off, "Hand loss left mouse held")
+    check(lost.noHand(capturedAt: 13.2, now: 13.2, authorized: true) == [.up(center)] && lost.state == .off, "Hand loss left mouse held")
     let cancelled = heldGate()
     check(cancelled.accept(output(.cancel, ready: false, point: nil), capturedAt: 13.2, now: 13.2, authorized: true) == [.up(center)], "Cancellation left mouse held")
 }
@@ -271,20 +271,155 @@ group("Countdown cannot survive a stale camera stream") {
 group("Waiting for a ready hand has a bounded deadline") {
     let gate = ControlGate()
     check(gate.arm(now: 10, mode: .pointerOnly, authorized: true), "Waiting test could not arm")
-    for step in 1...150 {
+    for step in 1...149 {
         let time = 10 + Double(step) * 0.1
         _ = gate.accept(output(.warming, ready: false, point: nil), capturedAt: time, now: time, authorized: true)
         _ = gate.tick(now: time, authorized: true)
     }
     check(gate.state == .waitingForHand, "Waiting mode ended before its bounded deadline")
-    _ = gate.accept(output(.warming, ready: false, point: nil), capturedAt: 25.01, now: 25.01, authorized: true)
-    check(gate.tick(now: 25.01, authorized: true).isEmpty && gate.state == .off, "No-hand waiting deadline did not stop control")
+    _ = gate.accept(output(.warming, ready: false, point: nil), capturedAt: 25, now: 25, authorized: true)
+    check(gate.tick(now: 25, authorized: true).isEmpty && gate.state == .off, "No-hand waiting deadline did not stop control at its exact boundary")
 }
 group("A live pointer-only session cannot silently switch into clicking") {
     let gate = activeGate(.pointerOnly)
     check(!gate.arm(now: 13.05, mode: .clickAndDrag, authorized: true), "Mode changed without stopping the current session")
     check(gate.accept(output(.down), capturedAt: 13.1, now: 13.1, authorized: true) == [.move(center, dragging: false)], "Rejected mode change nevertheless enabled clicking")
 }
+
+func recoveringGate() -> ControlGate {
+    let gate = activeGate(.pointerOnly)
+    check(gate.noHand(capturedAt: 13.2, now: 13.2, authorized: true).isEmpty, "First pointer-only miss emitted an action")
+    check(gate.state == .recoveringHand && !gate.buttonHeld, "Fresh pointer-only loss did not enter frozen recovery")
+    return gate
+}
+group("Pointer-only recovery freezes every missing or warming frame") {
+    let gate = recoveringGate()
+    check(gate.noHand(capturedAt: 13.3, now: 13.3, authorized: true).isEmpty, "Repeated miss emitted an action")
+    check(gate.accept(output(.warming, ready: false), capturedAt: 13.4, now: 13.4, authorized: true).isEmpty, "Warming output moved a frozen pointer")
+    check(gate.state == .recoveringHand && !gate.buttonHeld, "Frozen recovery changed button state")
+}
+group("Recovery cannot resume before its 500 ms readiness floor") {
+    let gate = recoveringGate()
+    check(gate.accept(output(.move), capturedAt: 13.699, now: 13.699, authorized: true).isEmpty, "Premature ready output resumed recovery")
+    check(gate.state == .recoveringHand, "Premature ready output left recovery")
+    check(gate.accept(output(.move), capturedAt: 13.7, now: 13.7, authorized: true) == [.move(center, dragging: false)], "Eligible near-hand recovery failed")
+}
+group("Returning pinched, held, released or warming hand stays frozen") {
+    for phase in [GesturePhase.down, .held, .up, .warming] {
+        let gate = recoveringGate()
+        check(gate.accept(output(phase, ready: phase != .warming), capturedAt: 13.8, now: 13.8, authorized: true).isEmpty, "Non-open recovery emitted events")
+        check(gate.state == .recoveringHand && !gate.buttonHeld, "Non-open hand resumed control")
+    }
+}
+group("Repeated misses never extend the 1.25-second capture-time deadline") {
+    let gate = recoveringGate()
+    for time in [13.5, 13.8, 14.1, 14.4] {
+        check(gate.noHand(capturedAt: time, now: time, authorized: true).isEmpty, "Miss within recovery emitted events")
+        check(gate.state == .recoveringHand, "Recovery stopped before fixed deadline with fresh frames")
+    }
+    check(gate.noHand(capturedAt: 14.45, now: 14.45, authorized: true).isEmpty && gate.state == .off, "Repeated misses extended recovery past exact deadline")
+    check(gate.accept(output(.move), capturedAt: 14.46, now: 14.46, authorized: true).isEmpty, "Expired recovery revived")
+}
+group("Late good frame cannot bypass recovery expiry before tick") {
+    for finalTime in [14.45, 14.46] {
+        let gate = recoveringGate()
+        for time in [13.5, 13.8, 14.1, 14.4] { _ = gate.noHand(capturedAt: time, now: time, authorized: true) }
+        check(gate.accept(output(.move), capturedAt: finalTime, now: finalTime, authorized: true).isEmpty && gate.state == .off, "Late valid frame bypassed recovery expiry")
+    }
+    let gate = recoveringGate()
+    for time in [13.5, 13.8, 14.1, 14.4] { _ = gate.noHand(capturedAt: time, now: time, authorized: true) }
+    check(gate.tick(now: 14.45, authorized: true).isEmpty && gate.state == .off, "Tick missed exact recovery expiry")
+}
+group("Delayed delivery cannot extend the first-loss recovery window") {
+    let gate = activeGate(.pointerOnly)
+    _ = gate.noHand(capturedAt: 13.2, now: 13.4, authorized: true)
+    for time in [13.6, 13.9, 14.2] { _ = gate.noHand(capturedAt: time, now: time, authorized: true) }
+    check(gate.accept(output(.move), capturedAt: 14.45, now: 14.45, authorized: true).isEmpty && gate.state == .off, "Delivery latency incorrectly extended recovery")
+}
+group("Far hands stay frozen and do not shift the resume anchor") {
+    let gate = recoveringGate()
+    let far = Point2D(x: 0.85, y: 0.85)
+    check(gate.accept(output(.move, point: far), capturedAt: 13.8, now: 13.8, authorized: true).isEmpty, "Far hand teleported the pointer")
+    check(gate.state == .recoveringHand, "Far hand left frozen recovery")
+    let near = Point2D(x: 0.65, y: 0.5)
+    check(gate.accept(output(.move, point: near), capturedAt: 13.9, now: 13.9, authorized: true) == [.move(near, dragging: false)], "Far hand corrupted last-good resume anchor")
+}
+group("Resume proximity is Euclidean and includes its exact 0.20 boundary") {
+    let diagonal = recoveringGate()
+    check(diagonal.accept(output(.move, point: Point2D(x: 0.65, y: 0.65)), capturedAt: 13.8, now: 13.8, authorized: true).isEmpty && diagonal.state == .recoveringHand, "Axis-wise proximity admitted a too-far diagonal")
+    let edge = recoveringGate(); let boundary = Point2D(x: 0.7, y: 0.5)
+    check(edge.accept(output(.move, point: boundary), capturedAt: 13.8, now: 13.8, authorized: true) == [.move(boundary, dragging: false)], "Exact proximity boundary was incorrectly excluded")
+}
+group("Missing observations have the same freshness and permission gate") {
+    for (capture, now, authorized) in [(13.2, 13.2, false), (13.01, 13.2, true), (13.5, 13.2, true),
+                                       (13.15, 13.5, true), (Double.nan, 13.2, true), (13.2, Double.infinity, true)] {
+        let gate = activeGate(.pointerOnly)
+        check(gate.noHand(capturedAt: capture, now: now, authorized: authorized).isEmpty && gate.state == .off, "Invalid or unauthorized missing frame entered recovery")
+    }
+}
+group("Missing frames advance the timestamp high-water mark") {
+    let gate = recoveringGate()
+    _ = gate.noHand(capturedAt: 13.4, now: 13.4, authorized: true)
+    check(gate.accept(output(.move), capturedAt: 13.3, now: 13.5, authorized: true).isEmpty && gate.state == .off, "Older detected frame bypassed a newer missing frame")
+}
+group("Clock reversal and silent camera stalls cannot be masked by fresh arrival") {
+    let reversed = recoveringGate(); _ = reversed.tick(now: 13.4, authorized: true)
+    check(reversed.accept(output(.move), capturedAt: 13.3, now: 13.3, authorized: true).isEmpty && reversed.state == .off, "Clock reversal after tick was accepted")
+    for missing in [false, true] {
+        let gate = recoveringGate()
+        if missing { _ = gate.noHand(capturedAt: 13.851, now: 13.851, authorized: true) }
+        else { _ = gate.accept(output(.move), capturedAt: 13.851, now: 13.851, authorized: true) }
+        check(gate.state == .off, "Late arrival erased recovery watchdog evidence")
+    }
+    let active = activeGate(.pointerOnly)
+    check(active.accept(output(.move), capturedAt: 13.662, now: 13.662, authorized: true).isEmpty && active.state == .off, "Late arrival erased active watchdog evidence")
+}
+group("Malformed ready output and cancellation remain hard stops") {
+    let malformed = [output(.move, point: nil), output(.move, point: Point2D(x: .nan, y: 0.5)),
+                     output(.held, point: Point2D(x: 1.1, y: 0.5)), output(.warming, ready: true), output(.cancel, ready: false)]
+    for observation in malformed {
+        let gate = recoveringGate()
+        check(gate.accept(observation, capturedAt: 13.8, now: 13.8, authorized: true).isEmpty && gate.state == .off, "Malformed/cancel output entered recovery resume")
+    }
+}
+group("Permission loss, user stop and hardware-stop signals prevent revival") {
+    let revoked = recoveringGate()
+    check(revoked.noHand(capturedAt: 13.3, now: 13.3, authorized: false).isEmpty && revoked.state == .off, "Unauthorized recovery survived")
+    for reason in ["Escape", "Physical mouse", "Keyboard", "Camera fault", "Display changed", "Mode changed"] {
+        let gate = recoveringGate(); check(gate.stop(reason).isEmpty, "Pointer-only stop emitted a button event")
+        check(gate.accept(output(.move), capturedAt: 13.8, now: 13.8, authorized: true).isEmpty && gate.state == .off, "Hard-stopped session resumed")
+        check(gate.noHand(capturedAt: 13.9, now: 13.9, authorized: true).isEmpty && gate.state == .off, "Missing observation revived stopped session")
+    }
+}
+group("Recovery does not allow rearming or enabling click mode") {
+    let gate = recoveringGate()
+    check(!gate.arm(now: 13.3, mode: .clickAndDrag, authorized: true), "Recovery permitted click-mode rearm")
+    check(gate.state == .recoveringHand, "Rejected recovery rearm altered state")
+    check(gate.accept(output(.move), capturedAt: 13.8, now: 13.8, authorized: true) == [.move(center, dragging: false)] && !gate.buttonHeld, "Pointer recovery enabled clicks")
+}
+group("Real gesture engine requires a new uninterrupted 500 ms open dwell") {
+    let engine = GestureEngine(), gate = ControlGate()
+    check(gate.arm(now: 10, mode: .pointerOnly, authorized: true), "Integrated recovery test could not arm")
+    for step in 0...31 {
+        let time = 10 + Double(step) / 10
+        _ = gate.accept(engine.update(frame(time)), capturedAt: time, now: time, authorized: true)
+    }
+    check(gate.state == .active, "Integrated initial hand failed to activate")
+    _ = engine.update(nil); _ = gate.noHand(capturedAt: 13.2, now: 13.2, authorized: true)
+    for time in [13.3, 13.4] {
+        check(gate.accept(engine.update(frame(time, ratio: 0.2)), capturedAt: time, now: time, authorized: true).isEmpty, "Returning pinched hand resumed")
+    }
+    for time in [13.5, 13.6, 13.7] {
+        check(gate.accept(engine.update(frame(time)), capturedAt: time, now: time, authorized: true).isEmpty, "Short opening resumed")
+    }
+    _ = engine.update(nil); _ = gate.noHand(capturedAt: 13.75, now: 13.75, authorized: true)
+    for time in [13.8, 13.9, 14.0, 14.1, 14.2, 14.299] {
+        check(gate.accept(engine.update(frame(time)), capturedAt: time, now: time, authorized: true).isEmpty && gate.state == .recoveringHand, "Interrupted dwell accumulated time")
+    }
+    check(gate.accept(engine.update(frame(14.3)), capturedAt: 14.3, now: 14.3, authorized: true) == [.move(Point2D(x: 0.5, y: 0.25), dragging: false)] && gate.state == .active, "500 ms fresh open-hand dwell did not resume pointer")
+}
+
+runTrackingDeliveryChecks()
 
 print("\nAirframe standalone checks: \(groups) groups, \(assertions) assertions, \(failures.count) failures.")
 print("Evidence boundary: synthetic core and input-gate logic only; not XCTest, live-camera recognition, Accessibility permission, or actual OS-input acceptance.")

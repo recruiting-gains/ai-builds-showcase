@@ -268,6 +268,23 @@ try {
   checks.push('Reduced-motion preference: scene still at rest, mouse workspace remains usable');
   await reduced.context().close();
 
+  for (const width of [1440, 380]) {
+    const setup = await preparePage(width);
+    const beforeSetup = cameraRequests;
+    await setup.goto(new URL('/mac/', baseURL).href, { waitUntil: 'networkidle' });
+    await expect(setup.getByText('Experimental v0.1.1', { exact: true })).toBeVisible();
+    await expect(setup.getByRole('link', { name: 'Get the Mac companion' }))
+      .toHaveAttribute('href', 'https://github.com/recruiting-gains/ai-builds-showcase/releases/tag/airframe-mac-v0.1.1');
+    await expect(setup.getByText(/freeze the cursor for up to 1.25 seconds/)).toBeVisible();
+    await expect(setup.getByText(/Click-and-drag mode still stops on the first tracking miss/)).toBeVisible();
+    assert.equal(cameraRequests, beforeSetup, 'Mac setup page must not request camera access');
+    await noHorizontalOverflow(setup, `Mac setup ${width} px`);
+    await noSevereAccessibilityViolations(setup, `Mac setup ${width} px`);
+    await setup.screenshot({ path: join(outputDirectory, `mac-setup-${width}.png`), fullPage: true });
+    checks.push(`Mac setup ${width} px: current release, recovery boundaries, and no camera request`);
+    await setup.context().close();
+  }
+
   assert.deepEqual(browserErrors, [], 'Unexpected browser errors');
   assert.deepEqual(unexpectedRequests, [], 'Unexpected third-party requests');
   checks.push('No browser exceptions or third-party network requests in tested states');

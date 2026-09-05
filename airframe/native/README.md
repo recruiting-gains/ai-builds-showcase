@@ -39,6 +39,14 @@ Both test forms use simulated observations and do not establish real-camera trac
 5. Start in pointer-only mode. Computer control uses an explicit countdown; clicking is a separate opt-in. Keep your other hand near Escape or the physical mouse/trackpad.
 6. Use Stop when finished. Escape is available inside the Airframe window, and the app installs a system-wide Escape monitor while Mac control is armed. Do not assume a protected macOS context will deliver every key event. Stop the camera separately if it is still in preview mode, and confirm its indicator is off before assuming capture has ended.
 
+### Pointer-only recovery in v0.1.1
+
+A brief missed hand detection now **freezes the cursor**, instead of immediately ending pointer-only control. The app shows **POINTER FROZEN · FINDING HAND**. Within a fixed **1.25-second** window, return your open hand near its previous position and keep it open for **500 milliseconds**. Reliable tracking can then continue the same explicitly started session. No movement is guessed during the freeze; a returning hand too far from the last pointer position cannot resume it.
+
+If recovery takes too long, press **Start Mac control** again. Clicking/dragging mode still stops immediately on any missing hand reading and releases a button the app owns. Camera/inference errors, stale data, manual mouse/keyboard takeover, permission changes, and explicit Stop remain hard stops in both modes. They never automatically resume.
+
+This improves the handling of short detection misses; it is not a claim that all cameras or lighting conditions track reliably. Keep the full hand and wrist visible, use front lighting, and start with small movements. Read [v0.1.1 release notes](docs/RELEASE-0.1.1.md) for the remaining live-device checks.
+
 The exact tested feature set and remaining acceptance checks are recorded in [SAFETY.md](docs/SAFETY.md). Do not describe the app as unattended, perfectly accurate, or production-ready.
 
 ## Permissions and privacy
@@ -54,6 +62,8 @@ The intended native architecture processes camera frames locally, has no server 
 The build script applies an **ad-hoc local signature** using `codesign --sign -`. This is **not Developer ID signing and not notarization**. A successful signature verification confirms the local bundle is internally consistent; it does not prove Apple reviewed it, establish a trusted publisher, or guarantee that Gatekeeper will allow a downloaded copy to open.
 
 The ZIP is useful as a development artifact, not a polished public installer. AirDrop/downloaded copies may receive additional macOS checks. Do not strip quarantine attributes, disable Gatekeeper, or modify privacy databases to make it run. Rebuilding an ad-hoc-signed app can also change the identity macOS uses for remembered permissions; permission behavior must be checked on the actual build.
+
+If Accessibility is ON in Settings but Airframe still says not approved after a quit/reopen, macOS may have retained an earlier development build's identity. With the app closed, remove only **Airframe Mac** from the Accessibility list, use **+** to add the exact installed copy, and approve it again. Do not reset other apps' permissions. If clicking the row does not select it, focus the app list with Tab and use the arrow keys; verify Airframe Mac is selected before using **−**. Reopen the app and check its own approved status before starting the camera or control.
 
 A customer-ready release needs a Developer ID certificate, an appropriately tested hardened-runtime configuration, notarization, and testing on a clean Mac. Apple explicitly excludes ad-hoc signatures from the normal notarization requirements. [Apple: preparing software for notarization](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
 

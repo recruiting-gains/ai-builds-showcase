@@ -70,7 +70,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         buildMenu()
         buildWindow()
         installLocalEmergencyMonitor()
-        camera.onFrame = { [weak self] frame in self?.receive(frame) }
+        camera.onFrame = { [weak self] frame, capturedAt in self?.receive(frame, capturedAt: capturedAt) }
+        camera.onFault = { [weak self] message in
+            guard let self else { return }
+            self.preview.hand = nil
+            self.cameraLabel.stringValue = message
+            // A failed/stale camera sample is never eligible for pointer recovery.
+            self.stopControl("Control stopped: " + message + " Start again when ready.")
+        }
         camera.onStatus = { [weak self] message, running in
             guard let self else { return }
             self.cameraRunning = running
@@ -140,13 +147,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         stopControl("Paused: physical mouse or trackpad took over. Start again when ready.")
     }
 
-    private func receive(_ frame: HandFrame?) {
+    private func receive(_ frame: HandFrame?, capturedAt: Double) {
         preview.hand = frame
         let now = ProcessInfo.processInfo.systemUptime
         guard let frame else {
             if cameraRunning { cameraLabel.stringValue = "Camera on. Show one open hand in good light." }
             _ = gestures.update(nil)
-            pointer.post(gate.noHand(now: now))
+            pointer.post(gate.noHand(capturedAt: capturedAt, now: now, authorized: canControl))
             refresh()
             return
         }
@@ -222,6 +229,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let count = max(1, Int(ceil(3 - (ProcessInfo.processInfo.systemUptime - countdownStarted))))
             stateLabel.stringValue = "STARTING IN \(count)…"; statusItem.button?.title = "A· WAIT"
         case .waitingForHand: stateLabel.stringValue = "SHOW AN OPEN HAND"; statusItem.button?.title = "A· WAIT"
+        case .recoveringHand: stateLabel.stringValue = "POINTER FROZEN · FINDING HAND"; statusItem.button?.title = "A· HOLD"
         case .active: stateLabel.stringValue = clicks.state == .on ? "LIVE · CLICK + DRAG" : "LIVE · POINTER ONLY"; statusItem.button?.title = "A· LIVE"
         }
         detailLabel.stringValue = gate.reason
@@ -274,14 +282,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func buildWindow() {
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 850, height: 665), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 850, height: 705), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "Airframe Mac — Local Gesture Control"
         window.delegate = self
-        window.minSize = NSSize(width: 820, height: 660)
+        window.minSize = NSSize(width: 820, height: 700)
         window.appearance = NSAppearance(named: .darkAqua)
         window.backgroundColor = NSColor(calibratedRed: 0.04, green: 0.075, blue: 0.095, alpha: 1)
         window.center()
-        let title = label("airframe.  /  MAC", size: 30, bold: true); title.textColor = mint
+        let title = label("airframe.  /  MAC 0.1.1", size: 30, bold: true); title.textColor = mint
         let subtitle = label("Your hands. Your whole workspace.", size: 20, bold: true)
         let intro = label("A local companion for controlling your Mac’s cursor across apps. No browser connection, cloud commands, or video uploads.")
         preview = PreviewView(session: camera.session)
@@ -289,7 +297,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         preview.widthAnchor.constraint(equalToConstant: 430).isActive = true
         preview.heightAnchor.constraint(equalToConstant: 300).isActive = true
         cameraLabel.font = .systemFont(ofSize: 12)
-        let left = stack([preview, cameraLabel, label("Point to aim • Pinch to press • Open to release", size: 13, bold: true), label("Use good light and one open hand. Start in pointer-only mode.\nIf tracking is lost, control pauses; click Start to resume.", size: 12)])
+        let left = stack([preview, cameraLabel, label("Point to aim • Pinch to press • Open to release", size: 13, bold: true), label("Pointer-only: a brief miss freezes the cursor for up to 1.25s.\nReturn an open hand near its last position and hold steady.\nLong loss or click mode: press Start again. Use good light.", size: 12)])
         cameraButton = button("Start camera preview", action: #selector(toggleCamera), prominent: true)
         controlButton = button("Start Mac control", action: #selector(toggleControl))
         clicks.target = self; clicks.action = #selector(modeChanged)

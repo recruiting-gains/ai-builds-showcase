@@ -47,11 +47,13 @@ binary_path="$binary_dir/AirframeMac"
 stage_dir="$(mktemp -d "$dist_dir/.airframe-stage.XXXXXX")"
 stage_app="$stage_dir/$app_name"
 stage_zip="$stage_dir/Airframe-Mac-apple-silicon.zip"
-mkdir -p "$stage_app/Contents/MacOS" "$stage_app/Contents/Resources"
+mkdir -p "$stage_app/Contents/MacOS" "$stage_app/Contents/Resources/docs"
 /usr/bin/ditto "$binary_path" "$stage_app/Contents/MacOS/AirframeMac"
 /usr/bin/ditto "$native_dir/Info.plist" "$stage_app/Contents/Info.plist"
 /usr/bin/ditto "$native_dir/README.md" "$stage_app/Contents/Resources/README.md"
 /usr/bin/ditto "$native_dir/docs/SAFETY.md" "$stage_app/Contents/Resources/SAFETY.md"
+/usr/bin/ditto "$native_dir/docs/SAFETY.md" "$stage_app/Contents/Resources/docs/SAFETY.md"
+/usr/bin/ditto "$native_dir/docs/RELEASE-0.1.1.md" "$stage_app/Contents/Resources/docs/RELEASE-0.1.1.md"
 
 # '-' is an ad-hoc local signature. It is not a Developer ID certificate and
 # does not notarize the app. Do not add hardened runtime without camera QA.
