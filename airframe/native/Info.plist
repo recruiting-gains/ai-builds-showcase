@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <key>CFBundleDisplayName</key>
+  <string>Airframe Mac</string>
+  <key>CFBundleExecutable</key>
+  <string>AirframeMac</string>
+  <key>CFBundleIdentifier</key>
+  <string>io.thenfold.airframe.mac</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundleName</key>
+  <string>Airframe Mac</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.1.0</string>
+  <key>CFBundleVersion</key>
+  <string>1</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>14.0</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>NSCameraUsageDescription</key>
+  <string>Airframe uses your camera to recognize hand gestures on this Mac. Camera preview is optional and starts only when you enable it. Video is not recorded or uploaded. Moving or clicking the Mac pointer requires a separate explicit control step.</string>
+  <key>AirframeBuildManagedArtifact</key>
+  <string>airframe-native-build-v1</string>
+</dict>
+</plist>

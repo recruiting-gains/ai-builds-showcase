@@ -1,0 +1,38 @@
+name: Airframe Mac checks
+
+on:
+  push:
+    paths:
+      - 'airframe/native/**'
+      - '.github/workflows/airframe-native.yml'
+  pull_request:
+    paths:
+      - 'airframe/native/**'
+      - '.github/workflows/airframe-native.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: airframe-native-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: macOS · deterministic tests and ARM64 local packaging
+    runs-on: macos-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: airframe/native
+        shell: bash
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Test, compile, and verify the ad-hoc development bundle
+        run: bash scripts/build-app.sh
+      - name: Run the XCTest suite with the runner's full Xcode installation
+        run: swift test

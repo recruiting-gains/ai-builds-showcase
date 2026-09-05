@@ -8,7 +8,7 @@
 
 Airframe is an original touchless workspace experiment by Cruz. Use a webcam to move floating panels with your hand, or explore the same workspace with a mouse, touch, or keyboard. A dimensional, mint-lit scene gives the experience a science-fiction feel without special gloves or a headset.
 
-**Important boundary:** Airframe controls panels inside this website. It does not move your operating system's mouse, click other applications, or grant remote control of your computer. Reproducing system-wide control would require a separate, explicitly installed native application and additional operating-system permissions. This project does not include that software.
+**Important boundary:** The browser playground controls only its own panels. It does not move your operating system's mouse, click other applications, or grant remote control of your computer. The new, separate **[Airframe Mac companion](native/README.md)** implements local system-pointer movement and optional left clicks/dragging with explicit camera and Accessibility permission. It has no network connection to this website and starts with camera and control off. See the [Mac setup page](https://airframe.recruiting-gains.workers.dev/mac/); it is an experimental native build, not a notarized commercial application.
 
 ## Try it
 

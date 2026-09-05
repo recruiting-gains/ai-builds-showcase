@@ -1,5 +1,7 @@
 # Airframe release verification
 
+This report records the original **browser** release. The separate native companion has its own [safety and verification notes](../native/docs/SAFETY.md); its permissions and system-pointer capabilities are not part of the browser sandbox.
+
 Verified on September 4, 2026 in America/Chicago (September 5 UTC).
 
 - **Live website:** https://airframe.recruiting-gains.workers.dev/
