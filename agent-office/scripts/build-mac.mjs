@@ -19,7 +19,7 @@ await writeFile(
   resolve(contents, 'Info.plist'),
   `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict><key>CFBundleName</key><string>Agent Office</string><key>CFBundleDisplayName</key><string>Agent Office</string><key>CFBundleIdentifier</key><string>io.recruiting-gains.agent-office</string><key>CFBundleVersion</key><string>1</string><key>CFBundleShortVersionString</key><string>0.1.0</string><key>CFBundleExecutable</key><string>AgentOffice</string><key>LSMinimumSystemVersion</key><string>14.0</string><key>LSUIElement</key><true/><key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict><key>NSHighResolutionCapable</key><true/></dict></plist>`,
+<plist version="1.0"><dict><key>CFBundleName</key><string>Agent Office</string><key>CFBundleDisplayName</key><string>Agent Office</string><key>CFBundleIdentifier</key><string>io.recruiting-gains.agent-office</string><key>CFBundleVersion</key><string>2</string><key>CFBundleShortVersionString</key><string>0.1.1</string><key>CFBundleExecutable</key><string>AgentOffice</string><key>LSMinimumSystemVersion</key><string>14.0</string><key>LSUIElement</key><true/><key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict><key>NSHighResolutionCapable</key><true/></dict></plist>`,
 );
 for (const [cmd, args] of [
   [

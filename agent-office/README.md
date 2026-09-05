@@ -13,12 +13,12 @@ Choose a floor, meet its little robot coworkers, or zoom out to the whole buildi
 - Robot motion and status labels, a team list, individual inspectors, and an event log.
 - Per-floor layout preferences stored on your device.
 - Recording-safe generic project labels, reduced-motion support, pause, and optional quiet sounds.
-- A native macOS companion with a menu-bar toggle, resizable window, and optional always-on-top mode.
+- A native macOS companion with a floating upper-right workspace widget, menu-bar toggle, and a separate full-office view.
 - A tested local event adapter that accepts only approved project paths and task IDs.
 
 ## Important: demo versus real activity
 
-**The visual office and local adapter are implemented. Automatic attachment to the current Codex desktop session is not verified.**
+**The hosted office is a demo. The installed Mac companion has received real, approved project events on the development Mac; other Macs require their own reviewed observer setup.**
 
 The hosted version always runs scripted sample activity. It cannot access your computer. The Mac companion starts disconnected and only shows actual task activity after a reviewed project observer supplies valid events.
 
@@ -61,13 +61,17 @@ open "native/build/Agent Office.app"
 
 The app is locally ad-hoc signed, **not Apple-notarized**. The compiled binary targets the Mac that builds it. It does not install a login item or request Camera, Screen Recording, Accessibility, or administrator access.
 
-Use the building icon in the menu bar to show/hide the office, reload it, toggle always-on-top, or quit. Closing the window hides it; quitting stops its local observer.
+Click the building icon in the menu bar to show or hide the compact workspace widget. It starts beneath the upper-right menu bar, floats above ordinary windows, and does not pull you away from the app you are using. Drag its title bar to move it or resize its edges. It stays on the current desktop; it does not override other apps' full-screen spaces.
+
+Right-click (or Option-click) the building icon for **Open full office**, **Move widget to upper-right**, reload, full-office always-on-top, and quit. Closing either view hides it; quitting stops its local observer. Both views share one browser view and one observer, retaining the selected project and animation settings when switching. This is a floating app panel, not an Apple Notification Center widget.
+
+The compact display contains only the workspace, a project selector, pause, and truthful local/demo connection labels. `?view=widget` also previews this layout on the hosted demo; that hosted view still contains sample activity only.
 
 ## Connect approved project events
 
 See [the connection guide](docs/CONNECTION.md). Review the adapter and exact hook command before trusting it. Never disable Codex hook trust to make this work.
 
-Codex CLI 0.153.1 was inspected during development. On the development Mac, the existing-daemon control socket was absent. No separate daemon, permission bypass, or private desktop transport was used as a substitute. Hook activation in an already-running desktop task remains unverified.
+The companion uses approved project hooks, not a separate Codex daemon, permission bypass, or private desktop transport. The local observer has returned fresh project activity on the development Mac. It cannot guarantee every Codex version or every tool exposes the same lifecycle events.
 
 ## Architecture
 

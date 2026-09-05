@@ -1,6 +1,7 @@
 'use client';
 import { flushSync } from 'react-dom';
 import { assignLayouts } from '@/lib/preferences.mjs';
+import { wantsWidget, widgetStatus } from '@/lib/widget.mjs';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
   Bot,
@@ -156,6 +157,8 @@ function Scene({
 
 export default function Home() {
   const [mode, setMode] = useState<'demo' | 'live'>('demo'),
+    [compact, setCompact] = useState(false),
+    [booted, setBooted] = useState(false),
     [snapshot, setSnapshot] = useState<Snapshot>(empty),
     [step, setStep] = useState(0),
     [floorId, setFloorId] = useState(''),
@@ -209,6 +212,14 @@ export default function Home() {
   const name = (f: Floor, i: number) => (safe ? 'Project ' + (i + 1) : f.label);
   useEffect(() => {
     setNow(Date.now());
+    const nativeWindow = window as Window & { __AGENT_OFFICE_VIEW?: string };
+    setCompact(wantsWidget(location.search, nativeWindow.__AGENT_OFFICE_VIEW));
+    setBooted(true);
+    const onDisplayMode = (event: Event) => {
+      const value = (event as CustomEvent).detail;
+      if (value === 'widget' || value === 'full') setCompact(value === 'widget');
+    };
+    window.addEventListener('agent-office-view', onDisplayMode);
     try {
       const p = JSON.parse(
         localStorage.getItem('agent-office-layouts') ?? '{}',
@@ -222,10 +233,10 @@ export default function Home() {
       key.current = capability;
       setLocal(true);
       setMode('live');
-      history.replaceState(null, '', location.pathname);
+      history.replaceState(null, '', location.pathname + location.search);
     }
     const interval = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(interval);
+    return () => { clearInterval(interval); window.removeEventListener('agent-office-view', onDisplayMode); };
   }, []);
   useEffect(() => {
     if (mode !== 'demo' || paused) return;
@@ -435,6 +446,26 @@ export default function Home() {
     mode === 'live' &&
     !!snapshot.observedAt &&
     now - snapshot.observedAt > 60000;
+  if (!booted) return <main className="office-widget" aria-label="Loading office workspace" />;
+  if (compact) return (
+    <main className={'office-widget ' + (paused ? 'motion-paused' : '')} aria-label="Agent Office workspace widget">
+      <header className="widget-toolbar">
+        <span className={'widget-feed ' + (mode === 'live' && visible.connected ? 'cyan' : 'amber')} title={widgetStatus(mode, snapshot.connected, stale, !!floor)}>
+          {mode === 'live' ? <Radio size={15} /> : <Play size={15} />}<span>{mode === 'live' ? 'LOCAL' : 'DEMO'}</span>
+        </span>
+        <Select value={floor?.id ?? ''} disabled={!floor} onValueChange={(value) => { if (value) { setFloorId(String(value)); setSelectedAgentId(null); } }}>
+          <SelectTrigger className="widget-floor-select" aria-label="Widget project"><SelectValue>{floor ? name(floor,index) : 'Waiting for activity'}</SelectValue></SelectTrigger>
+          <SelectContent>{visible.floors.map((f,i) => <SelectItem key={f.id} value={f.id}>{name(f,i)}</SelectItem>)}</SelectContent>
+        </Select>
+        <button className="icon-button" aria-label={paused ? 'Resume agent motion' : 'Pause agent motion'} aria-pressed={paused} onClick={() => setPaused(value => !value)}>{paused ? <Play size={16} /> : <Pause size={16} />}</button>
+      </header>
+      <div className="widget-room">
+        {booted && floor ? <Scene f={floor} room={layout} onSelect={selectAgent} /> : <div className="empty-office"><img className="room-art" src="/rooms/midnight-lab.png" alt="An empty office waiting for local activity" /></div>}
+        <div className="widget-caption">{widgetStatus(mode, snapshot.connected, stale, !!floor)}{floor && mode === 'live' ? ' · ' + stateInfo[summarize(floor.agents)].label : ''}</div>
+        {selectedAgent && <output className="widget-agent-note"><strong>{selectedAgent.label}</strong><span className={stateInfo[selectedAgent.state].color}>{stateInfo[selectedAgent.state].label}</span><button className="icon-button" aria-label="Close agent status" onClick={() => selectAgent(null)}>×</button></output>}
+      </div>
+    </main>
+  );
   return (
     <main className={'office-app ' + (paused ? 'motion-paused' : '')}>
       <header className="topbar">

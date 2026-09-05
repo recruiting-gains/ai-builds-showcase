@@ -74,6 +74,18 @@ select {
 .office-app {
   min-height: 100dvh;
 }
+.office-widget{height:100dvh;min-height:230px;display:flex;flex-direction:column;background:#0e1116;overflow:hidden}
+.widget-toolbar{display:flex;align-items:center;gap:10px;padding:5px 10px;min-height:42px;border-bottom:1px solid #343c46;flex-shrink:0;background:#171c23}
+.widget-feed{display:flex;align-items:center;gap:5px;font-size:12px;letter-spacing:.05em;flex-shrink:0}
+.widget-floor-select{min-width:0!important;flex:1;width:auto!important;height:30px!important;min-height:30px!important;font-size:14px!important;border:0!important;background:transparent!important;padding:3px 6px!important}
+.widget-toolbar .icon-button{min-width:32px;min-height:32px;padding:6px}
+.widget-room{flex:1;min-height:0;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.widget-room .office-scene,.widget-room .empty-office{width:min(100%,calc((100dvh - 42px) * 1.5));aspect-ratio:3/2;flex-shrink:0}
+.widget-room .robot{width:10%}.widget-room .robot-tag{font-size:12px;bottom:-10px;padding:2px 4px}
+.widget-room .robot-bubble{font-size:12px;padding:4px 6px}
+.widget-caption{position:absolute;left:8px;bottom:7px;max-width:calc(100% - 16px);font-size:12px;color:#c3cbd4;background:#10161dde;padding:4px 7px;border-radius:4px;pointer-events:none}
+.widget-agent-note{position:absolute;inset:auto 8px 34px;display:flex;align-items:center;gap:12px;background:#17212ff5;padding:8px 10px;border:1px solid #485d6a;border-radius:6px;font-size:14px;z-index:8}
+.widget-agent-note .icon-button{margin-left:auto;font-size:24px;padding:0 6px}.widget-agent-note strong{font-size:14px}
 .topbar {
   height: 94px;
   display: flex;
