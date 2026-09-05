@@ -1,8 +1,11 @@
-import { mkdir, cp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, cp, writeFile, rename, rmdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 const root = process.cwd(),
-  app = resolve(root, 'native/build/Agent Office.app'),
+  buildRoot = resolve(root, 'native/build');
+await mkdir(buildRoot, { recursive: true });
+const staging = await mkdtemp(resolve(buildRoot, 'staging-'));
+const app = resolve(staging, 'Agent Office.app'),
   contents = resolve(app, 'Contents');
 await mkdir(resolve(contents, 'MacOS'), { recursive: true });
 await mkdir(resolve(contents, 'Resources'), { recursive: true });
@@ -25,6 +28,8 @@ for (const [cmd, args] of [
       '-parse-as-library',
       '-swift-version',
       '5',
+      '-target',
+      (process.arch === 'arm64' ? 'arm64' : 'x86_64') + '-apple-macosx14.0',
       '-O',
       '-framework',
       'AppKit',
@@ -40,4 +45,17 @@ for (const [cmd, args] of [
   const out = spawnSync(cmd, args, { stdio: 'inherit' });
   if (out.status !== 0) process.exit(out.status ?? 1);
 }
-console.log('Built local, ad-hoc signed Agent Office.app (not notarized).');
+const finalApp = resolve(buildRoot, 'Agent Office.app');
+try {
+  await rename(
+    finalApp,
+    resolve(buildRoot, 'Agent Office.previous-' + Date.now() + '.app'),
+  );
+} catch (error) {
+  if (error.code !== 'ENOENT') throw error;
+}
+await rename(app, finalApp);
+await rmdir(staging);
+console.log(
+  'Built fresh local, ad-hoc signed Agent Office.app for macOS 14+ (not notarized).',
+);
