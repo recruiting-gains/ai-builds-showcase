@@ -96,7 +96,7 @@ func runTrackingDeliveryChecks() {
         // This exercises the pure delivery-to-gate contract, not AppKit callbacks.
         switch TrackingDelivery.observation(nil, capturedAt: 13.1).validated(at: 13.301) {
         case .fault(let message): check(gate.stop(message).isEmpty, "Pointer-only hard stop emitted input")
-        case .observation: check(false, "Stale missing frame was incorrectly eligible for recovery")
+        case .observation, .pinchUncertain: check(false, "Stale missing frame was incorrectly eligible for recovery")
         }
         check(gate.state == .off, "Stale missing result left pointer armed")
         check(gate.accept(output(.move), capturedAt: 13.4, now: 13.4, authorized: true).isEmpty, "Fresh hand rearmed after a delivery fault")

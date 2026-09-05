@@ -60,7 +60,7 @@ public enum MenuBarIndicator: Equatable {
         case .off: return .cameraOnly
         case .countdown: return .starting
         case .waitingForHand: return .waiting
-        case .recoveringHand: return .holding
+        case .recoveringHand, .recoveringPinch: return .holding
         case .active:
             guard let lastHandAt, now.isFinite, now >= 0, lastHandAt.isFinite, lastHandAt >= 0,
                   now >= lastHandAt, now - lastHandAt <= 0.2 else { return .holding }

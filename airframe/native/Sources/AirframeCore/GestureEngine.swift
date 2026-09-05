@@ -54,11 +54,15 @@ public struct GestureOutput: Equatable, Sendable {
     public let phase: GesturePhase
     /// Recognition readiness only. It never grants user permission to emit OS input.
     public let ready: Bool
+    /// Current complete geometry is open, independently of cached readiness.
+    /// A .move phase alone is insufficient: it also covers pinch debounce.
+    public let isOpenHand: Bool
 
-    public init(point: Point2D?, phase: GesturePhase, ready: Bool) {
+    public init(point: Point2D?, phase: GesturePhase, ready: Bool, isOpenHand: Bool = false) {
         self.point = point
         self.phase = phase
         self.ready = ready
+        self.isOpenHand = isOpenHand
     }
 }
 
@@ -72,11 +76,16 @@ public final class GestureEngine {
     private static let releaseDuration = 0.080
     private static let armDuration = 0.500
     private static let continuityLimit = 0.350
-    private static let smoothingTime = 0.045
+    private static let steadySmoothingTime = 0.060
+    private static let movingSmoothingTime = 0.018
 
     private var lastTimestamp: Double?
     private var previousWrist: Point2D?
     private var filteredPoint: Point2D?
+    /// Once a pinch starts, use palm translation instead of fingertip curling
+    /// to move the cursor. This offset never survives loss/reset/reacquisition.
+    private var pinchOffset: Point2D?
+    private var releaseOffset: Point2D?
     private var openSince: Double?
     private var closeSince: Double?
     private var releaseSince: Double?
@@ -119,14 +128,52 @@ public final class GestureEngine {
         guard palm.isFinite, gap.isFinite, palm >= 0.025 else { return cancelIfNeeded() }
         let ratio = gap / palm
         guard ratio.isFinite else { return cancelIfNeeded() }
+        let isOpenHand = ratio + 1e-12 >= Self.openRatio
 
+        let palmCenter = Point2D(x: (frame.wrist.x + frame.middleMCP.x) / 2,
+                                 y: (frame.wrist.y + frame.middleMCP.y) / 2)
+        if isReady, pinchOffset == nil, ratio <= Self.closeRatio + 1e-12,
+           let filteredPoint {
+            releaseOffset = nil
+            pinchOffset = Point2D(x: filteredPoint.x - palmCenter.x,
+                                   y: filteredPoint.y - palmCenter.y)
+        }
+        // Keep the anchor through release debounce so straightening a finger
+        // cannot move the mouse-up target. A canceled short pinch releases the
+        // anchor as soon as the fully open threshold is observed again.
+        if !isPressed, ratio + 1e-12 >= Self.openRatio, pinchOffset != nil {
+            if let filteredPoint {
+                releaseOffset = Point2D(x: filteredPoint.x - frame.indexTip.x, y: filteredPoint.y - frame.indexTip.y)
+            }
+            pinchOffset = nil
+        }
+        let target: Point2D
+        if let pinchOffset {
+            target = Point2D(x: min(1, max(0, palmCenter.x + pinchOffset.x)),
+                              y: min(1, max(0, palmCenter.y + pinchOffset.y)))
+        } else if let releaseOffset, let delta {
+            let decay = exp(-min(delta, 0.100) / 0.120)
+            let offset = Point2D(x: releaseOffset.x * decay, y: releaseOffset.y * decay)
+            self.releaseOffset = hypot(offset.x, offset.y) < 0.0001 ? nil : offset
+            target = Point2D(x: min(1, max(0, frame.indexTip.x + offset.x)),
+                              y: min(1, max(0, frame.indexTip.y + offset.y)))
+        } else {
+            target = frame.indexTip
+        }
         let point: Point2D
         if let filteredPoint, let delta {
-            let alpha = 1 - exp(-min(delta, 0.100) / Self.smoothingTime)
-            point = Point2D(x: filteredPoint.x + (frame.indexTip.x - filteredPoint.x) * alpha,
-                            y: filteredPoint.y + (frame.indexTip.y - filteredPoint.y) * alpha)
+            let elapsed = min(delta, 0.100)
+            // Slow aiming gets stronger jitter filtering; purposeful movement
+            // gets a shorter response time. No prediction/extrapolation is used.
+            let speed = distance(filteredPoint, target, aspect: frame.aspectRatio) / max(elapsed, 0.001)
+            let response = min(1, speed / 1.5)
+            let smoothingTime = Self.steadySmoothingTime
+                + (Self.movingSmoothingTime - Self.steadySmoothingTime) * response
+            let alpha = 1 - exp(-elapsed / smoothingTime)
+            point = Point2D(x: filteredPoint.x + (target.x - filteredPoint.x) * alpha,
+                            y: filteredPoint.y + (target.y - filteredPoint.y) * alpha)
         } else {
-            point = frame.indexTip
+            point = target
         }
         filteredPoint = point
         previousWrist = frame.wrist
@@ -140,12 +187,12 @@ public final class GestureEngine {
                 if elapsed(from: openSince, now: frame.timestamp, atLeast: Self.armDuration) {
                     isReady = true
                     openSince = nil
-                    return GestureOutput(point: point, phase: .move, ready: true)
+                    return GestureOutput(point: point, phase: .move, ready: true, isOpenHand: isOpenHand)
                 }
             } else {
                 openSince = nil
             }
-            return GestureOutput(point: point, phase: .warming, ready: false)
+            return GestureOutput(point: point, phase: .warming, ready: false, isOpenHand: isOpenHand)
         }
 
         if !isPressed {
@@ -155,12 +202,12 @@ public final class GestureEngine {
                 if elapsed(from: closeSince, now: frame.timestamp, atLeast: Self.closeDuration) {
                     closeSince = nil
                     isPressed = true
-                    return GestureOutput(point: point, phase: .down, ready: true)
+                    return GestureOutput(point: point, phase: .down, ready: true, isOpenHand: isOpenHand)
                 }
             } else {
                 closeSince = nil
             }
-            return GestureOutput(point: point, phase: .move, ready: true)
+            return GestureOutput(point: point, phase: .move, ready: true, isOpenHand: isOpenHand)
         }
 
         if ratio + 1e-12 >= Self.openRatio {
@@ -168,12 +215,14 @@ public final class GestureEngine {
             if elapsed(from: releaseSince, now: frame.timestamp, atLeast: Self.releaseDuration) {
                 releaseSince = nil
                 isPressed = false
-                return GestureOutput(point: point, phase: .up, ready: true)
+                pinchOffset = nil
+                releaseOffset = Point2D(x: point.x - frame.indexTip.x, y: point.y - frame.indexTip.y)
+                return GestureOutput(point: point, phase: .up, ready: true, isOpenHand: isOpenHand)
             }
         } else {
             releaseSince = nil
         }
-        return GestureOutput(point: point, phase: .held, ready: true)
+        return GestureOutput(point: point, phase: .held, ready: true, isOpenHand: isOpenHand)
     }
 
     private func distance(_ a: Point2D, _ b: Point2D, aspect: Double) -> Double {
@@ -196,6 +245,8 @@ public final class GestureEngine {
     private func clearGesture() {
         previousWrist = nil
         filteredPoint = nil
+        pinchOffset = nil
+        releaseOffset = nil
         openSince = nil
         closeSince = nil
         releaseSince = nil

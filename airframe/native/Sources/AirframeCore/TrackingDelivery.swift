@@ -2,6 +2,7 @@
 /// distinct from a pipeline fault. Neither type itself grants permission to act.
 public enum TrackingDelivery: Equatable, Sendable {
     case observation(HandFrame?, capturedAt: Double)
+    case pinchUncertain(PinchUncertainFrame, capturedAt: Double)
     case fault(String)
 
     /// Run when queued and again immediately before delivery. Nil observations
@@ -9,6 +10,13 @@ public enum TrackingDelivery: Equatable, Sendable {
     public func validated(at now: Double) -> TrackingDelivery {
         switch self {
         case .fault:
+            return self
+        case let .pinchUncertain(frame, capturedAt):
+            let timing = TrackingDelivery.observation(nil, capturedAt: capturedAt).validated(at: now)
+            if case .fault = timing { return timing }
+            guard frame.timestamp == capturedAt, frame.isReliable else {
+                return .fault("Partial hand observation is invalid. Controls are paused.")
+            }
             return self
         case let .observation(frame, capturedAt):
             guard now.isFinite, now >= 0, capturedAt.isFinite, capturedAt >= 0,
@@ -33,6 +41,11 @@ public enum TrackingDelivery: Equatable, Sendable {
         if let pending, case .fault = pending { return pending }
         if case .fault = incoming { return incoming }
         if let pending, case .observation(nil, _) = pending { return pending }
+        if case .observation(nil, _) = incoming { return incoming }
+        // A queued thumb-occlusion event must not disappear behind a newer
+        // complete hand; the gate must reset click readiness first. Genuine
+        // hand loss has higher priority and still stops clicking immediately.
+        if let pending, case .pinchUncertain = pending { return pending }
         return incoming
     }
 }

@@ -84,6 +84,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         buildWindow()
         installLocalEmergencyMonitor()
         camera.onFrame = { [weak self] frame, capturedAt in self?.receive(frame, capturedAt: capturedAt) }
+        camera.onPinchUncertain = { [weak self] frame, capturedAt in
+            guard let self else { return }
+            self.preview.hand = nil
+            self.lastHandAt = nil
+            _ = self.gestures.update(nil)
+            self.cameraLabel.stringValue = "Hand visible, thumb uncertain. Open your hand toward the camera."
+            self.pointer.post(self.gate.pinchUncertain(frame, capturedAt: capturedAt,
+                now: ProcessInfo.processInfo.systemUptime, authorized: self.canControl))
+            self.refresh()
+        }
         camera.onFault = { [weak self] message in
             guard let self else { return }
             self.preview.hand = nil
@@ -311,6 +321,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             stateLabel.stringValue = "STARTING IN \(count)…"
         case .waitingForHand: stateLabel.stringValue = "SHOW AN OPEN HAND"
         case .recoveringHand: stateLabel.stringValue = "POINTER FROZEN · FINDING HAND"
+        case .recoveringPinch: stateLabel.stringValue = "POINTER FROZEN · OPEN HAND TO CONTINUE"
         case .active: stateLabel.stringValue = clicks.state == .on ? "LIVE · CLICK + DRAG" : "LIVE · POINTER ONLY"
         }
         detailLabel.stringValue = menuStart.isPending ? "Waiting for fresh camera data. Move the mouse or press Escape to cancel." : gate.reason
@@ -413,7 +424,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         preview.heightAnchor.constraint(equalToConstant: 300).isActive = true
         cameraLabel.font = .systemFont(ofSize: 12)
         previewToggle.target = self; previewToggle.action = #selector(previewChanged)
-        let left = stack([preview, previewToggle, cameraLabel, label("Point to aim • Pinch to press • Open to release", size: 13, bold: true), label("Pointer-only: a brief miss freezes the cursor for up to 1.25s.\nReturn an open hand near its last position and hold steady.\nLong loss or click mode: press Start again. Use good light.", size: 12)])
+        let left = stack([preview, previewToggle, cameraLabel, label("Point to aim • Pinch to press • Open to release", size: 13, bold: true), label("Amber HOLD: open your hand near its last position for ½s.\nBrief thumb-only misses can hold before a click; lost hands or uncertain drags stop click control.\nIf control is off, press Start again. Use good light.", size: 12)])
         cameraButton = button("Start camera", action: #selector(toggleCamera), prominent: true)
         controlButton = button("Start Mac control", action: #selector(toggleControl))
         clicks.target = self; clicks.action = #selector(modeChanged)

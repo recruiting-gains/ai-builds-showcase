@@ -14,6 +14,7 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
     /// Nil means a fresh, successful inference could not reliably find the hand.
     /// Both nil and nonnil results carry the sample's monotonic presentation time.
     var onFrame: ((HandFrame?, Double) -> Void)?
+    var onPinchUncertain: ((PinchUncertainFrame, Double) -> Void)?
     /// Capture, inference, and stale-delivery failures are never recoverable absence.
     var onFault: ((String) -> Void)?
     /// The Boolean is true only while this generation's capture session is running.
@@ -45,7 +46,7 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
     // These properties are accessed only on the serial visionQueue.
     private let handRequest = CameraEngine.makeHandRequest()
     private var inferenceGeneration: UInt64 = 0
-    private var lastInferenceTime = -Double.infinity
+    private var inferenceCadence = InferenceCadence()
 
     private struct FrameDelivery {
         let generation: UInt64
@@ -265,10 +266,9 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         guard allowed else { return }
         if inferenceGeneration != token {
             inferenceGeneration = token
-            lastInferenceTime = -Double.infinity
+            inferenceCadence.reset()
         }
-        guard receivedAt - lastInferenceTime >= 1.0 / 24.0 else { return }
-        lastInferenceTime = receivedAt
+        guard inferenceCadence.shouldProcess(at: receivedAt) else { return }
 
         autoreleasepool {
             guard CMSampleBufferDataIsReady(sampleBuffer), let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
@@ -295,9 +295,9 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
                 // Synchronous Vision work occurs only on the serial delegate queue;
                 // late capture frames are discarded rather than queued for analysis.
                 try VNImageRequestHandler(cvPixelBuffer: buffer, orientation: .up, options: [:]).perform([handRequest])
-                let frame = try Self.makeFrame(from: handRequest.results?.first, timestamp: capturedAt,
-                                               aspectRatio: Double(width) / Double(height))
-                enqueue(.observation(frame, capturedAt: capturedAt), generation: token)
+                let delivery = try Self.makeDelivery(from: handRequest.results?.first, timestamp: capturedAt,
+                                                     aspectRatio: Double(width) / Double(height))
+                enqueue(delivery, generation: token)
             } catch {
                 sendFault("Hand detection encountered an error. Controls are paused.", generation: token)
             }
@@ -374,6 +374,8 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
             switch delivery.payload.validated(at: ProcessInfo.processInfo.systemUptime) {
             case let .observation(frame, capturedAt):
                 self.onFrame?(frame, capturedAt)
+            case let .pinchUncertain(frame, capturedAt):
+                self.onPinchUncertain?(frame, capturedAt)
             case let .fault(message):
                 self.onFault?(message)
             }
@@ -387,22 +389,23 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         return request
     }
 
-    private static func makeFrame(from hand: VNHumanHandPoseObservation?, timestamp: Double, aspectRatio: Double) throws -> HandFrame? {
+    private static func makeDelivery(from hand: VNHumanHandPoseObservation?, timestamp: Double, aspectRatio: Double) throws -> TrackingDelivery {
         guard timestamp.isFinite, timestamp >= 0 else { throw ObservationFailure.invalidTiming }
         guard aspectRatio.isFinite, aspectRatio > 0 else { throw ObservationFailure.invalidGeometry }
         guard let hand,
               let wrist = try? hand.recognizedPoint(.wrist),
               let middle = try? hand.recognizedPoint(.middleMCP),
-              let index = try? hand.recognizedPoint(.indexTip),
-              let thumb = try? hand.recognizedPoint(.thumbTip) else { return nil }
-        let points = [wrist, middle, index, thumb]
+              let index = try? hand.recognizedPoint(.indexTip) else { return .observation(nil, capturedAt: timestamp) }
+        let thumb = try? hand.recognizedPoint(.thumbTip)
+        let pointerPoints = [wrist, middle, index]
+        let points = pointerPoints + (thumb.map { [$0] } ?? [])
         guard points.allSatisfy({ $0.confidence.isFinite && (0...1).contains($0.confidence) }) else {
             throw ObservationFailure.invalidGeometry
         }
         // Low-confidence joint coordinates are not trustworthy geometry. Treat
         // them as uncertain detection, not as a capture/inference exception.
-        guard points.allSatisfy({ $0.confidence >= 0.55 }) else { return nil }
-        guard points.allSatisfy({ point in
+        guard pointerPoints.allSatisfy({ $0.confidence >= 0.55 }) else { return .observation(nil, capturedAt: timestamp) }
+        guard pointerPoints.allSatisfy({ point in
             point.location.x.isFinite && point.location.y.isFinite
                 && (0...1).contains(point.location.x) && (0...1).contains(point.location.y)
         }) else { throw ObservationFailure.invalidGeometry }
@@ -410,10 +413,20 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
             // Vision uses a lower-left origin. Core uses mirrored, top-left coordinates.
             Point2D(x: 1 - Double(point.location.x), y: 1 - Double(point.location.y))
         }
-        return HandFrame(timestamp: timestamp, aspectRatio: aspectRatio,
+        guard let thumb, thumb.confidence >= 0.55 else {
+            guard pointerPoints.allSatisfy({ $0.confidence >= 0.70 }) else { return .observation(nil, capturedAt: timestamp) }
+            return .pinchUncertain(PinchUncertainFrame(timestamp: timestamp, aspectRatio: aspectRatio,
+                wrist: normalized(wrist), middleMCP: normalized(middle), indexTip: normalized(index),
+                confidence: Double(pointerPoints.map(\.confidence).min() ?? 0)), capturedAt: timestamp)
+        }
+        guard thumb.location.x.isFinite, thumb.location.y.isFinite,
+              (0...1).contains(thumb.location.x), (0...1).contains(thumb.location.y) else {
+            throw ObservationFailure.invalidGeometry
+        }
+        return .observation(HandFrame(timestamp: timestamp, aspectRatio: aspectRatio,
                          wrist: normalized(wrist), middleMCP: normalized(middle),
                          indexTip: normalized(index), thumbTip: normalized(thumb),
-                         confidence: Double(points.map(\.confidence).min() ?? 0))
+                         confidence: Double(points.map(\.confidence).min() ?? 0)), capturedAt: timestamp)
     }
 
     /// Optional CLI smoke-test seam: real Vision inference on a caller-provided
@@ -421,7 +434,9 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
     static func detectHand(in image: CGImage, timestamp: Double) throws -> HandFrame? {
         let request = makeHandRequest()
         try VNImageRequestHandler(cgImage: image, orientation: .up, options: [:]).perform([request])
-        return try makeFrame(from: request.results?.first, timestamp: timestamp,
-                             aspectRatio: Double(image.width) / Double(image.height))
+        let delivery = try makeDelivery(from: request.results?.first, timestamp: timestamp,
+                                       aspectRatio: Double(image.width) / Double(image.height))
+        if case let .observation(frame, _) = delivery { return frame }
+        return nil
     }
 }

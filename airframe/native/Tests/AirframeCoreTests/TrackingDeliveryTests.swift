@@ -134,7 +134,7 @@ final class TrackingDeliveryTests: XCTestCase {
         // Mirrors the callback contract, not real camera or AppKit execution.
         switch TrackingDelivery.observation(nil, capturedAt: 3.2).validated(at: 3.401) {
         case .fault(let message): XCTAssertEqual(gate.stop(message), [])
-        case .observation:
+        case .observation, .pinchUncertain:
             XCTFail("A stale nil frame would incorrectly enter pointer recovery")
         }
         XCTAssertEqual(gate.state, .off)

@@ -4,6 +4,15 @@ The website moves panels inside a browser. This separate native app is intended 
 
 This is an experimental local build for **Apple silicon Macs running macOS 14 or later**. Camera permission alone never starts computer control. Use camera-only setup first and keep a physical mouse or trackpad available. Once permissions are approved, explicit menu-bar Start options can start the camera and control together with the window hidden.
 
+## Smoother motion candidate in v0.1.3
+
+- The inference scheduler now targets 30 observations per second without the old skip-every-other-frame effect on a nominal 30 fps camera. Actual performance still depends on the camera and Vision processing time.
+- Fast hand movement gets a quicker response; slow aiming gets stronger jitter filtering. During a pinch, palm movement carries the cursor so curling your fingertip does not pull the click target. Release eases back into fingertip aiming. No predicted movement is emitted.
+- A brief **thumb-only detection problem** can show amber **HOLD** instead of turning an unpressed click session off, but only while wrist, middle knuckle, and index tip remain reliably visible. The cursor and clicks freeze completely. Within a fixed 1.25-second window, open your hand near its last position for 500 ms before continuing. A pinch already present when tracking returns cannot click; a new deliberate pinch is required.
+- Losing the full hand, obscuring other required landmarks, a thumb problem during an already-held drag, stale data, camera faults, Escape, physical-input takeover, and permission changes still stop control. This is not a promise of uninterrupted tracking through every angle.
+
+The source/build candidate needs its own user-led live-camera trial before making real-world smoothness claims. See [v0.1.3 notes and acceptance checks](docs/RELEASE-0.1.3.md). Building it does not install it or activate camera/control.
+
 ## Menu-bar mode in v0.1.2
 
 Airframe can stay in your Mac's top menu bar without a face preview on your screen. **The app must remain running and the camera must be on for tracking.** You do not need the Airframe website open.
