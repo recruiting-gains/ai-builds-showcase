@@ -26,9 +26,12 @@ public struct HandFrame: Equatable, Sendable {
     public let indexTip: Point2D
     public let thumbTip: Point2D
     public let confidence: Double
+    /// Extra-joint geometry verified by the camera adapter, not biometric identity.
+    public let isVerifiedOpenPalm: Bool
 
     public init(timestamp: Double, aspectRatio: Double, wrist: Point2D,
-                middleMCP: Point2D, indexTip: Point2D, thumbTip: Point2D, confidence: Double) {
+                middleMCP: Point2D, indexTip: Point2D, thumbTip: Point2D, confidence: Double,
+                isVerifiedOpenPalm: Bool = false) {
         self.timestamp = timestamp
         self.aspectRatio = aspectRatio
         self.wrist = wrist
@@ -36,6 +39,7 @@ public struct HandFrame: Equatable, Sendable {
         self.indexTip = indexTip
         self.thumbTip = thumbTip
         self.confidence = confidence
+        self.isVerifiedOpenPalm = isVerifiedOpenPalm
     }
 
     fileprivate var isValid: Bool {
@@ -57,12 +61,22 @@ public struct GestureOutput: Equatable, Sendable {
     /// Current complete geometry is open, independently of cached readiness.
     /// A .move phase alone is insufficient: it also covers pinch debounce.
     public let isOpenHand: Bool
+    public let wrist: Point2D?
+    public let palmScale: Double?
+    public let isVerifiedOpenPalm: Bool
+    public let recoverableLoss: RecoverableTrackingLoss?
 
-    public init(point: Point2D?, phase: GesturePhase, ready: Bool, isOpenHand: Bool = false) {
+    public init(point: Point2D?, phase: GesturePhase, ready: Bool, isOpenHand: Bool = false,
+                wrist: Point2D? = nil, palmScale: Double? = nil, isVerifiedOpenPalm: Bool = false,
+                recoverableLoss: RecoverableTrackingLoss? = nil) {
         self.point = point
         self.phase = phase
         self.ready = ready
         self.isOpenHand = isOpenHand
+        self.wrist = wrist
+        self.palmScale = palmScale
+        self.isVerifiedOpenPalm = isVerifiedOpenPalm
+        self.recoverableLoss = recoverableLoss
     }
 }
 
@@ -118,14 +132,15 @@ public final class GestureEngine {
         }
         if let previousWrist,
            hypot(frame.wrist.x - previousWrist.x, frame.wrist.y - previousWrist.y) > 0.35 {
-            return cancelIfNeeded()
+            return cancelIfNeeded(recoverableLoss: .unreliablePose)
         }
 
         // Convert normalized x to height-equivalent pixel units before computing
         // distances. Dividing by palm size removes camera-distance dependence.
         let palm = distance(frame.wrist, frame.middleMCP, aspect: frame.aspectRatio)
         let gap = distance(frame.indexTip, frame.thumbTip, aspect: frame.aspectRatio)
-        guard palm.isFinite, gap.isFinite, palm >= 0.025 else { return cancelIfNeeded() }
+        guard palm.isFinite, gap.isFinite else { return cancelIfNeeded() }
+        guard palm >= 0.025 else { return cancelIfNeeded(recoverableLoss: .unreliablePose) }
         let ratio = gap / palm
         guard ratio.isFinite else { return cancelIfNeeded() }
         let isOpenHand = ratio + 1e-12 >= Self.openRatio
@@ -187,12 +202,14 @@ public final class GestureEngine {
                 if elapsed(from: openSince, now: frame.timestamp, atLeast: Self.armDuration) {
                     isReady = true
                     openSince = nil
-                    return GestureOutput(point: point, phase: .move, ready: true, isOpenHand: isOpenHand)
+                    return GestureOutput(point: point, phase: .move, ready: true, isOpenHand: isOpenHand,
+                        wrist: frame.wrist, palmScale: palm, isVerifiedOpenPalm: frame.isVerifiedOpenPalm)
                 }
             } else {
                 openSince = nil
             }
-            return GestureOutput(point: point, phase: .warming, ready: false, isOpenHand: isOpenHand)
+            return GestureOutput(point: point, phase: .warming, ready: false, isOpenHand: isOpenHand,
+                wrist: frame.wrist, palmScale: palm, isVerifiedOpenPalm: frame.isVerifiedOpenPalm)
         }
 
         if !isPressed {
@@ -202,12 +219,14 @@ public final class GestureEngine {
                 if elapsed(from: closeSince, now: frame.timestamp, atLeast: Self.closeDuration) {
                     closeSince = nil
                     isPressed = true
-                    return GestureOutput(point: point, phase: .down, ready: true, isOpenHand: isOpenHand)
+                    return GestureOutput(point: point, phase: .down, ready: true, isOpenHand: isOpenHand,
+                        wrist: frame.wrist, palmScale: palm, isVerifiedOpenPalm: frame.isVerifiedOpenPalm)
                 }
             } else {
                 closeSince = nil
             }
-            return GestureOutput(point: point, phase: .move, ready: true, isOpenHand: isOpenHand)
+            return GestureOutput(point: point, phase: .move, ready: true, isOpenHand: isOpenHand,
+                wrist: frame.wrist, palmScale: palm, isVerifiedOpenPalm: frame.isVerifiedOpenPalm)
         }
 
         if ratio + 1e-12 >= Self.openRatio {
@@ -217,12 +236,14 @@ public final class GestureEngine {
                 isPressed = false
                 pinchOffset = nil
                 releaseOffset = Point2D(x: point.x - frame.indexTip.x, y: point.y - frame.indexTip.y)
-                return GestureOutput(point: point, phase: .up, ready: true, isOpenHand: isOpenHand)
+                return GestureOutput(point: point, phase: .up, ready: true, isOpenHand: isOpenHand,
+                    wrist: frame.wrist, palmScale: palm, isVerifiedOpenPalm: frame.isVerifiedOpenPalm)
             }
         } else {
             releaseSince = nil
         }
-        return GestureOutput(point: point, phase: .held, ready: true, isOpenHand: isOpenHand)
+        return GestureOutput(point: point, phase: .held, ready: true, isOpenHand: isOpenHand,
+            wrist: frame.wrist, palmScale: palm, isVerifiedOpenPalm: frame.isVerifiedOpenPalm)
     }
 
     private func distance(_ a: Point2D, _ b: Point2D, aspect: Double) -> Double {
@@ -236,10 +257,10 @@ public final class GestureEngine {
         return now - start + 1e-9 >= duration
     }
 
-    private func cancelIfNeeded() -> GestureOutput {
+    private func cancelIfNeeded(recoverableLoss: RecoverableTrackingLoss? = nil) -> GestureOutput {
         let phase: GesturePhase = hasObservation || isPressed || isReady ? .cancel : .warming
         clearGesture()
-        return GestureOutput(point: nil, phase: phase, ready: false)
+        return GestureOutput(point: nil, phase: phase, ready: false, recoverableLoss: recoverableLoss)
     }
 
     private func clearGesture() {

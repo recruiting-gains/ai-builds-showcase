@@ -4,7 +4,23 @@ The website moves panels inside a browser. This separate native app is intended 
 
 This is an experimental local build for **Apple silicon Macs running macOS 14 or later**. Camera permission alone never starts computer control. Use camera-only setup first and keep a physical mouse or trackpad available. Once permissions are approved, explicit menu-bar Start options can start the camera and control together with the window hidden.
 
-## Smoother motion candidate in v0.1.3
+## Private supervised recovery candidate — v0.1.4
+
+This update is **private and experimental**. Ordinary pointer-only and pinch-click Start options keep their existing behavior. The new opt-in is limited to the already-running **Airframe Desktop Practice** helper with the six harmless squares, not general-desktop recovery.
+
+1. Bring **Airframe Desktop Practice** to the front; keep the physical mouse/trackpad available.
+2. Choose **A → Start Desktop Practice recovery — 30s return window**. Camera and Accessibility must already be approved. This explicitly starts camera and click/drag control, hides the preview, and retains the countdown/open-hand preparation. It does not launch the practice helper or defer Start across an application switch.
+3. If a healthy camera frame loses the hand or thumb, or detects ambiguous hands, movement freezes and an owned mouse button is released once. The old drag is **not** restored. Releasing can commit a drop or click; it is not Undo.
+4. During a short loss, return near the last hand position with thumb/index apart for an observed 500 ms dwell. After 1.25 seconds, **HOLD OPEN** requires four clearly extended fingers and thumb/index separation for an observed one-second dwell. The first loss starts a fixed **30-second** deadline; failed attempts never extend it.
+5. **LIVE** resumes without moving the cursor on the transition frame. Keep the hand open, then make a new pinch to grab again. A held pinch returning into view cannot resume the old drag.
+
+The recovery anchor stays fixed until Stop/new Start, avoiding a later automatic snap. This can reduce reachable screen range near an edge; test edge reach before assuming it works everywhere. The app uses 2D pose heuristics, not person identification, depth sensing, authenticated hand ownership, or a wider physical camera lens.
+
+Physical input, Escape/Stop, camera timing/faults, permission loss, practice focus/Space/session/display changes, and the deadline still disarm. Good frames cannot undo those stops. **Stop before locking or leaving the computer.** Foreground restriction is not an OS-input sandbox, and protected-data/session checks are not universal proof that the screen is unlocked.
+
+The setup window shows session-local timing/drop counters to help distinguish recognition loss from a slow camera or UI queue. No video, hand history, or typed content is saved. See [v0.1.4 implementation and supervised test checklist](docs/RELEASE-0.1.4.md). A built package is not evidence of installation or real-hand acceptance.
+
+## Earlier motion behavior in v0.1.3 (ordinary modes)
 
 - The inference scheduler now targets 30 observations per second without the old skip-every-other-frame effect on a nominal 30 fps camera. Actual performance still depends on the camera and Vision processing time.
 - Fast hand movement gets a quicker response; slow aiming gets stronger jitter filtering. During a pinch, palm movement carries the cursor so curling your fingertip does not pull the click target. Release eases back into fingertip aiming. No predicted movement is emitted.
@@ -23,7 +39,7 @@ Airframe can stay in your Mac's top menu bar without a face preview on your scre
 4. Keep the mouse still after choosing Start. The indicator is amber while the camera starts, shows a **three-second countdown**, and waits for a steady open hand. It becomes **green / A LIVE** only with armed control and a fresh detected hand.
 5. Choose **STOP CAMERA & CONTROL** when finished, or press Escape while starting or armed. Quit Airframe to remove it from the menu bar entirely.
 
-**Indicator meanings:** gray **OFF** means no requested/running camera or control. Amber **WAIT** means starting or waiting for an open hand; **HOLD** means pointer movement is frozen; **CAM** means the camera is on or starting but control is off. Green **LIVE** means fresh hand tracking with control active. macOS's own camera privacy light remains independent and must not be hidden.
+**Indicator meanings:** gray **OFF** means no requested/running camera or control. Amber **WAIT** means starting or waiting for an open hand; **HOLD** means ordinary-mode pointer movement is frozen; **LOOKING** and **HOLD OPEN** identify the two supervised recovery stages; **CAM** means the camera is on or starting but control is off. **DELAY** means a camera timing fault stopped control. Green **LIVE** means fresh hand tracking with control active. macOS's own camera privacy light remains independent and must not be hidden.
 
 Opening the Airframe menu or setup pauses control. Moving the physical mouse/trackpad or typing also pauses it. A canceled hidden startup turns its camera off; canceling cannot silently re-arm later. Closing the main window stops camera/control but leaves the app in the menu bar so you can start again there. If it was quit, open the app again first. No always-on daemon, remote commands, login auto-start, or recording was added.
 
@@ -68,7 +84,7 @@ Both test forms use simulated observations and do not establish real-camera trac
 
 A brief missed hand detection now **freezes the cursor**, instead of immediately ending pointer-only control. The app shows **POINTER FROZEN · FINDING HAND**. Within a fixed **1.25-second** window, return your open hand near its previous position and keep it open for **500 milliseconds**. Reliable tracking can then continue the same explicitly started session. No movement is guessed during the freeze; a returning hand too far from the last pointer position cannot resume it.
 
-If recovery takes too long, press **Start Mac control** again. Clicking/dragging mode still stops immediately on any missing hand reading and releases a button the app owns. Camera/inference errors, stale data, manual mouse/keyboard takeover, permission changes, and explicit Stop remain hard stops in both modes. They never automatically resume.
+If recovery takes too long, press **Start Mac control** again. Ordinary clicking/dragging mode still stops immediately on any missing hand reading and releases a button the app owns. Camera/inference errors, stale data, manual mouse/keyboard takeover, permission changes, and explicit Stop remain hard stops in both modes. They never automatically resume.
 
 This improves the handling of short detection misses; it is not a claim that all cameras or lighting conditions track reliably. Keep the full hand and wrist visible, use front lighting, and start with small movements. Read [v0.1.1 release notes](docs/RELEASE-0.1.1.md) for the remaining live-device checks.
 

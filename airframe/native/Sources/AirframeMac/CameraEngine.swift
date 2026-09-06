@@ -15,6 +15,7 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
     /// Both nil and nonnil results carry the sample's monotonic presentation time.
     var onFrame: ((HandFrame?, Double) -> Void)?
     var onPinchUncertain: ((PinchUncertainFrame, Double) -> Void)?
+    var onTrackingLoss: ((RecoverableTrackingLoss, Double) -> Void)?
     /// Capture, inference, and stale-delivery failures are never recoverable absence.
     var onFault: ((String) -> Void)?
     /// The Boolean is true only while this generation's capture session is running.
@@ -36,6 +37,24 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
     private var activeOutputID: ObjectIdentifier?
     private var pendingDelivery: FrameDelivery?
     private var frameDeliveryScheduled = false
+    // Aggregate, session-local diagnostics only. No images, landmarks, traces,
+    // or microphone data are stored. Access is serialized by stateLock.
+    private var processedFrames = 0
+    private var droppedFrames = 0
+    private var lateDrops = 0
+    private var discontinuityDrops = 0
+    private var pipelineFaults = 0
+    private var skippedFrames = 0
+    private var coalescedFrames = 0
+    private var latestAdmissionMS = 0.0
+    private var latestInferenceMS = 0.0
+    private var latestDeliveryMS = 0.0
+    private var latestQueueMS = 0.0
+
+    var diagnosticsSummary: String {
+        stateLock.lock(); defer { stateLock.unlock() }
+        return "Frames \(processedFrames) · skipped \(skippedFrames) · coalesced \(coalescedFrames)\nDrops \(droppedFrames) (late \(lateDrops), gaps \(discontinuityDrops)) · faults \(pipelineFaults)\nAge in \(Int(latestAdmissionMS))ms · Vision \(Int(latestInferenceMS))ms · queue \(Int(latestQueueMS))ms · delivered \(Int(latestDeliveryMS))ms"
+    }
 
     // These properties are accessed only on sessionQueue (except during deinit,
     // after no queued operation can still retain this engine).
@@ -51,6 +70,7 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
     private struct FrameDelivery {
         let generation: UInt64
         let payload: TrackingDelivery
+        let enqueuedAt: Double
     }
 
     private enum SetupFailure: Error {
@@ -90,6 +110,10 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         isDeliveringFrames = false
         activeOutputID = nil
         pendingDelivery = nil
+        processedFrames = 0; droppedFrames = 0; lateDrops = 0
+        discontinuityDrops = 0; pipelineFaults = 0
+        skippedFrames = 0; coalescedFrames = 0
+        latestAdmissionMS = 0; latestInferenceMS = 0; latestDeliveryMS = 0; latestQueueMS = 0
         stateLock.unlock()
 
         sendStatus("Preparing camera permission…", running: false, generation: token)
@@ -268,7 +292,12 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
             inferenceGeneration = token
             inferenceCadence.reset()
         }
-        guard inferenceCadence.shouldProcess(at: receivedAt) else { return }
+        guard inferenceCadence.shouldProcess(at: receivedAt) else {
+            stateLock.lock()
+            if generation == token { skippedFrames += 1 }
+            stateLock.unlock()
+            return
+        }
 
         autoreleasepool {
             guard CMSampleBufferDataIsReady(sampleBuffer), let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
@@ -291,16 +320,44 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
                 enqueue(timing, generation: token)
                 return
             }
+            stateLock.lock()
+            if generation == token { latestAdmissionMS = min(60_000, max(0, (ProcessInfo.processInfo.systemUptime - capturedAt) * 1_000)) }
+            stateLock.unlock()
             do {
                 // Synchronous Vision work occurs only on the serial delegate queue;
                 // late capture frames are discarded rather than queued for analysis.
+                let inferenceStart = ProcessInfo.processInfo.systemUptime
                 try VNImageRequestHandler(cvPixelBuffer: buffer, orientation: .up, options: [:]).perform([handRequest])
-                let delivery = try Self.makeDelivery(from: handRequest.results?.first, timestamp: capturedAt,
+                let inferenceMS = (ProcessInfo.processInfo.systemUptime - inferenceStart) * 1_000
+                stateLock.lock()
+                if generation == token {
+                    processedFrames += 1
+                    latestInferenceMS = min(60_000, max(0, inferenceMS))
+                }
+                stateLock.unlock()
+                let delivery = try Self.makeDelivery(from: handRequest.results ?? [], timestamp: capturedAt,
                                                      aspectRatio: Double(width) / Double(height))
                 enqueue(delivery, generation: token)
             } catch {
                 sendFault("Hand detection encountered an error. Controls are paused.", generation: token)
             }
+        }
+    }
+
+    func captureOutput(_ output: AVCaptureOutput, didDrop sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        let reason = CMGetAttachment(sampleBuffer, key: kCMSampleBufferAttachmentKey_DroppedFrameReason, attachmentModeOut: nil) as? String
+        stateLock.lock()
+        guard wantsCamera, isDeliveringFrames, activeOutputID == ObjectIdentifier(output) else {
+            stateLock.unlock(); return
+        }
+        let token = generation
+        let discontinuity = reason == kCMSampleBufferDroppedFrameReason_Discontinuity as String
+        droppedFrames += 1
+        if reason == kCMSampleBufferDroppedFrameReason_FrameWasLate as String { lateDrops += 1 }
+        if discontinuity { discontinuityDrops += 1 }
+        stateLock.unlock()
+        if discontinuity {
+            sendFault("Camera discontinuity detected. Controls are paused; start again when ready.", generation: token)
         }
     }
 
@@ -357,7 +414,9 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         // Old-generation faults cannot poison this generation's first delivery.
         let pending = pendingDelivery?.generation == token ? pendingDelivery?.payload.validated(at: now) : nil
         let next = TrackingDelivery.coalesce(pending: pending, incoming: payload.validated(at: now))
-        pendingDelivery = FrameDelivery(generation: token, payload: next)
+        if pending != nil { coalescedFrames += 1 }
+        let enqueuedAt = pending == next ? pendingDelivery?.enqueuedAt ?? now : now
+        pendingDelivery = FrameDelivery(generation: token, payload: next, enqueuedAt: enqueuedAt)
         let shouldSchedule = !frameDeliveryScheduled
         frameDeliveryScheduled = true
         stateLock.unlock()
@@ -371,28 +430,46 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
             self.frameDeliveryScheduled = false
             self.stateLock.unlock()
             guard let delivery, self.isCurrent(delivery.generation, requiresRunning: true) else { return }
+            self.stateLock.lock()
+            self.latestQueueMS = min(60_000, max(0, (ProcessInfo.processInfo.systemUptime - delivery.enqueuedAt) * 1_000))
+            self.stateLock.unlock()
             switch delivery.payload.validated(at: ProcessInfo.processInfo.systemUptime) {
             case let .observation(frame, capturedAt):
+                self.recordDeliveryAge(capturedAt)
                 self.onFrame?(frame, capturedAt)
             case let .pinchUncertain(frame, capturedAt):
+                self.recordDeliveryAge(capturedAt)
                 self.onPinchUncertain?(frame, capturedAt)
+            case let .trackingLoss(reason, capturedAt):
+                self.recordDeliveryAge(capturedAt)
+                self.onTrackingLoss?(reason, capturedAt)
             case let .fault(message):
+                self.stateLock.lock(); self.pipelineFaults += 1; self.stateLock.unlock()
                 self.onFault?(message)
             }
         }
     }
 
+    private func recordDeliveryAge(_ capturedAt: Double) {
+        let age = (ProcessInfo.processInfo.systemUptime - capturedAt) * 1_000
+        stateLock.lock(); defer { stateLock.unlock() }
+        latestDeliveryMS = age.isFinite ? min(60_000, max(0, age)) : 60_000
+    }
+
     private static func makeHandRequest() -> VNDetectHumanHandPoseRequest {
         let request = VNDetectHumanHandPoseRequest()
         request.revision = VNDetectHumanHandPoseRequestRevision1
-        request.maximumHandCount = 1
+        // A max-one request silently hides additional candidates. Request two
+        // and reject ambiguity rather than switching between the largest hands.
+        request.maximumHandCount = 2
         return request
     }
 
-    private static func makeDelivery(from hand: VNHumanHandPoseObservation?, timestamp: Double, aspectRatio: Double) throws -> TrackingDelivery {
+    private static func makeDelivery(from hands: [VNHumanHandPoseObservation], timestamp: Double, aspectRatio: Double) throws -> TrackingDelivery {
         guard timestamp.isFinite, timestamp >= 0 else { throw ObservationFailure.invalidTiming }
         guard aspectRatio.isFinite, aspectRatio > 0 else { throw ObservationFailure.invalidGeometry }
-        guard let hand,
+        guard hands.count <= 1 else { return .trackingLoss(.multipleHands, capturedAt: timestamp) }
+        guard let hand = hands.first,
               let wrist = try? hand.recognizedPoint(.wrist),
               let middle = try? hand.recognizedPoint(.middleMCP),
               let index = try? hand.recognizedPoint(.indexTip) else { return .observation(nil, capturedAt: timestamp) }
@@ -402,13 +479,13 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         guard points.allSatisfy({ $0.confidence.isFinite && (0...1).contains($0.confidence) }) else {
             throw ObservationFailure.invalidGeometry
         }
-        // Low-confidence joint coordinates are not trustworthy geometry. Treat
-        // them as uncertain detection, not as a capture/inference exception.
-        guard pointerPoints.allSatisfy({ $0.confidence >= 0.55 }) else { return .observation(nil, capturedAt: timestamp) }
-        guard pointerPoints.allSatisfy({ point in
+        guard points.allSatisfy({ point in
             point.location.x.isFinite && point.location.y.isFinite
                 && (0...1).contains(point.location.x) && (0...1).contains(point.location.y)
         }) else { throw ObservationFailure.invalidGeometry }
+        // Finite, normalized but low-confidence geometry is uncertain detection;
+        // malformed coordinates are faults regardless of their confidence.
+        guard pointerPoints.allSatisfy({ $0.confidence >= 0.55 }) else { return .trackingLoss(.unreliablePose, capturedAt: timestamp) }
         func normalized(_ point: VNRecognizedPoint) -> Point2D {
             // Vision uses a lower-left origin. Core uses mirrored, top-left coordinates.
             Point2D(x: 1 - Double(point.location.x), y: 1 - Double(point.location.y))
@@ -426,7 +503,31 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         return .observation(HandFrame(timestamp: timestamp, aspectRatio: aspectRatio,
                          wrist: normalized(wrist), middleMCP: normalized(middle),
                          indexTip: normalized(index), thumbTip: normalized(thumb),
-                         confidence: Double(points.map(\.confidence).min() ?? 0)), capturedAt: timestamp)
+                         confidence: Double(points.map(\.confidence).min() ?? 0),
+                         isVerifiedOpenPalm: try verifiedOpenPalm(hand, aspectRatio: aspectRatio)), capturedAt: timestamp)
+    }
+
+    private static func verifiedOpenPalm(_ hand: VNHumanHandPoseObservation, aspectRatio: Double) throws -> Bool {
+        func joint(_ name: VNHumanHandPoseObservation.JointName) throws -> OpenPalmEvidence.Joint? {
+            guard let point = try? hand.recognizedPoint(name) else { return nil }
+            guard point.confidence.isFinite, (0...1).contains(point.confidence),
+                  point.location.x.isFinite, point.location.y.isFinite,
+                  (0...1).contains(point.location.x), (0...1).contains(point.location.y) else {
+                throw ObservationFailure.invalidGeometry
+            }
+            return OpenPalmEvidence.Joint(Point2D(x: Double(point.location.x), y: Double(point.location.y)),
+                                          confidence: Double(point.confidence))
+        }
+        guard let wrist = try joint(.wrist) else { return false }
+        let names: [(VNHumanHandPoseObservation.JointName, VNHumanHandPoseObservation.JointName, VNHumanHandPoseObservation.JointName)] = [
+            (.indexMCP, .indexPIP, .indexTip), (.middleMCP, .middlePIP, .middleTip),
+            (.ringMCP, .ringPIP, .ringTip), (.littleMCP, .littlePIP, .littleTip)
+        ]
+        let fingers = try names.compactMap { base, middle, tip -> OpenPalmEvidence.Finger? in
+            guard let b = try joint(base), let m = try joint(middle), let t = try joint(tip) else { return nil }
+            return OpenPalmEvidence.Finger(base: b, middle: m, tip: t)
+        }
+        return OpenPalmEvidence.isOpen(wrist: wrist, fingers: fingers, aspectRatio: aspectRatio)
     }
 
     /// Optional CLI smoke-test seam: real Vision inference on a caller-provided
@@ -434,7 +535,7 @@ final class CameraEngine: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
     static func detectHand(in image: CGImage, timestamp: Double) throws -> HandFrame? {
         let request = makeHandRequest()
         try VNImageRequestHandler(cgImage: image, orientation: .up, options: [:]).perform([request])
-        let delivery = try makeDelivery(from: request.results?.first, timestamp: timestamp,
+        let delivery = try makeDelivery(from: request.results ?? [], timestamp: timestamp,
                                        aspectRatio: Double(image.width) / Double(image.height))
         if case let .observation(frame, _) = delivery { return frame }
         return nil
