@@ -46,6 +46,10 @@ A cozy animated office for project activity. Choose among five rooms, switch flo
 <table>
   <tr>
     <td colspan="2">
+      <a href="https://cruz-hypercube.cg-stackd.chatgpt.site/">
+        <img src="./docs/assets/showcase/hypercube.png" width="1200" alt="HYPERCUBE’s actual browser-rendered tesseract: luminous cyan and pink edges, transparent violet faces, and glowing vertices on a dark background.">
+      </a>
+      <br>
       <strong><a href="https://cruz-hypercube.cg-stackd.chatgpt.site/">HYPERCUBE — Fourth Dimension Lab</a></strong>
       <br><br>
       Explore a four-dimensional cube through a glowing, interactive projection. Watch a square grow into a cube and then a tesseract, rotate through the fourth dimension, compare views, and switch to a full-screen cinematic experience.
