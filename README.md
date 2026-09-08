@@ -46,6 +46,17 @@ A cozy animated office for project activity. Choose among five rooms, switch flo
 <table>
   <tr>
     <td colspan="2">
+      <strong><a href="https://cruz-hypercube.cg-stackd.chatgpt.site/">HYPERCUBE — Fourth Dimension Lab</a></strong>
+      <br><br>
+      Explore a four-dimensional cube through a glowing, interactive projection. Watch a square grow into a cube and then a tesseract, rotate through the fourth dimension, compare views, and switch to a full-screen cinematic experience.
+      <br><br>
+      A customized adaptation of Tarek Sherif’s Tesseract Explorer, with a new interface, rendering system, dimensional sequence, and learning explanations. AI-assisted development; the live geometry runs locally in your browser without calling an AI model.
+      <br><br>
+      <a href="https://cruz-hypercube.cg-stackd.chatgpt.site/"><strong>Open live build ↗</strong></a> · <a href="./hypercube">Read what it does</a>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2">
       <a href="https://airframe.recruiting-gains.workers.dev/">
         <img src="./airframe/public/airframe-preview.png" alt="Airframe’s actual browser interface: floating mint, blue, and amber panels around a three-dimensional orbit, with camera controls beside the workspace. Camera is off in this screenshot.">
       </a>
