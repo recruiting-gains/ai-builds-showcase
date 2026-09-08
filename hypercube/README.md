@@ -2,6 +2,10 @@
 
 **[Open the public experience ↗](https://cruz-hypercube.cg-stackd.chatgpt.site/)** · [Back to the showcase](../README.md#live-builds)
 
+[![HYPERCUBE’s actual browser-rendered tesseract, with luminous edges and transparent faces.](../docs/assets/showcase/hypercube.png)](https://cruz-hypercube.cg-stackd.chatgpt.site/)
+
+*A still captured from the live demo in cinematic view.*
+
 HYPERCUBE is an interactive geometry lab that makes an abstract idea easier to explore: what would a four-dimensional cube look like when projected onto a screen?
 
 Switch between a square, cube, and tesseract. Watch each shape extend into another dimension, rotate the geometry, and see how its appearance changes. Glowing edges, transparent faces, and optional light trails make the structure easier to follow.
