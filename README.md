@@ -41,6 +41,16 @@ A cozy animated office for project activity. Choose among five rooms, switch flo
   </tr>
 </table>
 
+## Foldspace — new experiment
+
+[![Foldspace’s actual browser scene: floating concrete rooms with glowing portals.](./foldspace/docs/foldspace-desktop.png)](./foldspace)
+
+Five rooms. Three rules. Change a doorway’s destination, carry the matching key, and connect both ends of a portal. A short, original 3D portal-routing puzzle built by Cruz Garza with GPT-6 Astra in Codex, using Ultra reasoning.
+
+[Explore the source](./foldspace) · [Download the 30-second Instagram demo](./foldspace/media/Foldspace-Instagram.mp4) · [What was verified](./foldspace/docs/VERIFICATION.md)
+
+The game’s hosted preview starts private to its owner. The source and recorded walkthrough can be explored here; public game access is a separate publication choice.
+
 ## Live builds
 
 <table>
