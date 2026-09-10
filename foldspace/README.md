@@ -12,7 +12,7 @@ The windows in the active door render the actual destination room. The rooms are
 
 ## Play
 
-The hosted preview is at **https://foldspace-by-cruz.cg-stackd.chatgpt.site/**. It is initially private to its owner; publication and audience status are recorded in `docs/VERIFICATION.md`.
+**[Play Foldspace](https://foldspace-by-cruz.cg-stackd.chatgpt.site/)** — public browser game. No sign-in is required. Publication and validation notes are in `docs/VERIFICATION.md`.
 
 - **Move:** WASD, arrow keys, or hold the on-screen direction buttons.
 - **Interact:** move near a plinth, then press E or tap its action button.

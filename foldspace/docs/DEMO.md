@@ -22,4 +22,4 @@ Created by Cruz Garza. Built with GPT-6 Astra in Codex, using Ultra reasoning.
 
 ## Posting
 
-The MP4 is prepared for Cruz to upload. Creating this file does not publish it to Instagram. The game link must be public before it is advertised as playable by everyone.
+The MP4 is prepared for Cruz to upload. Creating this file does not publish it to Instagram. The game is publicly playable at https://foldspace-by-cruz.cg-stackd.chatgpt.site/ .

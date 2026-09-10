@@ -28,4 +28,4 @@ Portal destinations use a single rendering pass with a transformed camera and ex
 
 ## Hosting and sharing
 
-The Site is registered at https://foldspace-by-cruz.cg-stackd.chatgpt.site/ and begins with owner-only access. Source validation is completed before publication; the hosting service's terminal deployment status is the authority for availability. Public access requires the owner's explicit audience choice. The recorded video is a prepared upload, not an Instagram post.
+The game was deployed successfully and public access was enabled on September 10, 2026 after explicit owner approval: https://foldspace-by-cruz.cg-stackd.chatgpt.site/ . The recorded video is a prepared upload; it has not been posted to Instagram.
