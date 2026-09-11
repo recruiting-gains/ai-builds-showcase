@@ -13,7 +13,8 @@
     "check:deploy": "wrangler deploy --dry-run",
     "types": "wrangler types --include-runtime=false",
     "harness": "node harness/cli.mjs",
-    "test:harness": "node --test harness/*.test.mjs"
+    "test:harness": "node --test harness/*.test.mjs",
+    "test:phone": "node scripts/verify-phone-studio.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1"

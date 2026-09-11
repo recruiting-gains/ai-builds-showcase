@@ -9,3 +9,7 @@ Acceptance before implementation: Invisible replaces intended person/portal pixe
 ## Perspective follow-up
 
 For this iteration, the feature engineer owned `src/handframe/index.ts`, `src/handframe/perspective.ts`, `tests/handframe.test.ts` and `tests/perspective.test.ts` until its completed handoff. The coordinator owned the new `src/handframe/surface.ts`, integration, camera changes, surface/lifecycle/browser tests and documentation. The independent critic reviewed source and visual evidence read-only. No resources had concurrent writers. Follow-up acceptance criteria and evidence are in [HandFrame 3D](HANDFRAME-3D.md).
+
+## Phone studio iteration
+
+The camera engineer owned `src/vision/camera.ts`, its orientation helper and their tests. The coordinator owned local photos, finger-corner projection, dashboard UI, integration, browser tests, workflow/CI updates and publication. The independent reviewer inspected the reference and implementation read-only, with private synthetic probes. Checkpoints tracked stage/elapsed/retry budgets. Acceptance and supported runtime boundaries are documented in [Phone studio](PHONE-STUDIO.md).
