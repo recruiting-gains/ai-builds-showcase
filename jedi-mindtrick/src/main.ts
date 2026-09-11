@@ -62,7 +62,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
         </section><section class="hand-design-controls" aria-label="Shape with your hands"><div class="section-label"><span>02 / SHAPE IT WITH YOUR HANDS</span><span>AUTOMATIC</span></div>
         <label class="switch-row"><span>Follow my hands<small>Your thumbs and index fingers draw the outline.</small></span><input id="follow-hands" type="checkbox" checked></label>
         <p class="hint" id="hand-shape-state" role="status">Start your camera to form a shape with both hands.</p>
-        <p class="hint">Open a space between your thumbs and index fingers. Curve your fingers and shape the opening. To change worlds, bring both palms close together, pause briefly, then reopen. Touching fingertips alone keeps your current world.</p>
+        <p class="hint" id="world-cycle-state">Open both hands to start. Bring your palms together, then reopen for the next color.</p>
+        <p class="hint">Shape the opening with your thumbs and index fingers. To change colors, bring your palms together until the cue appears, then reopen. Keep both hands in view; touching fingertips alone keeps your current world.</p>
         <details id="manual-shapes"><summary>Saved shapes & drawing</summary><div class="section-label"><span>OPTIONAL FIXED OUTLINE</span><span id="shape-name">RECTANGLE</span></div>
         <div class="shape-choices" role="group" aria-label="Frame shape">${SHAPES.map(s=>`<button data-shape="${s.id}" aria-pressed="${s.id==='rectangle'}" class="${s.id==='rectangle'?'active':''}"><span aria-hidden="true">${s.icon}</span>${s.name}</button>`).join('')}</div>
         <button id="custom-shape" class="secondary full" aria-expanded="false" aria-controls="shape-editor">Draw a custom shape <span aria-hidden="true">✎</span></button>
@@ -88,6 +89,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
 </main><footer><span>JEDI MINDTRICK <span class="muted">/ Built by Cruz G.</span></span><span>Hand tracking + a little imagination.</span><a href="https://github.com/recruiting-gains/ai-builds-showcase/tree/codex/jedi-mindtrick/jedi-mindtrick" target="_blank" rel="noopener noreferrer">Explore the source ↗</a></footer>`;
 
 const $=<T extends HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
+const worldCue=document.createElement('span');worldCue.id='world-gesture';worldCue.className='world-gesture';worldCue.setAttribute('role','status');worldCue.hidden=true;$('#camera-view').append(worldCue);
 const scene=$<HTMLCanvasElement>('#scene'),ctx=scene.getContext('2d')!;
 const raw=document.createElement('canvas');raw.width=scene.width;raw.height=scene.height;
 const rawCtx=raw.getContext('2d',{willReadFrequently:true})!;
@@ -99,6 +101,7 @@ let textureSource:ImageBitmap|HTMLCanvasElement|null=null,textureKey='';
 let mode:Mode='invisible',style:LocalStyle='dream',fade=0,targetFade=0,portal=false,manual=true,live=false;
 let shape:FrameShape='rectangle',customOutline=shapePoints('rectangle'),outline=shapePoints(shape),cameraOnly=false;
 let handFollowing=true,handOutline:Point[]|null=null;
+let worldNoticeUntil=0;
 let focusView:ReturnType<typeof installFullscreen>|null=null;
 let background:ImageData|null=null,mask:Float32Array|null=null,hands:Hand[]=[],lastVision=0,inferenceMs=0;
 let handBackend='';
@@ -129,7 +132,8 @@ const pipeline=new CameraPipeline(result=>{
   }
   if(mode==='invisible')mask=personMask?addTrackedHands(personMask,W,H,hands):null;
   if(mode==='invisible'&&!portal&&!calibration){const amount=palm.update(hands,result.timestamp);if(amount!==null)setFade(amount*100);}
-  if(automatic&&!cameraOnly){if(worldCycle.update(hands,result.timestamp))nextWorld();}else worldCycle.reset();
+  if(automatic&&!cameraOnly){if(worldCycle.update(hands,result.timestamp)){nextWorld();worldNoticeUntil=performance.now()+1400;}}else worldCycle.reset();
+  syncWorldCue();
   if(mode==='handframe'&&!handFollowing){
     const action=pinch.update(hands,result.timestamp);
     if(action==='next-style')nextWorld();
@@ -148,7 +152,17 @@ const pipeline=new CameraPipeline(result=>{
 });
 
 function automaticShaping(){return mode==='handframe'&&handFollowing&&live&&!manual;}
-function resetPerspective(){worldCycle.reset();pose=null;frame=null;lastGoodFrame=null;perspective.reset();handShape.reset();handOutline=null;}
+function resetWorldCycle(){worldCycle.reset();worldNoticeUntil=0;syncWorldCue();}
+function resetPerspective(){resetWorldCycle();pose=null;frame=null;lastGoodFrame=null;perspective.reset();handShape.reset();handOutline=null;}
+function syncWorldCue(now=performance.now()){
+  const active=automaticShaping()&&!cameraOnly,phase=worldCycle.status;
+  const message=!live?'Start your camera, then open both hands to begin.':!handFollowing||manual?'Turn on Follow my hands and turn off mouse controls to change colors with your palms.':cameraOnly?'Show effects to change colors with your palms.':phase==='waiting-open'?'Show both hands apart to begin. If tracking was lost, open to reset, then bring your palms together again.':phase==='open'?'Ready · palms together, then reopen for the next color.':phase==='reacquiring'?'Keep both hands in view as you bring your palms together.':phase==='closing'?'Bring your palms together briefly…':phase==='closed'?'Hands together · reopen for the next color.':'Reopen both hands now for the next color.';
+  const hint=$('#world-cycle-state');if(hint.textContent!==message)hint.textContent=message;
+  const pending=phase==='closed'||phase==='closing'||phase==='occluded'||phase==='reacquiring';
+  const notice=pending?message:now<worldNoticeUntil?`${worldName(style)} · keep creating`:'';
+  worldCue.hidden=!active||!notice;
+  if(worldCue.textContent!==notice)worldCue.textContent=notice;
+}
 function syncGestureHelp(){$('#gesture-help').textContent=mode==='invisible'?'Open palm: visible. Slowly close your hand to disappear. Open it again to return.':handFollowing?'Form an opening with both thumbs and index fingers. Open to design. Bring both hands together, then reopen for the next world.':'Push one hand forward, pull the other back. Lift to tilt. Quick pinch: style. Hold 0.6s: prepare a still.';}
 function setHandFollowing(value:boolean){handFollowing=value;$<HTMLInputElement>('#follow-hands').checked=value;resetPerspective();pinch.reset();if(value&&live){manual=false;$<HTMLInputElement>('#manual').checked=false;}syncManualControls();syncGestureHelp();}
 function setShape(value:FrameShape){setHandFollowing(false);shape=value;outline=shapePoints(value,customOutline);$('#shape-name').textContent=value==='custom'?'CUSTOM':SHAPES.find(s=>s.id===value)!.name.toUpperCase();document.querySelectorAll<HTMLButtonElement>('[data-shape]').forEach(b=>{b.classList.toggle('active',b.dataset.shape===value);b.setAttribute('aria-pressed',String(b.dataset.shape===value));});$('#custom-shape').classList.toggle('active',value==='custom');}
@@ -201,13 +215,13 @@ $<HTMLInputElement>('#follow-hands').addEventListener('change',e=>setHandFollowi
 document.querySelectorAll<HTMLButtonElement>('[data-shape]').forEach(b=>b.addEventListener('click',()=>{shapeEditor.close();setShape(b.dataset.shape as FrameShape);}));
 $('#custom-shape').addEventListener('click',()=>shapeEditor.open(customOutline,$('#custom-shape')));
 focusView=installFullscreen($('#camera-view'),$<HTMLButtonElement>('#full-screen'),active=>{if(!active){cameraOnly=false;$('#camera-only').setAttribute('aria-pressed','false');$('#camera-only').textContent='Just camera';}});
-$('#camera-only').addEventListener('click',()=>{worldCycle.reset();cameraOnly=!cameraOnly;$('#camera-only').setAttribute('aria-pressed',String(cameraOnly));$('#camera-only').textContent=cameraOnly?'Show effects':'Just camera';});
+$('#camera-only').addEventListener('click',()=>{cameraOnly=!cameraOnly;resetWorldCycle();$('#camera-only').setAttribute('aria-pressed',String(cameraOnly));$('#camera-only').textContent=cameraOnly?'Show effects':'Just camera';});
 $('#start-camera').addEventListener('click',()=>{stopCamera('Starting camera…');$('#stop-camera').hidden=false;void pipeline.start();});
 $('#stop-camera').addEventListener('click',()=>stopCamera());
 document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode as Mode)));
 document.querySelectorAll<HTMLButtonElement>('[data-fade]').forEach(b=>b.addEventListener('click',()=>setFade(Number(b.dataset.fade))));
 $<HTMLInputElement>('#fade').addEventListener('input',e=>setFade(Number((e.target as HTMLInputElement).value)));
-document.querySelectorAll<HTMLButtonElement>('[data-style]').forEach(b=>b.addEventListener('click',()=>{worldCycle.reset();setStyle(b.dataset.style as LocalStyle);}));
+document.querySelectorAll<HTMLButtonElement>('[data-style]').forEach(b=>b.addEventListener('click',()=>{resetWorldCycle();setStyle(b.dataset.style as LocalStyle);}));
 $<HTMLInputElement>('#portal').addEventListener('change',e=>{portal=(e.target as HTMLInputElement).checked;palm.reset();});
 $<HTMLInputElement>('#manual').addEventListener('change',e=>{manual=(e.target as HTMLInputElement).checked;resetPerspective();syncManualControls();});
 $<HTMLInputElement>('#frame-size').addEventListener('input',e=>{const width=Number((e.target as HTMLInputElement).value)/100,height=Math.min(.85,width*1.2);manualFrame={x:Math.min(1-width,Math.max(0,manualFrame.x+(manualFrame.width-width)/2)),y:Math.min(1-height,Math.max(0,manualFrame.y+(manualFrame.height-height)/2)),width,height};});
@@ -251,6 +265,7 @@ function render(now:number){
   if(live&&pipeline.video.readyState>=2){rawCtx.save();rawCtx.translate(W,0);rawCtx.scale(-1,1);rawCtx.drawImage(pipeline.video,0,0,W,H);rawCtx.restore();}
   else drawDemo(rawCtx,reducedMotion?0:now);
   if(live&&now-lastVision>1000){hands=[];frame=null;resetPerspective();palm.reset();pinch.reset();}
+  syncWorldCue(now);
   ctx.drawImage(raw,0,0);
   const r=activeFrame();
   if(focusView?.active&&cameraOnly){/* Clean camera view keeps the selected effect ready to restore. */}

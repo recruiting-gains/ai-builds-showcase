@@ -24,3 +24,14 @@ export function worldCyclePair(separation = 3.2, options: {
     return hand;
   });
 }
+
+/** Both palms rotated almost edge-on, as in a hands-together prayer gesture. */
+export function worldCyclePrayer(separation = 0.04, scale = 0.75): Hand[] {
+  return worldCyclePair(separation, { scale }).map((hand, index) => {
+    const wrist = hand.landmarks[0], angle = (index === 0 ? 1 : -1) * 86 * Math.PI / 180;
+    return { ...hand, score: 0.51, landmarks: hand.landmarks.map(point => ({
+      ...point, x: wrist.x + (point.x - wrist.x) * Math.cos(angle),
+      z: (point.x - wrist.x) * Math.sin(angle),
+    })) };
+  });
+}

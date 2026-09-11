@@ -2,14 +2,14 @@
 
 HandFrame follows the opening formed by both thumbs and index fingers. **Follow my hands** is on by default. The window comes from the detected finger joints, without selecting a preset or classifying the pose as a named shape.
 
-Automatic outlines and continuous palm visibility are already available. The new follow-up adds close/reopen world cycling and a wider HandFrame studio. [Current behavior and verification](WORLD-CYCLE-WIDE-VIEW.md). The earlier [actual-model benchmark](HANDFRAME-RESPONSIVENESS.md) uses a generated empty camera stream; it does not establish physical-camera accuracy or hand latency.
+Automatic outlines work alongside continuous palm visibility, close/reopen world cycling and the wider HandFrame studio. The current palm-contact correction adds visible gesture cues and bounded recovery when one palm briefly hides the other. [Current behavior and verification](WORLD-CYCLE-WIDE-VIEW.md). The earlier [actual-model benchmark](HANDFRAME-RESPONSIVENESS.md) uses a generated empty camera stream; it does not establish physical-camera accuracy or hand latency.
 
 ## Use it
 
 1. Select HandFrame and start the camera. Keep Follow my hands on and Mouse & keyboard controls off.
 2. Hold both hands in view, palms toward the camera, with an open space between the thumbs and index fingers. Join the tips, bend the fingers or spread them apart to change the opening.
 3. Hold your hands at a similar distance and select Center depth. Move one hand closer to stretch that side of the picture. Lifting or turning your hands also changes the measured outline.
-4. The first opening keeps the selected world. Bring both palms close together, pause briefly, then reopen to advance one world. Keep both hands visible side by side. Fingertip contact alone does not change it. World buttons remain available. Use Prepare a still when wanted; pinch shortcuts are disabled while Follow my hands is on.
+4. The first opening keeps the selected world. Bring both palms together and pause for **“Hands together · reopen for the next color.”** Then reopen to advance one world; its name confirms the change. If one palm briefly hides the other after a recognized close, **“Reopen both hands now for the next color.”** asks you to separate them before recovery expires. Keep the hands inside the camera picture. A missed attempt requires an opening to re-arm, then another close/reopen. Fingertip contact alone does not change the world. World buttons remain available. Use Prepare a still when wanted; pinch shortcuts are disabled while Follow my hands is on.
 5. Select Full screen for a clean view. Move or tap to reveal its toolbar. Fill view crops the camera to fill the screen; Fit shows the whole image. Just camera temporarily hides the effect. Esc returns to the controls.
 
 Saved shapes & drawing remains optional. Selecting a preset or applying a custom draft turns off Follow my hands; opening or cancelling the editor does not replace the active design. Turn Follow my hands back on to return to direct shaping. With it off, a quick pinch changes the world and a 0.6-second pinch prepares a still. Mouse controls can position, resize and tilt a saved outline without live hand tracking.
@@ -20,6 +20,8 @@ The tracker connects seven thumb/index landmarks on each hand in anatomical orde
 
 Small landmark fluctuations are smoothed; deliberate changes follow promptly. The current minimum blend is 0.60, increased from 0.24, and a movement of 0.006 normalized image units follows directly, previously 0.012. This trades more stationary jitter for faster gentle following. Smoothing always uses the same anatomical indices before joined points are merged. Both the incoming and smoothed contours are checked for crossings and negligible area. Missing hands, malformed tracking, crossed contours, tiny openings, time discontinuities and large tracking jumps hide the window and reset its state. A valid opening must be reacquired; there is no automatic square replacement.
 
+Those contour rules are separate from the color gesture. Overlapping wrists or a brief missing hand can hide the visible opening without cancelling an already recognized close. World cycling allows a local one-hand occlusion for at most 700 ms from the last measured pair; completing a close during that gap requires observed near-overlapping contact and prior contraction. Before contact, a shorter 300 ms gap can preserve an armed opening, but a measured close must start a fresh dwell after both hands return. Neither path invents contact from missing hands. Both hands disappearing, a distant remaining hand, invalid input or an expired gap resets the cycle. Open both hands to re-arm before trying again. [Gesture criteria and limits](WORLD-CYCLE-WIDE-VIEW.md#interaction-contract).
+
 This does not trace exact skin edges, segment every finger, or reproduce every arbitrary shape a hand could make. Occlusion, crossed fingers, camera angle and low light can prevent a usable contour. Depth comes from relative apparent palm size, not measured distance; palm rotation can affect it. The outline already includes visible screen tilt, so automatic rendering applies the additional depth treatment without adding that tilt twice.
 
 ## Local processing and stills
@@ -28,7 +30,9 @@ Outline tracking, worlds, print textures and fullscreen operate locally. Prepari
 
 ## Verification
 
-The 24 focused tests cover direct rectangle-like, triangular, rounded and concave openings; joined-tip merging; bounds and mirroring; detector reordering; asymmetric joining/separation; deformation and jitter; invalid tracking; timestamp handling; teleport recovery; and the optional joined-tip perspective reference. Existing perspective behavior remains covered.
+### Previous automatic-outline release
+
+The automatic-outline release's 24 focused tests covered direct rectangle-like, triangular, rounded and concave openings; joined-tip merging; bounds and mirroring; detector reordering; asymmetric joining/separation; deformation and jitter; invalid tracking; timestamp handling; teleport recovery; and the optional joined-tip perspective reference. These are historical results, not a fresh test report for the palm-contact correction. Current evidence is maintained in [World cycling and wider view](WORLD-CYCLE-WIDE-VIEW.md#verification).
 
 On synthetic joint input, a deliberate 1.5% image translation and a rectangle-to-concave deformation followed in one update. The latest gentle-motion comparison reduced mean position error from 0.002650 to 0.000792 normalized units. Stationary input noise with RMS 0.001 now produces contour RMS 0.000431, compared with 0.000139 before the response change. These are geometry/filter measurements, not measured webcam latency or proof of physical-hand accuracy.
 

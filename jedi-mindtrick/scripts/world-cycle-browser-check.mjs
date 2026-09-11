@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { worldCyclePair, worldCycleOutline } from '../tests/world-cycle-fixtures.ts';
+import { worldCyclePair, worldCycleOutline, worldCyclePrayer } from '../tests/world-cycle-fixtures.ts';
 
 const base = process.argv[2] || 'http://127.0.0.1:8798';
 const output = fileURLToPath(new URL('../test-results/', import.meta.url));
@@ -12,6 +12,8 @@ const fixtures = {
   none: [], open: worldCyclePair(3.2), closed: worldCyclePair(1.1),
   triangle: worldCycleOutline('triangle'), heart: worldCycleOutline('heart'), contact: worldCycleOutline('rounded'),
   reversed: worldCyclePair(3.2).reverse(),
+  prayer: worldCyclePrayer(), prayerOpen: worldCyclePrayer(3.2), onePrayer: [worldCyclePrayer()[0]],
+  oneOpen: [worldCyclePair(3.2)[0]],
 };
 fixtures.weak = worldCyclePair(3.2); fixtures.weak[0].score = .1;
 fixtures.missing = worldCyclePair(3.2); fixtures.missing[0].landmarks[9] = null;
@@ -191,6 +193,33 @@ try {
   }
   pass('lost, weak and missing-landmark tracking cancel a closed pending cycle before reacquisition');
 
+  await fresh(); await setFixture('prayerOpen'); await setFixture('prayer');
+  assert.equal(await page.locator('#world-gesture').isVisible(), true);
+  assert.match(await page.locator('#world-gesture').textContent(), /Hands together.*reopen/);
+  await setFixture('prayerOpen'); await expectStyle('thermal');
+  assert.match(await page.locator('#world-gesture').textContent(), /Thermal/);
+  await noCapture();
+  pass('edge-on overlapping palms with ambiguous labels arm a visible cue and advance once on reopening');
+
+  await fresh(); await setFixture('prayerOpen'); await setFixture('prayer'); await setFixture('onePrayer', 200);
+  assert.match(await page.locator('#world-gesture').textContent(), /Reopen both hands/);
+  await setFixture('prayerOpen'); await expectStyle('thermal'); await noCapture();
+  pass('brief local one-palm occlusion preserves the pending close and advances on the next opening');
+
+  await fresh(); await setFixture('prayerOpen'); await setFixture('prayer'); await setFixture('onePrayer', 900);
+  assert.equal(await page.locator('#world-gesture').isVisible(), false);
+  assert.match(await page.locator('#world-cycle-state').textContent(), /open to reset/);
+  await setFixture('prayerOpen'); await expectStyle('dream');
+  await setFixture('prayer'); await setFixture('prayerOpen'); await expectStyle('thermal'); await noCapture();
+  pass('expired one-palm loss clears the cue; opening resets and a fresh close/reopen succeeds');
+
+  await fresh(); await setFixture('open'); await setFixture('oneOpen', 80);
+  assert.match(await page.locator('#world-gesture').textContent(), /Keep both hands in view/);
+  await setFixture('closed');
+  assert.match(await page.locator('#world-gesture').textContent(), /Hands together.*reopen/);
+  await setFixture('open'); await expectStyle('thermal'); await noCapture();
+  pass('brief pre-contact hand loss retains arming but requires a newly measured close before advancing');
+
   await fresh(); await closedAfterOpening();
   await page.locator('[data-style="ocean"]').click();
   const explicitCount = await changeCount();
@@ -212,10 +241,12 @@ try {
   await fresh(); await closedAfterOpening();
   await page.locator('#full-screen').click();
   await page.waitForFunction(() => document.querySelector('#camera-view').classList.contains('focus-view'));
+  assert.equal(await page.locator('#world-gesture').isVisible(), true, 'close cue remains visible in fullscreen');
   assert.equal(await page.locator('#fill-screen').getAttribute('aria-pressed'), 'false');
   const fit = await sceneBounds();
   assert.ok(fit.x >= -1 && fit.y >= -1 && fit.x + fit.width <= 1441 && fit.y + fit.height <= 1051, 'default fullscreen Fit contains the complete camera');
   await page.locator('#camera-only').click(); await setFixture('open'); await setFixture('closed'); await setFixture('open');
+  assert.equal(await page.locator('#world-gesture').isVisible(), false, 'Just camera hides gesture overlays');
   await expectStyle('dream');
   await page.locator('#camera-only').click(); await setFixture('open', 450); await expectStyle('dream');
   await page.locator('#exit-screen').click();
@@ -264,7 +295,17 @@ try {
   for (const viewport of [{ width: 390, height: 844 }, { width: 760, height: 1000 }, { width: 1440, height: 1050 }]) {
     await page.setViewportSize(viewport); await page.evaluate(() => window.scrollTo(0, 0)); await paint();
     report.measurements.responsive.push({ viewport, layout: await layoutCheck() });
-    if (viewport.width === 390) await screenshot('world-cycle-wide-mobile.png');
+    if (viewport.width === 390) {
+      await setFixture('closed');
+      const cue = await page.locator('#world-gesture').boundingBox();
+      assert.ok(cue && cue.x >= 0 && cue.x + cue.width <= viewport.width, 'phone cue stays inside the picture');
+      await screenshot('world-cycle-wide-mobile.png');
+      await page.locator('#full-screen').click();
+      const fullCue = await page.locator('#world-gesture').boundingBox();
+      assert.ok(fullCue && fullCue.x >= 0 && fullCue.x + fullCue.width <= viewport.width && fullCue.y + fullCue.height <= viewport.height, 'phone fullscreen cue fits');
+      await screenshot('world-cycle-fullscreen-mobile.png');
+      await page.locator('#exit-screen').click(); await setFixture('open');
+    }
   }
   const identity = await page.evaluate(() => {
     const probe = window.__cycleProbe;
