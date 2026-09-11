@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars*
+.env*
+.harness/
+test-results/
+public/wasm/
+public/models/*
+!public/models/README.md
+public/vision_bundle.js

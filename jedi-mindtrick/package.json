@@ -1,0 +1,32 @@
+{
+  "name": "jedi-mindtrick",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "npm run typecheck && vite build",
+    "test": "tsx --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p worker/tsconfig.json",
+    "assets": "node scripts/prepare-assets.mjs",
+    "deploy": "wrangler deploy",
+    "check:deploy": "wrangler deploy --dry-run",
+    "types": "wrangler types --include-runtime=false",
+    "harness": "node harness/cli.mjs",
+    "test:harness": "node --test harness/*.test.mjs"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^1.0.1"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@cloudflare/workers-types": "latest",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "latest",
+    "esbuild": "0.28.2",
+    "tsx": "latest",
+    "typescript": "latest",
+    "vite": "latest",
+    "wrangler": "latest"
+  }
+}

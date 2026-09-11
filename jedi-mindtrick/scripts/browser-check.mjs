@@ -1,0 +1,120 @@
+import { chromium } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import assert from 'node:assert/strict';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
+
+const base=process.argv[2]||'http://127.0.0.1:8798';
+await mkdir('test-results',{recursive:true});
+const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome',args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
+const report={base,observedAt:new Date().toISOString(),checks:[],pageErrors:[],network:[],camera:'Chromium generated test stream; not a physical webcam',ai:'Mocked image/error responses; no provider call'};
+const pass=name=>report.checks.push(name);
+try {
+  const context=await browser.newContext({viewport:{width:1440,height:1050},reducedMotion:'reduce'});
+  const page=await context.newPage();
+  page.on('pageerror',error=>report.pageErrors.push(error.message));
+  page.on('request',request=>report.network.push({method:request.method(),url:request.url()}));
+  await page.goto(base,{waitUntil:'networkidle'});
+  assert.match(await page.title(),/Jedi mindtrick/);pass('application loaded');
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);pass('desktop fits viewport');
+  const before=await page.locator('#scene').evaluate(c=>Array.from(c.getContext('2d').getImageData(415,285,1,1).data));
+  await page.locator('[data-fade="100"]').click();
+  await page.waitForFunction(before=>{const c=document.querySelector('#scene');return JSON.stringify(Array.from(c.getContext('2d').getImageData(415,285,1,1).data))!==JSON.stringify(before);},before);
+  pass('Invisible changes intended preview pixels');
+  await page.locator('[data-fade="0"]').click();
+  await page.waitForFunction(before=>{const c=document.querySelector('#scene');return JSON.stringify(Array.from(c.getContext('2d').getImageData(415,285,1,1).data))===JSON.stringify(before);},before);
+  pass('Invisible restores original preview pixels');
+  await page.locator('#portal').check();await page.locator('[data-fade="100"]').click();
+  await page.screenshot({path:'test-results/portal-desktop.png',fullPage:true});pass('portal controls render');
+  await page.locator('[data-mode="handframe"]').click();
+  const unstyled=await page.locator('#scene').evaluate(c=>Array.from(c.getContext('2d').getImageData(415,285,1,1).data));
+  await page.locator('[data-style="thermal"]').click();
+  await page.waitForFunction(previous=>{const c=document.querySelector('#scene');return JSON.stringify(Array.from(c.getContext('2d').getImageData(415,285,1,1).data))!==JSON.stringify(previous);},unstyled);
+  await page.locator('#layout').selectOption('postcard');pass('HandFrame style and layout change');
+  const frameSnapshot=()=>page.locator('#scene').evaluate(c=>c.toDataURL());
+  await page.waitForTimeout(80);const neutral=await frameSnapshot();
+  await page.locator('#frame-depth').evaluate(input=>{input.value='80';input.dispatchEvent(new Event('input',{bubbles:true}));});
+  await page.waitForFunction(()=>document.querySelector('#depth-state').textContent==='LEFT SIDE CLOSER');
+  const leftNear=await frameSnapshot();assert.notEqual(leftNear,neutral);
+  await page.locator('#frame-roll').evaluate(input=>{input.value='18';input.dispatchEvent(new Event('input',{bubbles:true}));});
+  await page.waitForTimeout(80);const tilted=await frameSnapshot();assert.notEqual(tilted,leftNear);
+  await page.locator('.viewport').screenshot({path:'test-results/perspective-left-near.png'});
+  await page.locator('#frame-depth').evaluate(input=>{input.value='-80';input.dispatchEvent(new Event('input',{bubbles:true}));});
+  await page.waitForFunction(()=>document.querySelector('#depth-state').textContent==='RIGHT SIDE CLOSER');
+  assert.notEqual(await frameSnapshot(),tilted);pass('3D stretch reverses sides and tilt changes the rendered surface');
+  await page.locator('#center-depth').click();await page.waitForTimeout(80);
+  assert.ok(await frameSnapshot()===neutral,'Center depth must restore the same canvas pixels');pass('Center depth restores the neutral rendered surface');
+  // Keep the still and returned-image path under perspective as well.
+  await page.locator('#frame-depth').evaluate(input=>{input.value='65';input.dispatchEvent(new Event('input',{bubbles:true}));});
+  assert.equal(await page.locator('[data-style]').count(),11);
+  const worlds=['dream','thermal','ink','neon','aurora','ocean','sunset','cosmic','risograph','cyanotype','stippling'],worldFrames=[];
+  for(const world of worlds){
+    await page.locator(`[data-style="${world}"]`).click();await page.waitForTimeout(80);
+    assert.equal(await page.locator(`[data-style="${world}"]`).getAttribute('aria-pressed'),'true');
+    worldFrames.push(await frameSnapshot());
+    if(['aurora','ocean','sunset','cosmic','risograph','cyanotype','stippling'].includes(world))await page.locator('.viewport').screenshot({path:`test-results/world-${world}.png`});
+  }
+  assert.equal(new Set(worldFrames).size,11);pass('all eleven worlds render distinct 3D surfaces and selected controls');
+  await page.locator('[data-style="cosmic"]').click();
+  const noUploads=report.network.filter(r=>r.method==='POST');assert.equal(noUploads.length,0);pass('local mode interactions upload no image');
+  await page.locator('#capture-still').click();assert.equal(report.network.filter(r=>r.method==='POST').length,0);pass('preparing still does not upload');
+  const selected=await page.locator('#still-preview').getAttribute('src');
+  const cropSize=await page.locator('#still-preview').evaluate(async img=>{await img.decode();return {width:img.naturalWidth,height:img.naturalHeight};});assert.ok(cropSize.width>0&&cropSize.width<512&&cropSize.height>0&&cropSize.height<512);pass('selected crop fits provider reference-image dimensions');
+  const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=c.height=8;const x=c.getContext('2d');x.fillStyle='#aa77ff';x.fillRect(0,0,8,8);return c.toDataURL('image/png').split(',')[1];});
+  let submissions=0,releaseResponse;const responseGate=new Promise(resolve=>{releaseResponse=resolve;});
+  await page.route('**/api/render',async route=>{submissions++;assert.equal(route.request().postDataJSON().image,selected.split(',')[1]);assert.equal(route.request().postDataJSON().style,'cosmic');await responseGate;await route.fulfill({status:200,contentType:'image/png',body:Buffer.from(png,'base64')});});
+  assert.match(await page.locator('#still-status').textContent(),/Selected look: Cosmic/);
+  await page.locator('#send-still').click();await page.locator('[data-style="aurora"]').click();releaseResponse();
+  await page.waitForFunction(()=>document.querySelector('#still-status').textContent.includes('AI still returned'));
+  await page.locator('.viewport').screenshot({path:'test-results/perspective-returned-still.png'});
+  assert.equal(submissions,1);assert.equal(await page.locator('#send-still').isDisabled(),true);pass('explicit submit sends selected crop once and displays returned image (mock)');
+  const centerPixel=()=>page.locator('#scene').evaluate(c=>Array.from(c.getContext('2d').getImageData(415,285,1,1).data));
+  await page.waitForTimeout(80);const locallyFiltered=await centerPixel();assert.notDeepEqual(locallyFiltered,[170,119,255,255]);
+  await page.locator('[data-style="cosmic"]').click();await page.waitForTimeout(80);assert.deepEqual(await centerPixel(),[170,119,255,255]);
+  await page.locator('[data-style="aurora"]').click();await page.waitForTimeout(80);assert.deepEqual(await centerPixel(),locallyFiltered);
+  assert.equal(submissions,1);pass('world changes during and after AI rendering stay local, restore the original and never compound filters');
+  await page.unroute('**/api/render');await page.locator('#capture-still').click();
+  await page.route('**/api/render',route=>route.fulfill({status:502,contentType:'application/json',body:JSON.stringify({error:'Controlled provider failure.'})}));
+  await page.locator('#send-still').click();await page.waitForFunction(()=>document.querySelector('#still-status').textContent.includes('Controlled provider failure'));
+  assert.equal(await page.locator('#still-preview').isVisible(),true);assert.equal(await page.locator('#send-still').isDisabled(),true);pass('provider failure preserves crop and disables automatic repeat (mock)');
+  await page.locator('#clear-still').click();await page.unroute('**/api/render');
+  const axe=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa']).analyze();
+  assert.deepEqual(axe.violations.map(v=>({id:v.id,targets:v.nodes.map(n=>n.target)})),[]);pass('automated WCAG A/AA checks: no violations');
+  await page.screenshot({path:'test-results/handframe-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'test-results/mobile.png',fullPage:true});pass('390px layout fits viewport');
+  await page.setViewportSize({width:1280,height:950});await page.locator('[data-mode="invisible"]').click();await page.locator('#start-camera').click();
+  await page.waitForFunction(()=>document.querySelector('#live-metric').textContent.includes('inference'),null,{timeout:40000});
+  report.inferenceMetric=await page.locator('#live-metric').textContent();pass('actual MediaPipe models process generated camera stream');
+  await page.locator('#stop-camera').click();
+  // Chromium color bars contain shapes the model may classify as a person.
+  // Use a controlled blank canvas stream to test empty-scene calibration.
+  await page.evaluate(()=>{
+    navigator.mediaDevices.getUserMedia=async()=>{
+      const canvas=document.createElement('canvas');canvas.width=512;canvas.height=288;const ctx=canvas.getContext('2d');
+      const paint=()=>{ctx.fillStyle='#8b9395';ctx.fillRect(0,0,512,288);};paint();
+      const timer=setInterval(paint,80);const stream=canvas.captureStream(12);const track=stream.getVideoTracks()[0];const stop=track.stop.bind(track);track.stop=()=>{clearInterval(timer);stop();};return stream;
+    };
+  });
+  await page.locator('#start-camera').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Camera on'),null,{timeout:40000});
+  await page.waitForFunction(()=>document.querySelector('#live-metric').textContent.includes('inference'),null,{timeout:40000});
+  await page.locator('#capture-background').click();await page.waitForFunction(()=>document.querySelector('#background-state').textContent==='ROOM SAVED',null,{timeout:9000});pass('empty test camera background captured');
+  await page.locator('#stop-camera').click();await page.waitForFunction(()=>document.querySelector('#live-metric').textContent==='YOUR CAMERA IS OFF');pass('camera stop returns to labelled preview');
+  // Exercise the full camera → landmarks → perspective → render path with deterministic hands.
+  await page.route('**/vision-worker.js',route=>readFile(new URL('./fixtures/perspective-worker.js',import.meta.url),'utf8').then(body=>route.fulfill({status:200,contentType:'text/javascript',body})));
+  await page.locator('[data-mode="handframe"]').click();await page.locator('#follow-hands').uncheck();await page.locator('#center-depth').click();await page.locator('#start-camera').click();
+  await page.waitForFunction(()=>document.querySelector('#frame-tag').textContent==='2 HANDS TRACKED');
+  assert.equal(await page.locator('#frame-depth').isDisabled(),true);const trackedNeutral=await frameSnapshot();
+  await page.waitForFunction(()=>document.querySelector('#depth-state').textContent==='LEFT SIDE CLOSER');
+  const trackedLeft=await frameSnapshot();assert.ok(trackedLeft!==trackedNeutral);
+  await page.waitForFunction(()=>document.querySelector('#depth-state').textContent==='RIGHT SIDE CLOSER');
+  assert.ok(await frameSnapshot()!==trackedLeft);pass('synthetic two-hand depth controls reach the rendered camera surface in both directions');
+  await page.waitForFunction(()=>document.querySelector('#depth-state').textContent==='SHOW BOTH HANDS');
+  await page.waitForFunction(()=>document.querySelector('#depth-state').textContent==='CENTERED'&&document.querySelector('#frame-tag').textContent==='2 HANDS TRACKED');pass('lost synthetic hands clear depth and reacquire at neutral');
+  await page.waitForFunction(()=>document.querySelector('#status').textContent==='Controlled tracking failure for recovery test.');
+  for(const id of ['#frame-depth','#frame-roll','#frame-size'])assert.equal(await page.locator(id).isDisabled(),false);
+  assert.equal(await page.locator('#manual').isChecked(),true);pass('tracking failure releases camera and restores manual depth, tilt and size controls');
+  await page.unroute('**/vision-worker.js');
+  assert.deepEqual(report.pageErrors,[]);pass('no uncaught browser errors');
+  assert.equal(report.network.some(r=>new URL(r.url).origin!==new URL(base).origin),false);pass('application requests stay on its own origin');
+}finally{await writeFile('test-results/browser-report.json',JSON.stringify(report,null,2));await browser.close();}
+console.log(JSON.stringify({passed:report.checks.length,checks:report.checks,inferenceMetric:report.inferenceMetric},null,2));
