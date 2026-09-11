@@ -1,5 +1,7 @@
 # HandFrame responsiveness
 
+This records the first responsiveness correction. The [subsequent 3D and response update](HANDFRAME-3D.md) supersedes its 33 ms scheduling and smoothing settings; the evidence below remains historical.
+
 A real-camera user reported that the frame followed their hands slowly. The existing UI showed about 30 ms per inference at one observed moment; that is model compute time, not end-to-end tracking latency.
 
 The old 85 ms sampling interval sat behind a 32 ms paint gate. On an otherwise regular 60 Hz animation loop, that combination ordinarily admitted a new sample roughly every 100 ms. The fixed 0.32 smoothing blend then needed six samples to cover 90% of a deliberate position change.

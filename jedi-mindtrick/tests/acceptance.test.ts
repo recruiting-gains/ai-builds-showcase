@@ -205,7 +205,7 @@ test('stop releases live resources and ignores a late inference result from the 
 });
 
 
-test('hand-only tracking samples fresh frames at 33ms while segmentation keeps its 85ms budget', async () => {
+test('hand-only tracking samples fresh frames at 16ms while segmentation keeps its 85ms budget', async () => {
   for (const segment of [false, true]) {
     const { stream } = fakeStream();const f = cameraFixture(async () => stream);
     const pipeline = new CameraPipeline(() => {}, () => {});
@@ -215,8 +215,8 @@ test('hand-only tracking samples fresh frames at 33ms while segmentation keeps i
       await pipeline.infer(100, segment);const first = sentFrames()[0];
       worker.onmessage!({data:{...first,type:'frame',hands:[],inferenceMs:5}});
       f.video.currentTime = 1/30;
-      await pipeline.infer(132, segment);assert.equal(sentFrames().length,1);
-      await pipeline.infer(133, segment);assert.equal(sentFrames().length,segment?1:2);
+      await pipeline.infer(115, segment);assert.equal(sentFrames().length,1);
+      await pipeline.infer(116, segment);assert.equal(sentFrames().length,segment?1:2);
       if(segment){await pipeline.infer(184, true);assert.equal(sentFrames().length,1);await pipeline.infer(185,true);assert.equal(sentFrames().length,2);}
       assert.ok(sentFrames().every(frame => frame.segment === segment));
     } finally {pipeline.stop();f.restore();}
@@ -232,8 +232,9 @@ test('busy tracking drops pending frames and resumes from the newest video frame
     for(const now of [133,166,199,232]){f.video.currentTime=now/1000;await pipeline.infer(now,false);}
     assert.equal(sentFrames().length,1);
     f.clock.now=250;worker.onmessage!({data:{type:'frame',...sentFrames()[0],hands:[],inferenceMs:150}});
-    f.video.currentTime=.265;await pipeline.infer(265,false);
-    assert.equal(sentFrames().length,2);assert.equal(sentFrames()[1].timestamp,265);
+    await Promise.resolve();
+    assert.equal(sentFrames().length,2);assert.equal(sentFrames()[1].timestamp,250);
+    f.video.currentTime=.265;await pipeline.infer(265,false);assert.equal(sentFrames().length,2);
   } finally {pipeline.stop();f.restore();}
 });
 
@@ -369,4 +370,30 @@ test('vision worker failure releases its bitmap and reports an error instead of 
   assert.equal(f.messages.filter(message => message.type === 'frame').length, 0);
   assert.equal(f.messages.filter(message => message.type === 'error').length, 1);
   assert.equal(closed, 1);
+});
+
+test('completion and animation capture share one job and pick the latest requested effect',async()=>{
+  const {stream}=fakeStream();const f=cameraFixture(async()=>stream);const pipeline=new CameraPipeline(()=>{},()=>{});
+  try{
+    await pipeline.start();const worker=f.workers[0];worker.onmessage!({data:{type:'ready'}});
+    const sent=()=>worker.messages.filter(m=>(m as {type:string}).type==='frame') as Array<{id:number;timestamp:number;segment:boolean}>;
+    await pipeline.infer(100,true);
+    f.video.currentTime=.15;await pipeline.infer(150,false);assert.equal(sent().length,1);
+    f.clock.now=151;worker.onmessage!({data:{type:'frame',id:sent()[0].id,timestamp:100,hands:[],inferenceMs:51}});
+    await pipeline.infer(152,false);await Promise.resolve();
+    assert.equal(sent().length,2);assert.equal(sent()[1].segment,false);assert.equal(sent()[1].timestamp,151);
+    f.clock.now=170;worker.onmessage!({data:{type:'frame',id:sent()[1].id,timestamp:151,hands:[],inferenceMs:19}});
+    await Promise.resolve();assert.equal(sent().length,2,'same decoded frame cannot restart inference');
+  }finally{pipeline.stop();f.restore();}
+});
+
+test('stopping in the result callback prevents completion-triggered camera capture',async()=>{
+  const {stream}=fakeStream();const f=cameraFixture(async()=>stream);
+  const pipeline=new CameraPipeline(()=>pipeline.stop(),()=>{});
+  try{
+    await pipeline.start();const worker=f.workers[0];worker.onmessage!({data:{type:'ready'}});
+    await pipeline.infer(100,false);const first=worker.messages.at(-1) as {id:number};f.video.currentTime=.2;f.clock.now=200;
+    worker.onmessage!({data:{type:'frame',id:first.id,timestamp:100,hands:[],inferenceMs:100}});await Promise.resolve();
+    assert.equal(worker.messages.length,2);assert.equal(pipeline.active,false);assert.equal(f.video.srcObject,null);
+  }finally{pipeline.stop();f.restore();}
 });

@@ -2,7 +2,7 @@
 
 Disappear into the room. Hold another world in your hands.
 
-A browser camera playground with two independent effects: **Invisible**, which blends a captured empty background into your silhouette, and **HandFrame**, which uses two hands to position a floating styled frame. An original implementation inspired by a supplied visual demonstration.
+A browser camera playground with two independent effects: **Invisible**, which blends a captured empty background into your silhouette, and **HandFrame**, which uses two hands to move, tilt and stretch a floating picture in perspective. An original implementation inspired by a supplied visual demonstration.
 
 ## Try it
 
@@ -13,7 +13,7 @@ Start with the clearly labelled simulated preview. Its illustration is generated
 1. Choose **Invisible** or **HandFrame**.
 2. Select **Start your camera** and allow camera access.
 3. For Invisible, select **Capture empty background**, then step completely out for five seconds. Return to view. Hold an open palm for 0.85 seconds to disappear, lower it, and repeat to return. Visible/Ghost/Hidden and the slider also work.
-4. For HandFrame, form an L with each hand. A quick pinch changes the local style. A pinch held for 0.6 seconds prepares one still; release before another action. The mouse/keyboard controls provide a fallback: drag the frame, use the size slider, or focus the canvas and use arrow keys.
+4. For HandFrame, form an L with each hand, palms toward the camera. Hold them side by side at the same distance and select **Center depth**. Push one hand toward the camera and pull the other back to stretch that side of the picture; raise either hand to tilt. A quick pinch changes the local style. A pinch held for 0.6 seconds prepares one still; release before another action. The mouse/keyboard controls provide a fallback: drag the frame, adjust size/3D stretch/tilt with the sliders, or focus the canvas and use arrow keys.
 5. **Send still to AI** explicitly submits that selected crop. Preparing a still alone uploads nothing. The returned AI image appears inside HandFrame. The local preview continues during rendering.
 
 The portal checkbox limits disappearance to the hand-shaped or manually positioned rectangle. The frame layouts offer an outline, postcard and cinema treatment. Thermal is a brightness-based color palette, not a temperature sensor.
@@ -21,6 +21,7 @@ The portal checkbox limits disappearance to the hand-shaped or manually position
 ## Limits that matter
 
 - Keep the camera fixed for Invisible. Camera movement, changed lighting, clutter and moving backgrounds can reveal the illusion; recapture when the scene changes.
+- Perspective depth is estimated from changes in apparent palm size. It is a visual control, not measured distance. Palm rotation can also affect the estimate; keep your palms facing the camera and use Center depth to reset.
 - Hand tracking can be lost, especially with occlusion, crossed hands, low light or hands near the image edge. Tracking loss resets gestures. This is an experimental effect, not a promise of reliable gesture recognition in every setting.
 - Hand/person inference runs in a local classic Web Worker, using the original camera input. One inference job is in flight; stale results and previous camera sessions are ignored. Camera stop, a hidden tab, startup failure or a watchdog timeout release resources.
 - AI still rendering uses Cloudflare Workers AI's FLUX.2 klein 4B model. It transforms the selected image; instant local filters do not call that model.
@@ -58,12 +59,12 @@ Set `PLAYWRIGHT_CHANNEL` if using another installed Playwright channel. These te
 | `src/main.ts`, `src/style.css` | Interface, modes, frame compositing and explicit still submission |
 | `src/vision/camera.ts`, `public/vision-worker.js` | Camera lifecycle, bounded inference and original-input vision |
 | `src/effects/` | Invisibility, mask alignment, portal and palm timing |
-| `src/handframe/` | Frame geometry, pinch state machine and local color filters |
+| `src/handframe/` | Frame/depth geometry, projective rendering, pinch state machine and local color filters |
 | `worker/` | Validated still endpoint, model call, durable idempotency and shared quota |
 | `harness/` | Executable check graph, bounded commands, checkpoints and recovery |
 | `tests/` | Pure effects, timing, lifecycle and real Worker logic with mocked AI |
 
-The engineering harness is separate from the camera loop. It runs explicit commands and tracks operator-supplied external observations; it does not pretend to create agents. [Workflow, diagram and runnable recovery example](docs/WORKFLOW.md). [Ownership and acceptance contract](docs/OWNERSHIP.md). [Independent review](docs/REVIEW.md). [Verification evidence](docs/VERIFICATION.md). [HandFrame responsiveness measurements](docs/HANDFRAME-RESPONSIVENESS.md).
+The engineering harness is separate from the camera loop. It runs explicit commands and tracks operator-supplied external observations; it does not pretend to create agents. [Workflow, diagram and runnable recovery example](docs/WORKFLOW.md). [Ownership and acceptance contract](docs/OWNERSHIP.md). [Independent review](docs/REVIEW.md). [Verification evidence](docs/VERIFICATION.md). [First responsiveness correction](docs/HANDFRAME-RESPONSIVENESS.md). [Current 3D perspective and response update](docs/HANDFRAME-3D.md).
 
 ## Deploy
 

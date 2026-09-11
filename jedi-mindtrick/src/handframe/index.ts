@@ -1,4 +1,6 @@
 import type { FrameRect, Hand, LocalStyle, Point } from '../contracts';
+export { PerspectiveTracker, projectFrame } from './perspective';
+export type { FramePose } from './perspective';
 
 export type PinchAction = 'next-style' | 'capture';
 export const PINCH_HOLD_MS = 600;
@@ -51,7 +53,7 @@ function followBlend(displacement: number): number {
   // Small changes are usually landmark jitter. Larger movement should catch up
   // promptly instead of carrying the fixed blend's lag through every sample.
   // Distances are normalized image fractions; no prediction or extra state.
-  return 0.24 + 0.62 * clamp((displacement - 0.003) / 0.047, 0, 1);
+  return 0.24 + 0.76 * clamp((displacement - 0.003) / 0.009, 0, 1);
 }
 
 /**

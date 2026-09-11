@@ -4,6 +4,8 @@ import { deriveFrame, PinchController, stylePixels } from './handframe';
 import { blendInvisible, portalMask, scaleMask, PalmHold } from './effects/invisible';
 import { CameraPipeline } from './vision/camera';
 import { drawDemo, demoMask } from './demo';
+import { PerspectiveTracker, projectFrame, type FramePose } from './handframe/perspective';
+import { drawSurface } from './handframe/surface';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
 <header class="topbar"><a class="brand" href="/" aria-label="Jedi mindtrick home"><span class="brand-mark">⌑</span> JEDI MINDTRICK<span class="edition">CAMERA PLAYGROUND / 01</span></a><a class="about-link" href="#how-it-works">How it works <span>↗</span></a></header>
@@ -32,14 +34,21 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
         <div class="styles" role="group" aria-label="Visual style"><button data-style="dream" class="active" aria-pressed="true"><i class="swatch dream"></i>Daydream</button><button data-style="thermal" aria-pressed="false"><i class="swatch thermal"></i>Thermal</button><button data-style="ink" aria-pressed="false"><i class="swatch ink"></i>Ink study</button><button data-style="neon" aria-pressed="false"><i class="swatch neon"></i>Neon night</button></div>
         <label class="select-row" for="layout">Frame layout<select id="layout"><option value="outline">Floating outline</option><option value="postcard">Postcard</option><option value="cinema">Cinema</option></select></label>
         <p class="hint" id="style-note">Instant color effects, processed on your device.</p>
-        <div class="section-label"><span>02 / MAKE AN AI STILL</span><span>OPTIONAL UPLOAD</span></div>
+        <div class="depth-controls"><div class="section-label"><span>02 / MOVE IN 3D</span><output id="depth-state">READY TO STRETCH</output></div>
+        <button id="center-depth" class="secondary full">Center depth <span>↔</span></button>
+        <p class="hint">Hold both L-shaped hands side by side, palms toward the camera. Center depth, then push one hand forward and pull the other back. Lift either hand to tilt.</p>
+        <p class="hint muted">Depth is estimated from hand size. Keep your palms facing the camera for steadier control.</p></div>
+        <div class="section-label"><span>03 / MAKE AN AI STILL</span><span>OPTIONAL UPLOAD</span></div>
         <button id="capture-still" class="secondary full">Prepare a still <span>⌑</span></button><p class="hint">A long pinch also prepares a crop. Sending it to Cloudflare AI is a separate, deliberate step.</p>
         <div id="still-panel" hidden><img id="still-preview" alt="Your selected frozen crop"><p id="still-status" class="hint" role="status">Only this selected crop will be sent.</p><button class="primary full" id="send-still" disabled>Send still to AI ↗</button><button id="clear-still" class="text-button">Clear still</button></div>
       </div>
-      <div class="manual-controls"><label class="switch-row"><span>Mouse & keyboard controls<small>Drag the frame. Use the slider to resize.</small></span><input id="manual" type="checkbox" checked></label><label class="sr-only" for="frame-size">Frame size</label><input id="frame-size" type="range" min="22" max="70" value="44"></div>
+      <div class="manual-controls"><label class="switch-row"><span>Mouse & keyboard controls<small>Drag the frame. Use the slider to resize.</small></span><input id="manual" type="checkbox" checked></label><label class="sr-only" for="frame-size">Frame size</label><input id="frame-size" type="range" min="22" max="70" value="44"><div id="perspective-controls" hidden>
+        <label class="select-row" for="frame-depth">3D stretch <output id="frame-depth-value">Centered</output></label><input id="frame-depth" type="range" min="-100" max="100" value="0"><div class="range-ends"><span>Right closer</span><span>Left closer</span></div>
+        <label class="select-row" for="frame-roll">Tilt <output id="frame-roll-value">0°</output></label><input id="frame-roll" type="range" min="-22" max="22" value="0">
+        <p class="hint" id="perspective-manual-hint">Try the depth and tilt sliders, or use both hands with the camera.</p></div></div>
     </aside>
   </section>
-  <section id="how-it-works" class="notes"><article><span>01 / A CAMERA ILLUSION</span><h2>Leave a little mystery.</h2><p>Invisible blends your captured room into your silhouette. A steady camera and even lighting give it the best chance to work.</p></article><article><span>02 / FRAME YOUR IMAGINATION</span><h2>Your hands, the viewfinder.</h2><p>Make an L with each hand. Quick pinch: next style. Hold a pinch for 0.6 seconds: prepare one still. Release before trying again.</p></article><article><span>03 / ON YOUR TERMS</span><h2>Local until you say so.</h2><p>Live camera frames stay in your browser. AI rendering sends only your selected still. No accounts, microphone, or camera recordings.</p></article></section>
+  <section id="how-it-works" class="notes"><article><span>01 / A CAMERA ILLUSION</span><h2>Leave a little mystery.</h2><p>Invisible blends your captured room into your silhouette. A steady camera and even lighting give it the best chance to work.</p></article><article><span>02 / FRAME YOUR IMAGINATION</span><h2>Your hands, the viewfinder.</h2><p>Make an L with each hand. Bring one hand closer to stretch the picture in perspective. Lift one hand to tilt. Quick pinch: next style. Hold a pinch for 0.6 seconds: prepare one still. Release before trying again.</p></article><article><span>03 / ON YOUR TERMS</span><h2>Local until you say so.</h2><p>Live camera frames stay in your browser. AI rendering sends only your selected still. No accounts, microphone, or camera recordings.</p></article></section>
 </main><footer><span>JEDI MINDTRICK <span class="muted">/ Built by Cruz G.</span></span><span>Hand tracking + a little imagination.</span><a href="https://github.com/recruiting-gains/ai-builds-showcase/tree/codex/jedi-mindtrick/jedi-mindtrick" target="_blank" rel="noopener noreferrer">Explore the source ↗</a></footer>`;
 
 const $=<T extends HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
@@ -48,6 +57,8 @@ const raw=document.createElement('canvas');raw.width=scene.width;raw.height=scen
 const rawCtx=raw.getContext('2d',{willReadFrequently:true})!;
 const bgCanvas=document.createElement('canvas');bgCanvas.width=scene.width;bgCanvas.height=scene.height;
 const W=scene.width,H=scene.height;
+const texture=document.createElement('canvas');texture.width=384;texture.height=256;
+const textureCtx=texture.getContext('2d',{willReadFrequently:true})!;
 let mode:Mode='invisible',style:LocalStyle='dream',fade=0,targetFade=0,portal=false,manual=true,live=false;
 let background:ImageData|null=null,mask:Float32Array|null=null,hands:Hand[]=[],lastVision=0,inferenceMs=0;
 let frame:FrameRect|null=null,lastGoodFrame:FrameRect|null=null,lastGoodAt=0;
@@ -55,11 +66,13 @@ let manualFrame:FrameRect={x:.28,y:.23,width:.44,height:.54};
 let calibration:ReturnType<typeof setInterval>|null=null;
 let prepared:{image:string;requestId:string;createdAt:number;style:LocalStyle}|null=null,generated:ImageBitmap|null=null,generatedURL:string|null=null;
 let aiEnabled=false,renderAbort:AbortController|null=null,renderGeneration=0;
-const pinch=new PinchController(),palm=new PalmHold();
+const pinch=new PinchController(),palm=new PalmHold(),perspective=new PerspectiveTracker();
+let pose:FramePose|null=null,manualDepth=0,manualRoll=0;
 const status=(message:string)=>{$('#status').textContent=message;};
 const pipeline=new CameraPipeline(result=>{
   hands=result.hands;lastVision=result.timestamp;inferenceMs=result.inferenceMs;
   frame=deriveFrame(hands,frame);
+  pose=mode==='handframe'?perspective.update(hands,frame,result.timestamp):null;
   if(frame){lastGoodFrame=frame;lastGoodAt=lastVision;}
   if(result.mask&&result.maskWidth&&result.maskHeight){
     const next=scaleMask(result.mask,result.maskWidth,result.maskHeight,W,H);
@@ -80,15 +93,19 @@ const pipeline=new CameraPipeline(result=>{
   $<HTMLButtonElement>('#capture-background').disabled=pending;
   $<HTMLButtonElement>('#capture-still').disabled=pending;
   if(active){manual=false;$<HTMLInputElement>('#manual').checked=false;$('#background-state').textContent='NOT CAPTURED';}
-  else{hands=[];mask=null;frame=null;background=null;targetFade=fade=0;palm.reset();pinch.reset();}
+  else{resetPerspective();hands=[];mask=null;frame=null;background=null;targetFade=fade=0;palm.reset();pinch.reset();if(!pending){manual=true;$<HTMLInputElement>('#manual').checked=true;}}
+  syncManualControls();
 });
 
+function resetPerspective(){pose=null;perspective.reset();}
+function syncManualControls(){const disabled=live&&!manual;for(const id of ['#frame-depth','#frame-roll','#frame-size'])$<HTMLInputElement>(id).disabled=disabled;$('#perspective-manual-hint').textContent=disabled?'Your hands control depth and tilt. Enable mouse controls to use these sliders.':'Try the depth and tilt sliders, or use both hands with the camera.';}
+function centerDepth(){perspective.recenter();pose=null;manualDepth=manualRoll=0;$<HTMLInputElement>('#frame-depth').value='0';$<HTMLInputElement>('#frame-roll').value='0';$('#frame-depth-value').textContent='Centered';$('#frame-roll-value').textContent='0°';}
 function resetCalibration(){if(calibration)clearInterval(calibration);calibration=null;$('#countdown').hidden=true;}
 function clearStill(){renderGeneration++;renderAbort?.abort();renderAbort=null;prepared=null;generated?.close();generated=null;if(generatedURL)URL.revokeObjectURL(generatedURL);generatedURL=null;$('#still-panel').hidden=true;$<HTMLImageElement>('#still-preview').removeAttribute('src');}
-function stopCamera(message='Camera off. The simulated preview is ready.'){pipeline.stop();live=false;hands=[];mask=null;background=null;frame=null;lastGoodFrame=null;lastVision=0;targetFade=fade=0;manual=true;$<HTMLInputElement>('#manual').checked=true;resetCalibration();clearStill();palm.reset();pinch.reset();$('#stop-camera').hidden=true;$<HTMLButtonElement>('#start-camera').disabled=false;$<HTMLButtonElement>('#capture-background').disabled=false;$<HTMLButtonElement>('#capture-still').disabled=false;$('#background-state').textContent='PREVIEW READY';setFade(0);status(message);}
+function stopCamera(message='Camera off. The simulated preview is ready.'){pipeline.stop();resetPerspective();live=false;hands=[];mask=null;background=null;frame=null;lastGoodFrame=null;lastVision=0;targetFade=fade=0;manual=true;$<HTMLInputElement>('#manual').checked=true;resetCalibration();clearStill();palm.reset();pinch.reset();$('#stop-camera').hidden=true;$<HTMLButtonElement>('#start-camera').disabled=false;$<HTMLButtonElement>('#capture-background').disabled=false;$<HTMLButtonElement>('#capture-still').disabled=false;$('#background-state').textContent='PREVIEW READY';setFade(0);syncManualControls();status(message);}
 function setFade(value:number){if(live&&!background&&value>0){status('Capture the empty background before disappearing.');return;}targetFade=value/100;$<HTMLInputElement>('#fade').value=String(value);$('#fade-value').textContent=`${value}%`;document.querySelectorAll<HTMLButtonElement>('[data-fade]').forEach(b=>{b.classList.toggle('active',Number(b.dataset.fade)===value);b.setAttribute('aria-pressed',String(Number(b.dataset.fade)===value));});}
 function setStyle(value:LocalStyle){style=value;document.querySelectorAll<HTMLButtonElement>('[data-style]').forEach(b=>{b.classList.toggle('active',b.dataset.style===value);b.setAttribute('aria-pressed',String(b.dataset.style===value));});$('#style-note').textContent=value==='thermal'?'A brightness-based color palette. It does not measure temperature.':'Instant color effects, processed on your device.';}
-function setMode(value:Mode){mode=value;palm.reset();pinch.reset();frame=null;document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(b=>{b.classList.toggle('active',b.dataset.mode===value);b.setAttribute('aria-pressed',String(b.dataset.mode===value));});$('#invisible-controls').hidden=value!=='invisible';$('#handframe-controls').hidden=value!=='handframe';$('#gesture-help').textContent=value==='invisible'?'Hold an open palm to disappear. Lower it, then repeat to return.':'Two L-shaped hands make the frame. Quick pinch: style. Hold 0.6s: prepare a still.';$('#effect-caption').textContent=value==='invisible'?'A little less here.':'A different world, within reach.';scene.setAttribute('aria-label',`${live?'Live camera':'Simulated'} ${value} effect. Use the adjacent controls to interact.`);}
+function setMode(value:Mode){mode=value;palm.reset();pinch.reset();frame=null;resetPerspective();if(live)void pipeline.infer(performance.now(),mode==='invisible');document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(b=>{b.classList.toggle('active',b.dataset.mode===value);b.setAttribute('aria-pressed',String(b.dataset.mode===value));});$('#invisible-controls').hidden=value!=='invisible';$('#handframe-controls').hidden=value!=='handframe';$('#perspective-controls').hidden=value!=='handframe';$('#gesture-help').textContent=value==='invisible'?'Hold an open palm to disappear. Lower it, then repeat to return.':'Push one hand forward, pull the other back. Lift to tilt. Quick pinch: style. Hold 0.6s: prepare a still.';$('#effect-caption').textContent=value==='invisible'?'A little less here.':'A different world, within reach.';scene.setAttribute('aria-label',`${live?'Live camera':'Simulated'} ${value} effect. Use the adjacent controls to interact.`);}
 function activeFrame(){return manual||!live?manualFrame:frame;}
 function pixelRect(rect:FrameRect){return {x:Math.max(0,Math.round(rect.x*W)),y:Math.max(0,Math.round(rect.y*H)),width:Math.max(1,Math.min(Math.round(rect.width*W),W-Math.round(rect.x*W))),height:Math.max(1,Math.min(Math.round(rect.height*H),H-Math.round(rect.y*H)))};}
 
@@ -127,9 +144,12 @@ document.querySelectorAll<HTMLButtonElement>('[data-fade]').forEach(b=>b.addEven
 $<HTMLInputElement>('#fade').addEventListener('input',e=>setFade(Number((e.target as HTMLInputElement).value)));
 document.querySelectorAll<HTMLButtonElement>('[data-style]').forEach(b=>b.addEventListener('click',()=>setStyle(b.dataset.style as LocalStyle)));
 $<HTMLInputElement>('#portal').addEventListener('change',e=>{portal=(e.target as HTMLInputElement).checked;});
-$<HTMLInputElement>('#manual').addEventListener('change',e=>{manual=(e.target as HTMLInputElement).checked;});
+$<HTMLInputElement>('#manual').addEventListener('change',e=>{manual=(e.target as HTMLInputElement).checked;resetPerspective();syncManualControls();});
 $<HTMLInputElement>('#frame-size').addEventListener('input',e=>{const width=Number((e.target as HTMLInputElement).value)/100,height=Math.min(.85,width*1.2);manualFrame={x:Math.min(1-width,Math.max(0,manualFrame.x+(manualFrame.width-width)/2)),y:Math.min(1-height,Math.max(0,manualFrame.y+(manualFrame.height-height)/2)),width,height};});
-$('#reset').addEventListener('click',()=>{setFade(0);setStyle('dream');frame=null;manualFrame={x:.28,y:.23,width:.44,height:.54};$<HTMLInputElement>('#frame-size').value='44';palm.reset();pinch.reset();clearStill();});
+$('#center-depth').addEventListener('click',()=>{centerDepth();status(live&&!manual?'Hold both hands at the same distance, palms facing the camera. The next tracked pair sets your neutral depth.':'Depth and tilt centered. Try the sliders below.');});
+$<HTMLInputElement>('#frame-depth').addEventListener('input',e=>{manualDepth=Number((e.target as HTMLInputElement).value)/100;$('#frame-depth-value').textContent=manualDepth===0?'Centered':`${manualDepth>0?'Left':'Right'} closer ${Math.round(Math.abs(manualDepth)*100)}%`;});
+$<HTMLInputElement>('#frame-roll').addEventListener('input',e=>{const degrees=Number((e.target as HTMLInputElement).value);manualRoll=degrees*Math.PI/180;$('#frame-roll-value').textContent=`${degrees}°`;});
+$('#reset').addEventListener('click',()=>{setFade(0);setStyle('dream');frame=null;resetPerspective();centerDepth();manualFrame={x:.28,y:.23,width:.44,height:.54};$<HTMLInputElement>('#frame-size').value='44';palm.reset();pinch.reset();clearStill();});
 $('#capture-still').addEventListener('click',()=>captureStill());$('#send-still').addEventListener('click',()=>void sendStill());$('#clear-still').addEventListener('click',clearStill);
 $('#capture-background').addEventListener('click',()=>{
   resetCalibration();
@@ -157,7 +177,7 @@ function render(now:number){
   if(now-lastPaint<(mode==='handframe'?16:32)){requestAnimationFrame(render);return;}lastPaint=now;
   if(live&&pipeline.video.readyState>=2){rawCtx.save();rawCtx.translate(W,0);rawCtx.scale(-1,1);rawCtx.drawImage(pipeline.video,0,0,W,H);rawCtx.restore();}
   else drawDemo(rawCtx,reducedMotion?0:now);
-  if(live&&now-lastVision>1000){hands=[];frame=null;palm.reset();pinch.reset();}
+  if(live&&now-lastVision>1000){hands=[];frame=null;resetPerspective();palm.reset();pinch.reset();}
   ctx.drawImage(raw,0,0);
   const r=activeFrame();
   if(mode==='invisible'){
@@ -168,13 +188,28 @@ function render(now:number){
     if(bg&&currentMask&&fade>.001){const source=rawCtx.getImageData(0,0,W,H);ctx.putImageData(new ImageData(new Uint8ClampedArray(blendInvisible(source.data,bg.data,currentMask,fade)),W,H),0,0);}
     if(portal&&r)drawFrame(r,false);
   }else if(r){
-    const p=pixelRect(r);
-    if(generated)ctx.drawImage(generated,p.x,p.y,p.width,p.height);
-    else {const pixels=rawCtx.getImageData(p.x,p.y,p.width,p.height);stylePixels(pixels.data,style);ctx.putImageData(pixels,p.x,p.y);}
-    drawFrame(r,true);
+    const displayPose=manual||!live?projectFrame(r,manualDepth,manualRoll):pose;
+    if(displayPose)drawHandSurface(r,displayPose);
   }
-  if(now-lastMetric>400){lastMetric=now;$('#source-tag').textContent=live?'LIVE CAMERA · ON-DEVICE TRACKING':'INTERACTIVE PREVIEW · SIMULATED SCENE';$('#frame-tag').textContent=live?`${hands.length} HAND${hands.length===1?'':'S'} TRACKED`:'NO CAMERA CONNECTED';$('#live-metric').textContent=live?`${Math.round(inferenceMs)} ms / inference`:'YOUR CAMERA IS OFF';}
+  if(now-lastMetric>400){lastMetric=now;const depth=manual||!live?manualDepth:pose?.depth;
+    $('#depth-state').textContent=depth===undefined?'SHOW BOTH HANDS':Math.abs(depth)<.08?'CENTERED':depth>0?'LEFT SIDE CLOSER':'RIGHT SIDE CLOSER';$('#source-tag').textContent=live?'LIVE CAMERA · ON-DEVICE TRACKING':'INTERACTIVE PREVIEW · SIMULATED SCENE';$('#frame-tag').textContent=live?`${hands.length} HAND${hands.length===1?'':'S'} TRACKED`:'NO CAMERA CONNECTED';$('#live-metric').textContent=live?`${Math.round(inferenceMs)} ms / inference`:'YOUR CAMERA IS OFF';}
   requestAnimationFrame(render);
+}
+function drawHandSurface(rect:FrameRect,displayPose:FramePose){
+  const p=pixelRect(rect),tw=384,th=256;
+  if(generated)textureCtx.drawImage(generated,0,0,tw,th);
+  else{textureCtx.drawImage(raw,p.x,p.y,p.width,p.height,0,0,tw,th);const pixels=textureCtx.getImageData(0,0,tw,th);stylePixels(pixels.data,style);textureCtx.putImageData(pixels,0,0);}
+  const layout=$<HTMLSelectElement>('#layout').value;
+  if(layout==='postcard'){
+    textureCtx.fillStyle='#e9e7d6';textureCtx.fillRect(0,0,tw,7);textureCtx.fillRect(0,th-25,tw,25);textureCtx.fillRect(0,0,7,th);textureCtx.fillRect(tw-7,0,7,th);
+    textureCtx.fillStyle='#234039';textureCtx.font='9px monospace';textureCtx.fillText(generated?'AN AI STILL / JEDI MINDTRICK':'A MOMENT / JEDI MINDTRICK',14,th-10);
+  }else if(layout==='cinema'){
+    textureCtx.fillStyle='#050b0be6';textureCtx.fillRect(0,0,tw,th*.09);textureCtx.fillRect(0,th*.91,tw,th*.09);
+  }
+  textureCtx.strokeStyle='#e4ddb9';textureCtx.lineWidth=1.5;textureCtx.strokeRect(1,1,tw-2,th-2);
+  textureCtx.lineWidth=4;
+  for(const [x,y,dx,dy] of [[2,2,1,1],[tw-2,2,-1,1],[2,th-2,1,-1],[tw-2,th-2,-1,-1]]){textureCtx.beginPath();textureCtx.moveTo(x+dx*12,y);textureCtx.lineTo(x,y);textureCtx.lineTo(x,y+dy*12);textureCtx.stroke();}
+  drawSurface(ctx,texture,displayPose,W,H);
 }
 function drawFrame(rect:FrameRect,styled:boolean){
   const p=pixelRect(rect),layout=$<HTMLSelectElement>('#layout').value;ctx.save();ctx.strokeStyle=styled?'#e4ddb9':'#c8f5a4';ctx.lineWidth=2;

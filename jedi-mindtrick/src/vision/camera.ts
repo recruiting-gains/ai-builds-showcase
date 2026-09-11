@@ -5,6 +5,7 @@ export class CameraPipeline {
   private worker: Worker | null = null; private stream: MediaStream | null = null;
   private generation = 0; private busy = false; private ready = false;
   private sentAt = 0; private lastSent = -Infinity; private lastVideoTime = -1; private id = 0;
+  private segment = true;
   private watchdog: ReturnType<typeof setInterval> | null = null;
   constructor(private onFrame: (frame: VisionFrame) => void, private onStatus: (message: string, active: boolean) => void) {
     this.video.muted = true; this.video.playsInline = true;
@@ -15,7 +16,7 @@ export class CameraPipeline {
     this.onStatus('Waiting for camera permission…', false);
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera needs HTTPS and a supported browser.');
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user', frameRate: { ideal: 60 } }, audio: false });
       if (generation !== this.generation) { stream.getTracks().forEach(track => track.stop()); return; }
       this.stream = stream; this.video.srcObject = stream;
       stream.getVideoTracks().forEach(t => t.addEventListener('ended', () => { if (generation === this.generation) this.fail('Camera disconnected. Connect it and try again.'); }));
@@ -35,6 +36,9 @@ export class CameraPipeline {
           this.busy = false;
           const age = performance.now() - data.timestamp;
           if (Number.isFinite(age) && age >= 0 && age <= 1000) this.onFrame(data);
+          // When inference was slower than a display tick, take the latest decoded
+          // frame immediately. The same busy/cadence guards prevent any backlog.
+          if (generation === this.generation) void this.infer(performance.now(), this.segment);
         }
         if (data.type === 'error') this.fail(data.message);
       };
@@ -48,7 +52,8 @@ export class CameraPipeline {
   }
   async infer(now: number, segment: boolean) {
     // HandFrame has no person-segmentation work; sample it more often without queuing frames.
-    const interval = segment ? 85 : 33;
+    this.segment = segment;
+    const interval = segment ? 85 : 16;
     if (!this.active || this.busy || now - this.lastSent < interval || this.video.readyState < 2 || this.video.currentTime === this.lastVideoTime) return;
     this.busy = true; this.sentAt = this.lastSent = now; this.lastVideoTime = this.video.currentTime;
     const generation = this.generation, id = ++this.id;
@@ -59,7 +64,7 @@ export class CameraPipeline {
     } catch { if (generation === this.generation) this.fail('This browser could not read a camera frame. Try another supported browser.'); }
   }
   stop() {
-    this.generation++; this.ready = this.busy = false; this.lastSent = -Infinity; this.lastVideoTime = -1;
+    this.generation++; this.ready = this.busy = false; this.lastSent = -Infinity; this.lastVideoTime = -1; this.segment = true;
     this.worker?.terminate(); this.worker = null;
     this.stream?.getTracks().forEach(t => t.stop()); this.stream = null;
     this.video.pause(); this.video.srcObject = null;

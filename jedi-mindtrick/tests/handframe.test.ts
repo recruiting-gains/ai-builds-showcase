@@ -19,12 +19,15 @@ const resized = (factor: number) => pair().map(h => ({ ...h,
   landmarks: h.landmarks.map(p => ({ ...p, x: 0.55 + (p.x - 0.55) * factor })) }));
 const center = (frame: FrameRect) => ({ x: frame.x + frame.width / 2, y: frame.y + frame.height / 2 });
 const centerError = (a: FrameRect, b: FrameRect) => Math.hypot(center(a).x - center(b).x, center(a).y - center(b).y);
-// Retain the former filter only as a comparison baseline for motion regressions.
+// Retain the previous release's adaptive filter as the motion comparison baseline.
 function previousBlend(target: FrameRect, previous: FrameRect): FrameRect {
-  return { x: previous.x + (target.x - previous.x) * 0.32,
-    y: previous.y + (target.y - previous.y) * 0.32,
-    width: previous.width + (target.width - previous.width) * 0.32,
-    height: previous.height + (target.height - previous.height) * 0.32 };
+  const blend = (change: number) => 0.24 + 0.62 * Math.max(0, Math.min(1, (change - 0.003) / 0.047));
+  const positionBlend = blend(centerError(target, previous));
+  const sizeBlend = blend(Math.max(Math.abs(target.width - previous.width), Math.abs(target.height - previous.height)));
+  const width = previous.width + (target.width - previous.width) * sizeBlend;
+  const height = previous.height + (target.height - previous.height) * sizeBlend;
+  return { x: center(previous).x + (center(target).x - center(previous).x) * positionBlend - width / 2,
+    y: center(previous).y + (center(target).y - center(previous).y) * positionBlend - height / 2, width, height };
 }
 
 test('frame mirrors asymmetric source landmarks and ignores detector list order', () => {
@@ -39,7 +42,7 @@ test('frame mirrors asymmetric source landmarks and ignores detector list order'
 
 test('frame remains bounded, smooths changes, and never returns a stale frame after lost tracking', () => {
   const previous = deriveFrame(pair())!;
-  const moved = pair().map(h => ({ ...h, landmarks: h.landmarks.map(p => ({ ...p, y: p.y + 0.05 })) }));
+  const moved = pair().map(h => ({ ...h, landmarks: h.landmarks.map(p => ({ ...p, y: p.y + 0.002 })) }));
   const target = deriveFrame(moved)!, smooth = deriveFrame(moved, previous)!;
   assert.ok(smooth.y > previous.y && smooth.y < target.y);
   const edgeHands = [hand(0.99, 'Left'), hand(0.01, 'Right')];
@@ -62,7 +65,7 @@ test('frame rejects crossed fingertips, low confidence, malformed hands, and deg
   assert.equal(deriveFrame(flat), null);
 });
 
-test('deliberate translation and resizing settle within three samples without overshoot', t => {
+test('deliberate translation and resizing reach the target in one sample without overshoot', t => {
   const initial = deriveFrame(pair())!;
   const metrics: Record<string, { adaptive: number; previous: number }> = {};
   for (const [name, input, error] of [
@@ -90,14 +93,14 @@ test('deliberate translation and resizing settle within three samples without ov
       if (!previousSamples && error(legacy, target) <= tolerance) previousSamples = sample;
       lastError = remaining;
     }
-    assert.ok(adaptiveSamples > 0 && adaptiveSamples <= 3, `${name} should reach 90% within three samples`);
+    assert.equal(adaptiveSamples, 1, `${name} should reach 90% within one sample`);
     assert.ok(adaptiveSamples <= previousSamples / 2, `${name} should at least halve the previous settling samples`);
     metrics[name] = { adaptive: adaptiveSamples, previous: previousSamples };
   }
   t.diagnostic(`Samples to reach 90% of a deliberate change: ${JSON.stringify(metrics)}`);
 });
 
-test('continuous motion has less tracking error than the prior fixed blend', t => {
+test('continuous motion follows directly instead of retaining the previous adaptive lag', t => {
   const initial = deriveFrame(pair())!;
   let adaptive = initial, legacy = initial, adaptiveError = 0, previousError = 0;
   for (let sample = 1; sample <= 8; sample++) {
@@ -108,11 +111,12 @@ test('continuous motion has less tracking error than the prior fixed blend', t =
     adaptiveError += centerError(adaptive, target);
     previousError += centerError(legacy, target);
   }
-  assert.ok(adaptiveError < previousError * 0.65, 'follow movement with at least 35% less accumulated spatial error');
+  assert.ok(adaptiveError < 1e-12, '1.5% frame movements should follow directly');
+  assert.ok(adaptiveError < previousError * 0.1, 'follow movement with at least 90% less accumulated spatial error');
   t.diagnostic(`Eight-sample translation mean error: adaptive=${(adaptiveError / 8).toFixed(6)}, previous=${(previousError / 8).toFixed(6)} normalized units`);
 });
 
-test('stationary center and size jitter remain more suppressed than the prior fixed blend', t => {
+test('stationary center and size jitter retain the previous adaptive suppression', t => {
   const initial = deriveFrame(pair())!;
   const metrics: Record<string, { adaptiveRms: number; previousRms: number }> = {};
   for (const name of ['translation', 'resize'] as const) {
@@ -128,11 +132,20 @@ test('stationary center and size jitter remain more suppressed than the prior fi
       previousSquared += error(legacy, initial) ** 2;
     }
     const adaptiveRms = Math.sqrt(adaptiveSquared / 60), previousRms = Math.sqrt(previousSquared / 60);
-    assert.ok(adaptiveRms < previousRms * 0.80, `${name} jitter must remain smaller than before`);
+    assert.ok(adaptiveRms <= previousRms + 1e-12, `${name} jitter must remain no greater than before`);
     assert.ok(adaptiveRms < 0.0015 * 0.25, `${name} jitter must be strongly attenuated`);
     metrics[name] = { adaptiveRms, previousRms };
   }
   t.diagnostic(`Stationary alternating-noise RMS: ${JSON.stringify(metrics)}`);
+});
+
+test('motion above 1.2% follows directly while sub-0.3% jitter still receives smoothing', () => {
+  const initial = deriveFrame(pair())!;
+  const deliberate = translated(0.0121);
+  assert.ok(centerError(deriveFrame(deliberate, initial)!, deriveFrame(deliberate)!) < 1e-12);
+  const noise = translated(0.002);
+  const smoothed = deriveFrame(noise, initial)!;
+  assert.ok(centerError(smoothed, initial) < centerError(deriveFrame(noise)!, initial) * 0.25);
 });
 
 test('adaptive follow retains teleport rejection and does not hold a lost or crossed frame', () => {

@@ -1,7 +1,7 @@
 import { chromium } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
 
 const base=process.argv[2]||'http://127.0.0.1:8798';
 await mkdir('test-results',{recursive:true});
@@ -30,6 +30,21 @@ try {
   await page.locator('[data-style="thermal"]').click();
   await page.waitForFunction(previous=>{const c=document.querySelector('#scene');return JSON.stringify(Array.from(c.getContext('2d').getImageData(415,285,1,1).data))!==JSON.stringify(previous);},unstyled);
   await page.locator('#layout').selectOption('postcard');pass('HandFrame style and layout change');
+  const frameSnapshot=()=>page.locator('#scene').evaluate(c=>c.toDataURL());
+  await page.waitForTimeout(80);const neutral=await frameSnapshot();
+  await page.locator('#frame-depth').evaluate(input=>{input.value='80';input.dispatchEvent(new Event('input',{bubbles:true}));});
+  await page.waitForFunction(()=>document.querySelector('#depth-state').textContent==='LEFT SIDE CLOSER');
+  const leftNear=await frameSnapshot();assert.notEqual(leftNear,neutral);
+  await page.locator('#frame-roll').evaluate(input=>{input.value='18';input.dispatchEvent(new Event('input',{bubbles:true}));});
+  await page.waitForTimeout(80);const tilted=await frameSnapshot();assert.notEqual(tilted,leftNear);
+  await page.locator('.viewport').screenshot({path:'test-results/perspective-left-near.png'});
+  await page.locator('#frame-depth').evaluate(input=>{input.value='-80';input.dispatchEvent(new Event('input',{bubbles:true}));});
+  await page.waitForFunction(()=>document.querySelector('#depth-state').textContent==='RIGHT SIDE CLOSER');
+  assert.notEqual(await frameSnapshot(),tilted);pass('3D stretch reverses sides and tilt changes the rendered surface');
+  await page.locator('#center-depth').click();await page.waitForTimeout(80);
+  assert.ok(await frameSnapshot()===neutral,'Center depth must restore the same canvas pixels');pass('Center depth restores the neutral rendered surface');
+  // Keep the still and returned-image path under perspective as well.
+  await page.locator('#frame-depth').evaluate(input=>{input.value='65';input.dispatchEvent(new Event('input',{bubbles:true}));});
   const noUploads=report.network.filter(r=>r.method==='POST');assert.equal(noUploads.length,0);pass('local mode interactions upload no image');
   await page.locator('#capture-still').click();assert.equal(report.network.filter(r=>r.method==='POST').length,0);pass('preparing still does not upload');
   const selected=await page.locator('#still-preview').getAttribute('src');
@@ -38,6 +53,7 @@ try {
   let submissions=0;
   await page.route('**/api/render',async route=>{submissions++;assert.equal(route.request().postDataJSON().image,selected.split(',')[1]);await route.fulfill({status:200,contentType:'image/png',body:Buffer.from(png,'base64')});});
   await page.locator('#send-still').click();await page.waitForFunction(()=>document.querySelector('#still-status').textContent.includes('AI still returned'));
+  await page.locator('.viewport').screenshot({path:'test-results/perspective-returned-still.png'});
   assert.equal(submissions,1);assert.equal(await page.locator('#send-still').isDisabled(),true);pass('explicit submit sends selected crop once and displays returned image (mock)');
   await page.unroute('**/api/render');await page.locator('#capture-still').click();
   await page.route('**/api/render',route=>route.fulfill({status:502,contentType:'application/json',body:JSON.stringify({error:'Controlled provider failure.'})}));
@@ -51,7 +67,7 @@ try {
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:'test-results/mobile.png',fullPage:true});pass('390px layout fits viewport');
   await page.setViewportSize({width:1280,height:950});await page.locator('[data-mode="invisible"]').click();await page.locator('#start-camera').click();
   await page.waitForFunction(()=>document.querySelector('#live-metric').textContent.includes('inference'),null,{timeout:40000});
-  report.inferenceMetric=await page.locator('#live-metric').textContent;pass('actual MediaPipe models process generated camera stream');
+  report.inferenceMetric=await page.locator('#live-metric').textContent();pass('actual MediaPipe models process generated camera stream');
   await page.locator('#stop-camera').click();
   // Chromium color bars contain shapes the model may classify as a person.
   // Use a controlled blank canvas stream to test empty-scene calibration.
@@ -66,6 +82,21 @@ try {
   await page.waitForFunction(()=>document.querySelector('#live-metric').textContent.includes('inference'),null,{timeout:40000});
   await page.locator('#capture-background').click();await page.waitForFunction(()=>document.querySelector('#background-state').textContent==='ROOM SAVED',null,{timeout:9000});pass('empty test camera background captured');
   await page.locator('#stop-camera').click();await page.waitForFunction(()=>document.querySelector('#live-metric').textContent==='YOUR CAMERA IS OFF');pass('camera stop returns to labelled preview');
+  // Exercise the full camera → landmarks → perspective → render path with deterministic hands.
+  await page.route('**/vision-worker.js',route=>readFile(new URL('./fixtures/perspective-worker.js',import.meta.url),'utf8').then(body=>route.fulfill({status:200,contentType:'text/javascript',body})));
+  await page.locator('[data-mode="handframe"]').click();await page.locator('#center-depth').click();await page.locator('#start-camera').click();
+  await page.waitForFunction(()=>document.querySelector('#frame-tag').textContent==='2 HANDS TRACKED');
+  assert.equal(await page.locator('#frame-depth').isDisabled(),true);const trackedNeutral=await frameSnapshot();
+  await page.waitForFunction(()=>document.querySelector('#depth-state').textContent==='LEFT SIDE CLOSER');
+  const trackedLeft=await frameSnapshot();assert.ok(trackedLeft!==trackedNeutral);
+  await page.waitForFunction(()=>document.querySelector('#depth-state').textContent==='RIGHT SIDE CLOSER');
+  assert.ok(await frameSnapshot()!==trackedLeft);pass('synthetic two-hand depth controls reach the rendered camera surface in both directions');
+  await page.waitForFunction(()=>document.querySelector('#depth-state').textContent==='SHOW BOTH HANDS');
+  await page.waitForFunction(()=>document.querySelector('#depth-state').textContent==='CENTERED'&&document.querySelector('#frame-tag').textContent==='2 HANDS TRACKED');pass('lost synthetic hands clear depth and reacquire at neutral');
+  await page.waitForFunction(()=>document.querySelector('#status').textContent==='Controlled tracking failure for recovery test.');
+  for(const id of ['#frame-depth','#frame-roll','#frame-size'])assert.equal(await page.locator(id).isDisabled(),false);
+  assert.equal(await page.locator('#manual').isChecked(),true);pass('tracking failure releases camera and restores manual depth, tilt and size controls');
+  await page.unroute('**/vision-worker.js');
   assert.deepEqual(report.pageErrors,[]);pass('no uncaught browser errors');
   assert.equal(report.network.some(r=>new URL(r.url).origin!==new URL(base).origin),false);pass('application requests stay on its own origin');
 }finally{await writeFile('test-results/browser-report.json',JSON.stringify(report,null,2));await browser.close();}
