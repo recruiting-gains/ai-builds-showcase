@@ -4,7 +4,7 @@ import type { Point } from '../src/contracts';
 import { HandOutlineTracker, type HandOutline } from '../src/handframe/hand-outline';
 import { deriveFrame } from '../src/handframe/index';
 import { validateOutline } from '../src/handframe/shapes';
-import { handOutlineFixture, type OutlineFixture } from './hand-outline-fixtures';
+import { handOutlineFixture, opposingLFixture, type OutlineFixture } from './hand-outline-fixtures';
 
 const close = (a: number, b: number, tolerance = 1e-9) => assert.ok(Math.abs(a - b) < tolerance, `${a} ≈ ${b}`);
 const displayPoints = ({ rect, outline }: HandOutline) => outline.map(point => ({
@@ -175,4 +175,81 @@ test('reversed, stale or invalid time cancels; a large teleport hides once and t
   assert.ok(tracker.update(before, 0));
   assert.equal(tracker.update(after, 33), null);
   assert.deepEqual(tracker.update(after, 66), new HandOutlineTracker().update(after, 66));
+});
+
+
+test('either inverted L connects opposing fingertips while retaining every measured joint', () => {
+  for (const inverted of ['left', 'right'] as const) {
+    const hands = opposingLFixture(inverted), snapshot = structuredClone(hands);
+    const result = new HandOutlineTracker().update(hands, 0)!;
+    assert.ok(result, inverted); bounded(result); assert.deepEqual(hands, snapshot);
+    close(result.rect.x, .2); close(result.rect.y, .25); close(result.rect.width, .6); close(result.rect.height, .4);
+    const contour = displayPoints(result);
+    assert.equal(contour.length, 14);
+    for (const hand of hands) for (const index of [4, 3, 2, 5, 6, 7, 8]) {
+      const source = hand.landmarks[index];
+      assert.ok(contour.some(point => Math.hypot(point.x - (1 - source.x), point.y - source.y) < 1e-9), `measured joint ${index} must remain in the outline`);
+    }
+    const endpointEdges = contour.map((point, index) => [point, contour[(index + 1) % contour.length]])
+      .filter(([a, b]) => Math.abs(a.x - b.x) > .3);
+    assert.equal(endpointEdges.length, 2);
+    assert.ok(endpointEdges.every(([a, b]) => Math.abs(a.y - b.y) < 1e-9), 'opposing fingertips connect along the opening instead of crossing it');
+    close(area(contour), .6 * .4);
+  }
+});
+
+test('opposing-L contours ignore detector order and anatomical handedness labels', () => {
+  for (const inverted of ['left', 'right'] as const) {
+    const hands = opposingLFixture(inverted, { dx: .025, dy: -.02, scale: .9 });
+    const tracker = new HandOutlineTracker(), expected = tracker.update(hands, 0)!;
+    assert.ok(expected); bounded(expected);
+    for (let i = 1; i <= 6; i++) {
+      const reordered = (i % 2 ? [...hands].reverse() : [...hands]).map(hand => ({ ...hand, handedness: i % 2 ? 'unknown' : 'Left' }));
+      assert.deepEqual(tracker.update(reordered, i * 33), expected);
+    }
+  }
+});
+
+test('pairing transitions never smooth an old contour ordering into a different connection', () => {
+  const tracker = new HandOutlineTracker(); assert.ok(tracker.update(handOutlineFixture(), 0));
+  const poses = [opposingLFixture('right', { dx: .001 }), handOutlineFixture('rectangle', { dx: .002 }), opposingLFixture('left', { dx: .003 })];
+  poses.forEach((hands, index) => {
+    const timestamp = (index + 1) * 33, result = tracker.update(hands, timestamp)!;
+    assert.ok(result); bounded(result);
+    assert.deepEqual(result, new HandOutlineTracker().update(hands, timestamp), 'a changed endpoint pairing must start from its current measured joints');
+  });
+  const deliberate = opposingLFixture('left', { dx: .028 });
+  assert.deepEqual(tracker.update(deliberate, 132), new HandOutlineTracker().update(deliberate, 132));
+});
+
+test('an internally crossed measured hand cannot be repaired by an alternate endpoint pairing', () => {
+  for (const inverted of ['left', 'right'] as const) {
+    const hands = opposingLFixture(inverted);
+    // Index joint 6 passes through the same hand's thumb segment; all points remain finite and on screen.
+    const crossingY = inverted === 'left' ? .90 - .67 : .67;
+    hands[0].landmarks[6] = { x: .75, y: crossingY, z: 0 };
+    const tracker = new HandOutlineTracker(); assert.ok(tracker.update(opposingLFixture(inverted), 0));
+    assert.equal(tracker.update(hands, 33), null);
+    assert.deepEqual(tracker.update(opposingLFixture(inverted), 66), new HandOutlineTracker().update(opposingLFixture(inverted), 66));
+  }
+});
+
+test('overlapping hand chains invalidate both endpoint pairings and reacquire without stale geometry', () => {
+  const invalid = opposingLFixture('right');
+  for (const index of [4, 3, 2, 5, 6, 7, 8]) invalid[1].landmarks[index] = { ...invalid[0].landmarks[index] };
+  const tracker = new HandOutlineTracker(); assert.ok(tracker.update(opposingLFixture('left'), 0));
+  assert.equal(tracker.update(invalid, 33), null);
+  assert.deepEqual(tracker.update(opposingLFixture('right'), 66), new HandOutlineTracker().update(opposingLFixture('right'), 66));
+});
+
+test('opposing-L low confidence, lost hand, malformed joints and closed fingers hide before recovery', () => {
+  const weak = opposingLFixture(); weak[1].score = .49;
+  const malformed = opposingLFixture(); malformed[0].landmarks[3].x = Infinity;
+  const closed = opposingLFixture();
+  for (const hand of closed) hand.landmarks[8] = { ...hand.landmarks[4] };
+  for (const hands of [weak, malformed, closed, opposingLFixture().slice(0, 1)]) {
+    const tracker = new HandOutlineTracker(); assert.ok(tracker.update(opposingLFixture(), 0));
+    assert.equal(tracker.update(hands, 33), null);
+    assert.deepEqual(tracker.update(opposingLFixture('left'), 66), new HandOutlineTracker().update(opposingLFixture('left'), 66));
+  }
 });

@@ -33,3 +33,17 @@ export function handOutlineFixture(shape: OutlineFixture = 'rectangle', options:
     })) };
   });
 }
+
+/** One index points down while the other points up; all joints are preserved. */
+export function opposingLFixture(inverted: 'left' | 'right' = 'right', options: {
+  dx?: number; dy?: number; scale?: number; tipGap?: number;
+} = {}): Hand[] {
+  const hands = handOutlineFixture('rectangle');
+  const index = inverted === 'left' ? 0 : 1;
+  hands[index].landmarks = hands[index].landmarks.map(point => ({ ...point, y: 0.90 - point.y }));
+  const { dx = 0, dy = 0, scale = 1, tipGap = 0 } = options;
+  return hands.map((hand, handIndex) => ({ ...hand, landmarks: hand.landmarks.map((point, landmark) => ({ ...point,
+    x: 0.5 + (point.x - 0.5) * scale - dx + ([4, 8].includes(landmark) ? (handIndex ? -1 : 1) * tipGap / 2 : 0),
+    y: 0.5 + (point.y - 0.5) * scale + dy,
+  })) }));
+}

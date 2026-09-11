@@ -3,7 +3,8 @@ import { validateOutline } from './shapes';
 
 export type HandOutline = { rect: FrameRect; outline: Point[] };
 const LEFT_CHAIN = [4, 3, 2, 5, 6, 7, 8];
-const RIGHT_CHAIN = [8, 7, 6, 5, 2, 3, 4];
+const RIGHT_CHAIN = [...LEFT_CHAIN].reverse();
+type Connection = 'like-tips' | 'opposing-tips';
 const ASPECT = 16 / 9;
 const distance = (a: Point, b: Point) => Math.hypot((a.x - b.x) * ASPECT, a.y - b.y);
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value));
@@ -28,6 +29,25 @@ function validHand(hand: Hand): boolean {
     if (length < palm * 0.25 || length > palm * 4) return false;
   }
   return distance(points[2], points[5]) <= palm * 2.5;
+}
+
+/** An alternate endpoint join must never repair a crossed measured finger chain. */
+function crossedChain(points: readonly Point[]): boolean {
+  const epsilon = 1e-9;
+  const cross = (a: Point, b: Point, c: Point) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  const onSegment = (a: Point, b: Point, p: Point) => Math.abs(cross(a, b, p)) <= epsilon &&
+    p.x >= Math.min(a.x, b.x) - epsilon && p.x <= Math.max(a.x, b.x) + epsilon &&
+    p.y >= Math.min(a.y, b.y) - epsilon && p.y <= Math.max(a.y, b.y) + epsilon;
+  for (let i = 0; i < points.length - 1; i++) {
+    for (let j = i + 2; j < points.length - 1; j++) {
+      const a = points[i], b = points[i + 1], c = points[j], d = points[j + 1];
+      const abc = cross(a, b, c), abd = cross(a, b, d), cda = cross(c, d, a), cdb = cross(c, d, b);
+      if ((((abc > epsilon && abd < -epsilon) || (abc < -epsilon && abd > epsilon)) &&
+        ((cda > epsilon && cdb < -epsilon) || (cda < -epsilon && cdb > epsilon))) ||
+        onSegment(a, b, c) || onSegment(a, b, d) || onSegment(c, d, a) || onSegment(c, d, b)) return true;
+    }
+  }
+  return false;
 }
 
 function mergeAdjacent(points: readonly Point[], threshold: number): Point[] {
@@ -74,8 +94,9 @@ export class HandOutlineTracker {
   private previous: Point[] | null = null;
   private result: HandOutline | null = null;
   private lastTimestamp: number | null = null;
+  private connection: Connection | null = null;
 
-  reset(): void { this.previous = null; this.result = null; this.lastTimestamp = null; }
+  reset(): void { this.previous = null; this.result = null; this.lastTimestamp = null; this.connection = null; }
 
   update(hands: Hand[], timestamp: number): HandOutline | null {
     if (hands.length !== 2 || !hands.every(validHand) || !Number.isFinite(timestamp) || timestamp < 0) {
@@ -83,12 +104,25 @@ export class HandOutlineTracker {
     }
     const [left, right] = [...hands].sort((a, b) => b.landmarks[0].x - a.landmarks[0].x);
     if (left.landmarks[0].x - right.landmarks[0].x < 0.07) { this.reset(); return null; }
-    const raw = [LEFT_CHAIN.map(index => left.landmarks[index]), RIGHT_CHAIN.map(index => right.landmarks[index])]
-      .flat().map(point => ({ x: 1 - point.x, y: point.y }));
+    const leftChain = LEFT_CHAIN.map(index => left.landmarks[index]);
+    const rightChain = RIGHT_CHAIN.map(index => right.landmarks[index]);
+    if (crossedChain(leftChain) || crossedChain(rightChain)) { this.reset(); return null; }
     const palm = (distance(left.landmarks[0], left.landmarks[9]) + distance(right.landmarks[0], right.landmarks[9])) / 2;
     const join = clamp(palm * 0.1, 0.006, 0.025);
-    const target = fit(mergeAdjacent(raw, join));
-    if (!target) { this.reset(); return null; }
+    // There are exactly two endpoint pairings for the same two measured chains.
+    // Reversing one chain connects index to thumb when one L points downward.
+    const candidates = ([['like-tips', rightChain], ['opposing-tips', [...rightChain].reverse()]] as const)
+      .map(([connection, chain]) => {
+        const raw = [...leftChain, ...chain].map(point => ({ x: 1 - point.x, y: point.y }));
+        return { connection, raw, target: fit(mergeAdjacent(raw, join)),
+          bridgeLength: distance(leftChain.at(-1)!, chain[0]) + distance(chain.at(-1)!, leftChain[0]) };
+      }).filter(candidate => candidate.target !== null)
+      .sort((a, b) => a.bridgeLength - b.bridgeLength);
+    if (!candidates.length) { this.reset(); return null; }
+    // Prefer shorter physical gaps, retaining a still-valid pairing across small noise.
+    const best = candidates[0], previous = candidates.find(candidate => candidate.connection === this.connection);
+    const chosen = previous && previous.bridgeLength <= best.bridgeLength + palm * 0.1 ? previous : best;
+    const { raw, connection } = chosen, target = chosen.target!;
     if (this.lastTimestamp !== null) {
       if (timestamp < this.lastTimestamp || timestamp - this.lastTimestamp > 1000) { this.reset(); return null; }
       if (timestamp === this.lastTimestamp) return this.result ? copy(this.result) : null;
@@ -98,10 +132,10 @@ export class HandOutlineTracker {
       if (Math.hypot(after.x + after.width / 2 - before.x - before.width / 2,
         after.y + after.height / 2 - before.y - before.height / 2) > 0.4) { this.reset(); return null; }
     }
-    // Always smooth the same 14 anatomical indices BEFORE merging. Joining or
-    // separating fingertips therefore cannot change smoothing correspondence.
+    // Smooth anatomical indices before merging, but never interpolate vertices
+    // across a changed endpoint pairing: their contour positions have changed.
     const points = raw.map((point, index) => {
-      if (!this.previous) return point;
+      if (!this.previous || this.connection !== connection) return point;
       const before = this.previous[index], motion = Math.hypot(point.x - before.x, point.y - before.y);
       const blend = 0.60 + 0.40 * clamp((motion - 0.0015) / 0.0045, 0, 1);
       return { x: before.x + (point.x - before.x) * blend, y: before.y + (point.y - before.y) * blend };
@@ -109,7 +143,7 @@ export class HandOutlineTracker {
     const result = fit(mergeAdjacent(points, join));
     // Even valid endpoints can make an invalid interpolated polygon. Hide it.
     if (!result) { this.reset(); return null; }
-    this.previous = points; this.result = result; this.lastTimestamp = timestamp;
+    this.previous = points; this.result = result; this.lastTimestamp = timestamp; this.connection = connection;
     return copy(result);
   }
 }

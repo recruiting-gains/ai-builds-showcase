@@ -6,6 +6,14 @@ import { handOutlineFixture } from '../tests/hand-outline-fixtures.ts';
 
 const base = process.argv[2] || 'http://127.0.0.1:8798';
 const fixtures = Object.fromEntries(['rectangle', 'triangle', 'rounded', 'heart'].map(name => [name, handOutlineFixture(name)]));
+// Independent orientation transforms preserve each measured finger chain.
+for (const [name, side] of [['rightLdown', 1], ['leftLdown', 0]]) {
+  fixtures[name] = handOutlineFixture('rectangle');
+  fixtures[name][side].landmarks.forEach(point => { point.y = .90 - point.y; });
+}
+fixtures.reorderedLdown = structuredClone(fixtures.rightLdown).reverse().map(hand => ({ ...hand, handedness: 'unknown' }));
+fixtures.slopedLdown = structuredClone(fixtures.leftLdown);
+for (const hand of fixtures.slopedLdown) for (const point of hand.landmarks) point.y += .08 * ((1 - point.x) - .5);
 fixtures.none = [];
 fixtures.weak = handOutlineFixture('heart'); fixtures.weak[0].score = .1;
 fixtures.missing = handOutlineFixture('heart'); fixtures.missing[0].landmarks[9] = null;
@@ -104,6 +112,23 @@ try {
   assert.notDeepEqual(await pixel(.60, .45), raw);
   assert.deepEqual(await pixel(.26, .61), raw);
   pass('moving the hands moves the rendered opening');
+  for (const name of ['rightLdown', 'leftLdown', 'reorderedLdown', 'slopedLdown', 'rectangle', 'rightLdown']) {
+    await setFixture(name); await following();
+    assert.notDeepEqual(await pixel(.5, .45), raw, `${name} must fill the opening`);
+    assert.deepEqual(await pixel(.1, .1), raw, `${name} must keep outside camera pixels`);
+    assert.equal(await page.locator('[data-style="cyanotype"]').getAttribute('aria-pressed'), 'true');
+  }
+  pass('either inverted L, detector reorder, tilt and upright transitions render without changing worlds');
+  await page.locator('.viewport').screenshot({ path: 'test-results/opposed-l-hands.png' });
+  await page.setViewportSize({width:390,height:844});
+  await page.locator('#full-screen').click(); await setFixture('leftLdown'); await following();
+  assert.notDeepEqual(await pixel(.5,.45),raw);
+  await page.locator('#camera-only').click(); await page.waitForTimeout(80);assert.deepEqual(await pixel(.5,.45),raw);
+  await page.locator('#camera-only').click(); await page.waitForTimeout(80);assert.notDeepEqual(await pixel(.5,.45),raw);
+  await page.screenshot({path:'test-results/opposed-l-phone.png'});
+  await page.locator('#exit-screen').click(); await page.setViewportSize({width:1440,height:1050});
+  pass('opposed L opening stays connected in phone fullscreen and camera-only returns cleanly');
+
   for (const name of ['none', 'weak', 'missing', 'crossed']) {
     await setFixture(name);
     assert.deepEqual(await pixel(.5, .5), raw, `${name} must hide the aperture`);

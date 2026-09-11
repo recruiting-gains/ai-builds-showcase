@@ -7,7 +7,7 @@ Automatic outlines work alongside continuous palm visibility, close/reopen world
 ## Use it
 
 1. Select HandFrame and start the camera. Keep Follow my hands on and Mouse & keyboard controls off.
-2. Hold both hands in view, palms toward the camera, with an open space between the thumbs and index fingers. Join the tips, bend the fingers or spread them apart to change the opening.
+2. Hold both hands in view, palms toward the camera, with an open space between the thumbs and index fingers. Both L shapes can point up, or one can point down to connect opposite corners. Join the tips, bend the fingers or spread them apart to change the opening.
 3. Hold your hands at a similar distance and select Center depth. Move one hand closer to stretch that side of the picture. Lifting or turning your hands also changes the measured outline.
 4. The first opening keeps the selected world. Bring both palms together and pause for **“Hands together · reopen for the next color.”** Then reopen to advance one world; its name confirms the change. If one palm briefly hides the other after a recognized close, **“Reopen both hands now for the next color.”** asks you to separate them before recovery expires. Keep the hands inside the camera picture. A missed attempt requires an opening to re-arm, then another close/reopen. Fingertip contact alone does not change the world. World buttons remain available. Use Prepare a still when wanted; pinch shortcuts are disabled while Follow my hands is on.
 5. Select Full screen for a clean view. Move or tap to reveal its toolbar. Fill view crops the camera to fill the screen; Fit shows the whole image. Just camera temporarily hides the effect. Esc returns to the controls.
@@ -16,9 +16,9 @@ Saved shapes & drawing remains optional. Selecting a preset or applying a custom
 
 ## What the contour represents
 
-The tracker connects seven thumb/index landmarks on each hand in anatomical order. It mirrors camera coordinates for the display, merges nearby adjacent joined tips, and keeps valid inward bends. It uses all those joints to fit the opening, including when joined fingertips alone would give a zero-width rectangle. A rounded opening is still a short polygonal approximation of the detected joints.
+The tracker connects seven thumb/index landmarks on each hand in anatomical order. It considers both ways to join their endpoints: index to index and thumb to thumb, or index to the opposite thumb. This lets an upright L connect with an upside-down L. Both measured finger chains and the complete opening must remain valid; changing connections cannot repair crossed fingers. It mirrors camera coordinates for the display, merges nearby adjacent joined tips, and keeps valid inward bends. It uses all those joints to fit the opening, including when joined fingertips alone would give a zero-width rectangle. A rounded opening is still a short polygonal approximation of the detected joints.
 
-Small landmark fluctuations are smoothed; deliberate changes follow promptly. The current minimum blend is 0.60, increased from 0.24, and a movement of 0.006 normalized image units follows directly, previously 0.012. This trades more stationary jitter for faster gentle following. Smoothing always uses the same anatomical indices before joined points are merged. Both the incoming and smoothed contours are checked for crossings and negligible area. Missing hands, malformed tracking, crossed contours, tiny openings, time discontinuities and large tracking jumps hide the window and reset its state. A valid opening must be reacquired; there is no automatic square replacement.
+Small landmark fluctuations are smoothed; deliberate changes follow promptly. The current minimum blend is 0.60, increased from 0.24, and a movement of 0.006 normalized image units follows directly, previously 0.012. This trades more stationary jitter for faster gentle following. Smoothing uses matching anatomical indices before joined points are merged and resets when the endpoint connection changes. Both the incoming and smoothed contours are checked for crossings and negligible area. Missing hands, malformed tracking, crossed contours, tiny openings, time discontinuities and large tracking jumps hide the window and reset its state. A valid opening must be reacquired; there is no automatic square replacement.
 
 Those contour rules are separate from the color gesture. Overlapping wrists or a brief missing hand can hide the visible opening without cancelling an already recognized close. World cycling allows a local one-hand occlusion for at most 700 ms from the last measured pair; completing a close during that gap requires observed near-overlapping contact and prior contraction. Before contact, a shorter 300 ms gap can preserve an armed opening, but a measured close must start a fresh dwell after both hands return. Neither path invents contact from missing hands. Both hands disappearing, a distant remaining hand, invalid input or an expired gap resets the cycle. Open both hands to re-arm before trying again. [Gesture criteria and limits](WORLD-CYCLE-WIDE-VIEW.md#interaction-contract).
 
@@ -29,6 +29,14 @@ This does not trace exact skin edges, segment every finger, or reproduce every a
 Outline tracking, worlds, print textures and fullscreen operate locally. Preparing a still shows the entire selected rectangular crop; the contour clips its display, not the source pixels submitted to AI. Only Send still to AI uploads that reviewed crop. No reference media or physical-camera recordings are included in the synthetic fixtures.
 
 ## Verification
+
+### Opposing L orientations — September 11, 2026
+
+An upright L can now connect with an upside-down L on either side. The previous fixed connection failed the new browser fixture after its three normal-outline checks; that failure was preserved before building the correction. The revised tracker passes 17 focused outline tests, including six new cases for opposing fingertips, measured-joint retention, detector reordering, connection changes, invalid chains and clean recovery.
+
+All 169 application tests and 14 harness tests passed. Twelve automatic-outline browser checks passed with generated camera input, including either inverted hand, a sloped pose, transitions back to upright hands, unchanged world selection, phone fullscreen, camera-only toggling, existing depth stretch and lost-tracking recovery. Ten recording browser checks also passed using actual Chrome encoding. These tests do not measure physical-hand recognition or iPhone tracking latency; native file sharing remains mocked in the recording suite.
+
+Reproduce the focused browser checks with the command below. Its fixture worker replaces hand detections; the one selected-still request is mocked and makes no AI provider call. Publication details are in [Verification](VERIFICATION.md#opposing-l-orientations--september-11-2026).
 
 ### Previous automatic-outline release
 

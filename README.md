@@ -47,7 +47,7 @@ A cozy animated office for project activity. Choose among five rooms, switch flo
 
 [![Jedi Mindtrick's actual HandFrame interface with a simulated scene, an Aurora-colored window and a wide camera view. Camera is off in this preview.](./docs/assets/showcase/jedi-mindtrick.png)](https://jedi-mindtrick.recruiting-gains.workers.dev/)
 
-A camera playground for your hands. Fade into a saved view of your room, or shape a moving window with your fingers and explore eleven local color effects. Bring your palms together, then reopen to change colors. A small cue shows when the gesture is ready.
+A camera playground for your hands. Fade into a saved view of your room, or shape a moving window with your fingers—even with one L upside down—and explore eleven local color effects. Bring your palms together, then reopen to change colors. A small cue shows when the gesture is ready.
 
 Live hand tracking and color effects run on your device. An optional, separately submitted still can use Cloudflare AI. Open on your phone or computer; fullscreen keeps the camera view clear. Record a short clip of your effects and save or share it from your browser. The preview above uses a simulated scene, and tracking quality varies with the camera and lighting.
 
