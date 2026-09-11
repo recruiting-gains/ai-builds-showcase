@@ -5,6 +5,6 @@ export type Mode = 'invisible' | 'handframe';
 export type LocalStyle = 'thermal' | 'ink' | 'neon' | 'dream' | 'aurora' | 'ocean' | 'sunset' | 'cosmic' | 'risograph' | 'cyanotype' | 'stippling';
 export type VisionFrame = {
   type: 'frame'; id: number; timestamp: number; hands: Hand[];
-  mask?: Float32Array; maskWidth?: number; maskHeight?: number; inferenceMs: number;
+  mask?: Float32Array; maskWidth?: number; maskHeight?: number; inferenceMs: number; handBackend?: 'CPU' | 'GPU';
 };
 export type VisionMessage = VisionFrame | { type: 'ready' } | { type: 'error'; message: string };

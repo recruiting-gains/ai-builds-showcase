@@ -103,7 +103,7 @@ export class HandOutlineTracker {
     const points = raw.map((point, index) => {
       if (!this.previous) return point;
       const before = this.previous[index], motion = Math.hypot(point.x - before.x, point.y - before.y);
-      const blend = 0.24 + 0.76 * clamp((motion - 0.002) / 0.010, 0, 1);
+      const blend = 0.60 + 0.40 * clamp((motion - 0.0015) / 0.0045, 0, 1);
       return { x: before.x + (point.x - before.x) * blend, y: before.y + (point.y - before.y) * blend };
     });
     const result = fit(mergeAdjacent(points, join));

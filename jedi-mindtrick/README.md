@@ -4,7 +4,7 @@ Disappear into the room. Hold another world in your hands.
 
 A browser camera playground with two independent effects: **Invisible**, which blends a captured empty background into your silhouette, and **HandFrame**, which follows the opening formed by both thumbs and index fingers, with a floating picture that can stretch in perspective. An original implementation inspired by a supplied visual demonstration.
 
-Automatic hand outlines and clean fullscreen are published on the live preview. This update passes 102 application tests, 55 browser checks and eight controlled motion scenarios. Live JavaScript and CSS match the tested build. Physical-hand accuracy and camera latency still require a real-camera trial.
+Automatic hand outlines and clean fullscreen are available from the preceding release. The current update adds continuous palm visibility and faster gentle hand following; 118 application tests, 74 browser checks and eight print-flow scenarios pass. The actual-model CPU/GPU benchmark uses a generated empty camera stream, not physical hands. This update is deployed; live HTML, JavaScript, CSS and the vision worker match the tested build. [Measured results and limits](docs/HANDFRAME-RESPONSIVENESS.md).
 
 ## Try it
 
@@ -14,7 +14,7 @@ Start with the clearly labelled simulated preview. Its illustration is generated
 
 1. Choose **Invisible** or **HandFrame**.
 2. Select **Start your camera** and allow camera access.
-3. For Invisible, select **Capture empty background**, then step completely out for five seconds. Return to view. Hold an open palm for 0.85 seconds to disappear, lower it, and repeat to return. Visible/Ghost/Hidden and the slider also work.
+3. For Invisible, select **Capture empty background**, then step completely out for five seconds. Return and show a clearly open palm to arm control at fully visible. Slowly close that hand to fade toward hidden; reopen it to become visible again. The saved room is required before disappearing. Visible/Ghost/Hidden and the slider also work. [Continuous palm control](docs/PALM-VISIBILITY.md).
 4. For HandFrame, leave **Follow my hands** on and form an opening with both thumbs and index fingers. Join the tips, curve the fingers or spread them apart: the window follows those joints without selecting a preset. Hold your palms toward the camera at a similar distance and select **Center depth**. Push one hand closer to stretch that side; lifting or turning your hands also moves the measured outline. Use the world buttons to change the look and **Prepare a still** to select a crop. Pinch shortcuts are disabled while Follow my hands is on.
 5. **Send still to AI** explicitly submits that selected crop. Preparing a still alone uploads nothing. The returned AI image appears inside HandFrame. The local preview continues during rendering.
 
@@ -22,15 +22,16 @@ Select **Full screen** above the preview for a clean camera view. Move the point
 
 **Saved shapes & drawing** is optional. Choosing Rectangle, Triangle, Oval, Diamond, Hexagon or Star—or applying a custom 3–12-point outline with **Use shape**—turns off Follow my hands. Turn it back on to shape the opening directly. With it off, the usual two-hand frame controls move the saved outline, a quick pinch changes the world, and a 0.6-second pinch prepares one still. Release before another pinch action. Mouse/keyboard controls also provide a fallback: drag the frame, use the size/depth/tilt sliders, or focus the canvas and use arrow keys. Live automatic outlines require mouse controls to be off. [Automatic hand outlines](docs/AUTOMATIC-HAND-SHAPES.md) · [Fullscreen and saved shapes](docs/FULLSCREEN-SHAPES.md).
 
-The Invisible portal checkbox limits disappearance to a hand-positioned or manually positioned rectangle. HandFrame layouts offer an outline, postcard and cinema treatment. Choose from eleven local worlds: **Daydream**, **Thermal**, **Ink study**, **Neon night**, **Aurora**, **Deep sea**, **Golden hour**, **Cosmic**, **Risograph**, **Cyanotype**, and **Stippling**. Thermal is a brightness-based color palette, not a temperature sensor. A prepared still keeps its selected rectangular crop and named look; prepare again to change that selection. Switching worlds on a returned AI still applies local colors without another upload. Returning to its original look restores the original AI image. The print looks use stable, image-anchored grain or dots. Cached textures keep moving with the 3D frame without rebuilding a frozen picture every display tick. [Print effects and flow measurements](docs/PRINT-FILTERS.md).
+The Invisible portal checkbox limits disappearance to a hand-positioned or manually positioned rectangle and uses manual visibility controls instead of palm closure. HandFrame layouts offer an outline, postcard and cinema treatment. Choose from eleven local worlds: **Daydream**, **Thermal**, **Ink study**, **Neon night**, **Aurora**, **Deep sea**, **Golden hour**, **Cosmic**, **Risograph**, **Cyanotype**, and **Stippling**. Thermal is a brightness-based color palette, not a temperature sensor. A prepared still keeps its selected rectangular crop and named look; prepare again to change that selection. Switching worlds on a returned AI still applies local colors without another upload. Returning to its original look restores the original AI image. The print looks use stable, image-anchored grain or dots. Cached textures keep moving with the 3D frame without rebuilding a frozen picture every display tick. [Print effects and flow measurements](docs/PRINT-FILTERS.md).
 
 ## Limits that matter
 
 - Keep the camera fixed for Invisible. Camera movement, changed lighting, clutter and moving backgrounds can reveal the illusion; recapture when the scene changes.
+- Invisible supplements person segmentation with approximate finger, palm and short forearm coverage from tracked joints. This helps when the person mask misses a hand, but does not provide exact skin boundaries. Losing the controlling hand preserves the current visibility target and requires a clearly open palm to re-arm.
 - Perspective depth is estimated from changes in apparent palm size. It is a visual control, not measured distance. Palm rotation can also affect the estimate; keep your palms facing the camera and use Center depth to reset.
 - Automatic outlines approximate the opening along detected thumb/index joints. They do not trace exact skin edges or recognize arbitrary shapes made with other fingers. Crossed contours, very small openings and invalid tracking hide the window until a valid opening returns; they do not substitute a square.
 - Hand tracking can be lost, especially with occlusion, crossed hands, low light or hands near the image edge. Tracking loss resets gestures. This is an experimental effect, not a promise of reliable gesture recognition in every setting.
-- Hand/person inference runs in a local classic Web Worker, using the original camera input. One inference job is in flight; stale results and previous camera sessions are ignored. Camera stop, a hidden tab, startup failure or a watchdog timeout release resources.
+- Hand/person inference runs in a local classic Web Worker, using the original camera input. Hands prefer GPU where supported, fall back to CPU at initialization, and get one CPU recovery attempt after a GPU detection failure. Both modes have a 16 ms minimum hand-sampling interval; person masks have a 50 ms minimum within the same worker. Mask work still delays that frame's result. These limits promise neither a frame rate nor GPU availability. One job stays in flight; stale results and previous camera sessions are ignored.
 - AI still rendering uses Cloudflare Workers AI's FLUX.2 klein 4B model. It transforms the selected image; instant local filters do not call that model.
 - The public preview has **20 shared AI attempts per UTC day**, including failed or uncertain attempts. It keeps request ID, payload hash, status and timestamp to prevent duplicate calls. Records become eligible for deletion after 48 hours; requests prune expired records and an alarm schedules the oldest record’s cleanup. Platform scheduling can delay deletion. It does not store camera or generated-image pixels. Cloudflare processes explicitly submitted stills under its service policies.
 - A failed or uncertain render is not silently retried. Prepare a new still to make an explicit new attempt. The provider timeout is 45 seconds; abort is requested, but it cannot prove the remote model never ran.
@@ -64,8 +65,8 @@ Set `PLAYWRIGHT_CHANNEL` if using another installed Playwright channel. These te
 | Path | Responsibility |
 | --- | --- |
 | `src/main.ts`, `src/style.css` | Interface, modes, frame compositing and explicit still submission |
-| `src/vision/camera.ts`, `public/vision-worker.js` | Camera lifecycle, bounded inference and original-input vision |
-| `src/effects/` | Invisibility, mask alignment, portal and palm timing |
+| `src/vision/` and `public/vision-worker.js` | Camera lifecycle, continuous palm visibility and bounded original-input vision |
+| `src/effects/` | Invisibility, mask alignment, tracked-hand coverage and portal |
 | `src/handframe/` | Automatic joint contours, saved shapes, frame/depth geometry, projective rendering, pinch timing and local filters |
 | `worker/` | Validated still endpoint, model call, durable idempotency and shared quota |
 | `harness/` | Executable check graph, bounded commands, checkpoints and recovery |

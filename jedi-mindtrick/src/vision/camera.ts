@@ -51,9 +51,9 @@ export class CameraPipeline {
     }
   }
   async infer(now: number, segment: boolean) {
-    // HandFrame has no person-segmentation work; sample it more often without queuing frames.
+    // Hands always use fresh camera frames; the worker budgets segmentation separately.
     this.segment = segment;
-    const interval = segment ? 85 : 16;
+    const interval = 16;
     if (!this.active || this.busy || now - this.lastSent < interval || this.video.readyState < 2 || this.video.currentTime === this.lastVideoTime) return;
     this.busy = true; this.sentAt = this.lastSent = now; this.lastVideoTime = this.video.currentTime;
     const generation = this.generation, id = ++this.id;

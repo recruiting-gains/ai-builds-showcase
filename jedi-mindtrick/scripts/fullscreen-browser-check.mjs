@@ -15,7 +15,7 @@ const report = {
     camera: 'Generated canvas MediaStream only; no physical camera or microphone requested.',
     tracking: 'Local stub vision worker; this suite does not verify MediaPipe accuracy.',
     ai: 'No AI request. /api/render is blocked defensively.',
-    delayedCases: 'Fullscreen getter/request/exit APIs are mocked only in explicitly labelled cases.',
+    delayedCases: 'Fullscreen getter/request/exit and compatibility APIs are mocked only in explicitly labelled cases. These do not reproduce the user’s embedded host.',
   },
 };
 const browser = await chromium.launch({ headless: true, channel: 'chrome', args: [
@@ -36,7 +36,7 @@ const worker = `self.onmessage=({data})=>{
 async function createPage(mode, caseName) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
   await context.addInitScript(({ mode }) => {
-    const probe = window.__fullscreenProbe = { videos: [], streams: [], requests: 0, nativeRequests: [], exitCalls: 0, current: null };
+    const probe = window.__fullscreenProbe = { videos: [], streams: [], requests: 0, nativeRequests: [], exitCalls: 0, current: null, exits: [] };
     const create = document.createElement.bind(document);
     document.createElement = function (name, options) {
       const element = create(name, options);
@@ -60,17 +60,52 @@ async function createPage(mode, caseName) {
       return stream;
     };
     if (mode === 'native') return;
-    Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => probe.current });
-    Object.defineProperty(document, 'exitFullscreen', { configurable: true, value: async () => {
-      probe.exitCalls++; probe.current = null; document.dispatchEvent(new Event('fullscreenchange'));
-    } });
+    // Chrome also exposes prefixed aliases. A missing-API fixture must remove both.
+    Object.defineProperty(Element.prototype, 'webkitRequestFullscreen', { configurable: true, value: undefined });
+    Object.defineProperty(document, 'webkitFullscreenElement', { configurable: true, get: () => mode === 'webkit' ? probe.current : null });
+    Object.defineProperty(document, 'webkitExitFullscreen', { configurable: true, value: undefined });
+    if (mode === 'broken-inert') Object.defineProperty(HTMLElement.prototype, 'inert', {
+      configurable: true, get() { throw new Error('Controlled unsupported inert getter.'); },
+      set() { throw new Error('Controlled unsupported inert setter.'); },
+    });
+    if (mode === 'broken-focus') {
+      const focus = HTMLElement.prototype.focus;
+      HTMLElement.prototype.focus = function (options) {
+        if (options !== undefined) throw new Error('Controlled unsupported focus options.');
+        return focus.call(this);
+      };
+    }
+    const changed = () => document.dispatchEvent(new Event(mode === 'webkit' ? 'webkitfullscreenchange' : 'fullscreenchange'));
+    Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => mode === 'webkit' ? undefined : probe.current });
+    if (mode === 'webkit') Object.defineProperty(document, 'webkitFullscreenElement', { configurable: true, get: () => probe.current });
+    const exit = () => {
+      probe.exitCalls++;
+      if (mode === 'exit-hung') return new Promise(() => {});
+      if (mode === 'exit-rejected') return Promise.reject(new Error('Controlled native exit rejection.'));
+      if (mode === 'exit-delayed') return new Promise(resolve => probe.exits.push(() => { probe.current = null; changed(); resolve(); }));
+      probe.current = null; changed(); return Promise.resolve();
+    };
+    Object.defineProperty(document, 'exitFullscreen', { configurable: true, value: mode === 'webkit' ? undefined : exit });
+    if (mode === 'webkit') Object.defineProperty(document, 'webkitExitFullscreen', { configurable: true, value: exit });
     Object.defineProperty(Element.prototype, 'requestFullscreen', { configurable: true, value:
-      mode === 'absent' ? undefined : mode === 'rejected' ? function () {
+      ['absent', 'webkit'].includes(mode) ? undefined : ['rejected', 'broken-inert', 'broken-focus'].includes(mode) ? function () {
         return Promise.reject(new Error('Controlled fullscreen rejection.'));
+      } : mode === 'fulfilled-empty' ? function () {
+        changed(); return Promise.resolve();
+      } : mode === 'transient-rejected' ? function () {
+        probe.current = this; changed();
+        return new Promise((resolve, reject) => queueMicrotask(() => {
+          probe.current = null; changed(); reject(new Error('Controlled cancelled native transition.'));
+        }));
+      } : mode.startsWith('exit-') ? function () {
+        probe.current = this; changed(); return Promise.resolve();
       } : function () {
         return new Promise((resolve, reject) => probe.nativeRequests.push({ target: this, resolve, reject }));
       },
     });
+    if (mode === 'webkit') Object.defineProperty(Element.prototype, 'webkitRequestFullscreen', { configurable: true, value: function () {
+      probe.current = this; changed(); // Older prefixed APIs return void.
+    } });
     probe.resolve = index => {
       const request = probe.nativeRequests[index];
       if (!request || request.done) throw new Error('Unknown or already resolved fullscreen request.');
@@ -93,12 +128,13 @@ async function createPage(mode, caseName) {
     const probe = window.__fullscreenProbe;
     probe.scene = document.querySelector('#scene');
     // A preexisting inert region must stay inert after leaving fullscreen.
-    document.querySelector('.notes').inert = true;
+    try { document.querySelector('.notes').inert = true; } catch { /* Deliberately unavailable in one compatibility case. */ }
+    probe.readInert = element => { try { return element.inert; } catch { return null; } };
     probe.before = {
       overflow: getComputedStyle(document.body).overflow,
       inlineOverflow: document.body.style.overflow,
       inert: ['.topbar', '.intro', '.studio-bar', '.studio-footer', '.controls', '.notes', 'footer']
-        .map(selector => ({ selector, value: document.querySelector(selector).inert })),
+        .map(selector => ({ selector, value: probe.readInert(document.querySelector(selector)), hidden: document.querySelector(selector).getAttribute('aria-hidden') })),
     };
   });
   return { context, page };
@@ -111,18 +147,19 @@ async function enter(page, settle = true) {
   await page.locator('#full-screen').focus();
   await page.locator('#full-screen').click();
   await page.waitForFunction(() => document.querySelector('#camera-view').classList.contains('focus-view'));
-  if (settle) await page.waitForFunction(() => document.fullscreenElement === document.querySelector('#camera-view') ||
+  if (settle) await page.waitForFunction(() => (document.fullscreenElement || document.webkitFullscreenElement) === document.querySelector('#camera-view') ||
     document.querySelector('#screen-notice').textContent.includes('Expanded camera view'));
   await paint(page);
 }
 async function restored(page) {
   await page.waitForFunction(() => !document.querySelector('#camera-view').classList.contains('focus-view'));
+  await page.waitForFunction(() => document.activeElement?.id === 'full-screen');
   const state = await page.evaluate(() => {
     const probe = window.__fullscreenProbe;
     return {
       current: {
         overflow: getComputedStyle(document.body).overflow, inlineOverflow: document.body.style.overflow,
-        inert: probe.before.inert.map(({ selector }) => ({ selector, value: document.querySelector(selector).inert })),
+        inert: probe.before.inert.map(({ selector }) => ({ selector, value: probe.readInert(document.querySelector(selector)), hidden: document.querySelector(selector).getAttribute('aria-hidden') })),
       }, before: probe.before, focus: document.activeElement?.id,
       canvasSame: document.querySelector('#scene') === probe.scene,
       count: document.querySelectorAll('#scene').length,
@@ -143,7 +180,7 @@ async function dimensions(page, fill) {
       top: getComputedStyle(document.querySelector('.viewport-top')).display,
       bottom: getComputedStyle(document.querySelector('.viewport-bottom')).display,
       background: getComputedStyle(viewport).backgroundColor, overflow: getComputedStyle(document.body).overflow,
-      controlsInert: document.querySelector('.controls').inert };
+      controlsInert: window.__fullscreenProbe.readInert(document.querySelector('.controls')) || document.querySelector('.controls').getAttribute('aria-hidden') === 'true' };
   });
   const close = (a, b) => assert.ok(Math.abs(a - b) < 1.5, `${a} must match ${b}`);
   close(result.viewport.x, 0); close(result.viewport.y, 0);
@@ -269,6 +306,70 @@ try {
     await page.keyboard.press('Escape'); await restored(page);
   });
 
+  for (const mode of ['fulfilled-empty', 'transient-rejected', 'broken-inert', 'broken-focus']) {
+    await runCase(`${mode} cannot prevent or close the expanded tab view`, mode, async page => {
+      await enter(page); await dimensions(page, false);
+      assert.match(await page.locator('#screen-notice').textContent(), /Expanded camera view/);
+      assert.equal(await page.locator('#full-screen').getAttribute('aria-expanded'), 'true');
+      if (mode === 'broken-inert') {
+        assert.equal(await page.locator('.controls').getAttribute('aria-hidden'), 'true');
+        // Keyboard/programmatic focus cannot escape when native inert is absent.
+        await page.locator('#start-camera').evaluate(element => element.focus());
+        assert.equal(await page.evaluate(() => document.activeElement?.id), 'scene');
+      }
+      await page.keyboard.press('Escape'); await restored(page);
+    });
+  }
+
+  await runCase('hung native request leaves immediate tab view usable and late completion cannot reopen it', 'hung', async (page, shot, item) => {
+    const immediate = await page.locator('#full-screen').evaluate(button => {
+      button.focus(); button.click();
+      const viewport = document.querySelector('#camera-view'), rect = viewport.getBoundingClientRect();
+      return { expanded: viewport.classList.contains('focus-view'), x: rect.x, y: rect.y, width: rect.width, height: rect.height,
+        pageWidth: innerWidth, pageHeight: innerHeight, requests: window.__fullscreenProbe.nativeRequests.length };
+    });
+    assert.ok(immediate.expanded); assert.equal(immediate.requests, 1);
+    assert.ok(Math.abs(immediate.width - immediate.pageWidth) < 1.5 && Math.abs(immediate.height - immediate.pageHeight) < 1.5);
+    item.immediate = immediate;
+    // Cross the implementation's bounded 1.5s native-settlement window.
+    await page.waitForTimeout(1700); await dimensions(page, false);
+    assert.equal(await page.evaluate(() => window.__fullscreenProbe.nativeRequests.length), 1, 'a stalled request must not be retried');
+    await shot('fullscreen-stalled-native-tab-view.png');
+    await page.locator('#exit-screen').click(); await restored(page);
+    await page.evaluate(() => window.__fullscreenProbe.resolve(0));
+    await page.waitForFunction(() => window.__fullscreenProbe.exitCalls === 1 && !document.fullscreenElement);
+    await restored(page);
+  });
+
+  await runCase('prefixed WebKit request, element and exit keep the same tab lifecycle', 'webkit', async page => {
+    await enter(page);
+    assert.equal(await page.evaluate(() => document.webkitFullscreenElement === document.querySelector('#camera-view')), true);
+    await dimensions(page, false);
+    await page.locator('#exit-screen').click(); await restored(page);
+    assert.equal(await page.evaluate(() => window.__fullscreenProbe.exitCalls), 1);
+    assert.equal(await page.evaluate(() => document.webkitFullscreenElement), null);
+  });
+
+  for (const mode of ['exit-hung', 'exit-rejected']) await runCase(`${mode} cannot block local Exit and focus restoration`, mode, async page => {
+    await enter(page);
+    await page.locator('#exit-screen').click(); await restored(page);
+    assert.equal(await page.evaluate(() => window.__fullscreenProbe.exitCalls), 1);
+    // The mock deliberately remains native. The app cannot force a host to exit;
+    // this assertion is only that its own expansion/focus state has restored.
+    assert.equal(await page.evaluate(() => document.fullscreenElement === document.querySelector('#camera-view')), true);
+  });
+
+  await runCase('older native exit completion preserves a newer expanded tab request', 'exit-delayed', async page => {
+    await enter(page);
+    await page.locator('#exit-screen').click(); await restored(page);
+    await enter(page);
+    await page.evaluate(() => window.__fullscreenProbe.exits[0]()); await paint(page);
+    assert.equal(await page.locator('#full-screen').getAttribute('aria-expanded'), 'true');
+    await dimensions(page, false);
+    await page.locator('#exit-screen').click(); await restored(page);
+    assert.equal(await page.evaluate(() => window.__fullscreenProbe.exitCalls), 1);
+  });
+
   await runCase('same generated stream/canvas across entry, fill, effects toggle, disconnect and stop', 'absent', async (page, shot, item) => {
     const start = async () => {
       await page.locator('#start-camera').click();
@@ -297,6 +398,32 @@ try {
     await page.locator('#stop-camera').evaluate(button => button.click()); await restored(page);
     assert.equal(await page.evaluate(() => window.__fullscreenProbe.stream.getVideoTracks()[0].readyState), 'ended');
     item.lifecycle = 'Synthetic ended event and programmatic normal Stop-camera handler both exited fullscreen and released the generated track.';
+  });
+
+  await runCase('transient host hiding preserves camera; sustained hiding stops and restores the page', 'absent', async (page, shot, item) => {
+    await page.locator('#start-camera').click();
+    await page.waitForFunction(() => document.querySelector('#status').textContent.startsWith('Camera on'), null, { timeout: 10000 });
+    await enter(page);
+    await page.evaluate(() => {
+      const probe = window.__fullscreenProbe, original = document.hidden;
+      probe.hidden = false;
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => probe.hidden ?? original });
+      probe.visibility = hidden => { probe.hidden = hidden; document.dispatchEvent(new Event('visibilitychange')); };
+      probe.visibility(true);
+      setTimeout(() => probe.visibility(false), 40);
+    });
+    // Cross the app's 150ms confirmation window after the synthetic brief event.
+    await page.waitForTimeout(220);
+    assert.equal(await page.locator('#full-screen').getAttribute('aria-expanded'), 'true');
+    assert.equal(await page.evaluate(() => window.__fullscreenProbe.stream.getVideoTracks()[0].readyState), 'live');
+    assert.equal(await page.evaluate(() => window.__fullscreenProbe.requests), 1);
+    await page.evaluate(() => window.__fullscreenProbe.visibility(true));
+    await page.waitForFunction(() => document.querySelector('#status').textContent.includes('Camera paused'));
+    await restored(page);
+    assert.equal(await page.evaluate(() => window.__fullscreenProbe.stream.getVideoTracks()[0].readyState), 'ended');
+    await page.evaluate(() => window.__fullscreenProbe.visibility(false));
+    assert.equal(await page.evaluate(() => window.__fullscreenProbe.requests), 1, 'returning to visibility must not reopen the camera');
+    item.observation = 'Controlled document.hidden events with generated camera only; 40ms hides preserve the stream, sustained hides release it. Actual embedded visibility behavior is not claimed.';
   });
 
   await runCase('late native entry after exit is cleaned up', 'delayed', async page => {

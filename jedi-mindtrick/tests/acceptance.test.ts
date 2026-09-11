@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
-import { blendInvisible, portalMask, scaleMask, PalmHold } from '../src/effects/invisible.ts';
+import { blendInvisible, portalMask, scaleMask } from '../src/effects/invisible.ts';
 import { CameraPipeline } from '../src/vision/camera.ts';
 import { validateRender, readBounded } from '../worker/validation.ts';
 import type { Hand } from '../src/contracts.ts';
@@ -72,55 +72,6 @@ test('camera masks align with mirrored display coordinates after enlargement', (
   assert.deepEqual([...scaleMask(cameraMask, 2, 2, 4, 2, true)], [1, 1, 0, 0, 0, 0, 1, 1]);
   assert.deepEqual([...scaleMask(cameraMask, 2, 2, 4, 2, false)], [0, 0, 1, 1, 1, 1, 0, 0]);
   assert.deepEqual([...cameraMask], [0, 1, 1, 0]);
-});
-
-function openPalm(score = 0.95): Hand {
-  const landmarks = Array.from({ length: 21 }, () => ({ x: 0.5, y: 0.7 }));
-  landmarks[0] = { x: 0.5, y: 0.95 };
-  for (const tip of [8, 12, 16, 20]) {
-    landmarks[tip - 2] = { x: 0.5, y: 0.7 };
-    landmarks[tip] = { x: 0.5, y: 0.2 };
-  }
-  return { landmarks, score, handedness: 'Right' };
-}
-
-test('Invisible hold toggles once at 850ms, then requires release before another toggle', () => {
-  const gesture = new PalmHold();
-  const hands = [openPalm()];
-  assert.equal(gesture.update(hands, 0), false);
-  assert.equal(gesture.update(hands, 849), false);
-  assert.equal(gesture.update(hands, 850), true);
-  assert.equal(gesture.update(hands, 1000), false);
-  assert.equal(gesture.update([], 1100), false);
-  assert.equal(gesture.update(hands, 1200), false);
-  assert.equal(gesture.update(hands, 2050), true);
-});
-
-test('lost or weak hand tracking breaks the hold rather than carrying time across it', () => {
-  const gesture = new PalmHold();
-  assert.equal(gesture.update([openPalm()], 0), false);
-  assert.equal(gesture.update([openPalm(0.1)], 800), false);
-  assert.equal(gesture.update([openPalm()], 850), false);
-  assert.equal(gesture.update([], 1600), false);
-  assert.equal(gesture.update([openPalm()], 1700), false);
-  assert.equal(gesture.update([openPalm()], 2500), false);
-  assert.equal(gesture.update([openPalm()], 2550), true);
-});
-
-test('a long observation gap cannot be treated as a continuously held palm', () => {
-  const gesture = new PalmHold();
-  assert.equal(gesture.update([openPalm()], 0), false);
-  assert.equal(gesture.update([openPalm()], 5000), false);
-});
-
-test('a duplicate observation does not rearm an already fired held palm', () => {
-  const gesture = new PalmHold();
-  const hands = [openPalm()];
-  gesture.update(hands, 0);
-  assert.equal(gesture.update(hands, 850), true);
-  assert.equal(gesture.update(hands, 850), false);
-  assert.equal(gesture.update(hands, 900), false);
-  assert.equal(gesture.update(hands, 1750), false);
 });
 
 function cameraFixture(permission: () => Promise<MediaStream>) {
@@ -205,7 +156,7 @@ test('stop releases live resources and ignores a late inference result from the 
 });
 
 
-test('hand-only tracking samples fresh frames at 16ms while segmentation keeps its 85ms budget', async () => {
+test('both modes sample fresh hands at 16ms with segmentation budgeted inside the worker', async () => {
   for (const segment of [false, true]) {
     const { stream } = fakeStream();const f = cameraFixture(async () => stream);
     const pipeline = new CameraPipeline(() => {}, () => {});
@@ -216,8 +167,7 @@ test('hand-only tracking samples fresh frames at 16ms while segmentation keeps i
       worker.onmessage!({data:{...first,type:'frame',hands:[],inferenceMs:5}});
       f.video.currentTime = 1/30;
       await pipeline.infer(115, segment);assert.equal(sentFrames().length,1);
-      await pipeline.infer(116, segment);assert.equal(sentFrames().length,segment?1:2);
-      if(segment){await pipeline.infer(184, true);assert.equal(sentFrames().length,1);await pipeline.infer(185,true);assert.equal(sentFrames().length,2);}
+      await pipeline.infer(116, segment);assert.equal(sentFrames().length,2);
       assert.ok(sentFrames().every(frame => frame.segment === segment));
     } finally {pipeline.stop();f.restore();}
   }

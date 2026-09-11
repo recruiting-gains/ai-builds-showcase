@@ -2,7 +2,7 @@
 
 HandFrame follows the opening formed by both thumbs and index fingers. **Follow my hands** is on by default. The window comes from the detected finger joints, without selecting a preset or classifying the pose as a named shape.
 
-Status: published on the live site, with matching production assets. All 102 application tests, 55 browser checks and eight controlled motion scenarios pass. Physical-camera accuracy remains unverified.
+Automatic outlines were published in the preceding release. The current local follow-up prioritizes faster gentle movement and adds continuous palm visibility to Invisible. It passes 118 application tests, 74 browser checks and eight print-flow scenarios. The deployed HTML, JavaScript, CSS and vision worker match the tested build. The [actual-model benchmark](HANDFRAME-RESPONSIVENESS.md) uses a generated empty camera stream; it does not establish physical-camera accuracy or hand latency.
 
 ## Use it
 
@@ -18,7 +18,7 @@ Saved shapes & drawing remains optional. Selecting a preset or applying a custom
 
 The tracker connects seven thumb/index landmarks on each hand in anatomical order. It mirrors camera coordinates for the display, merges nearby adjacent joined tips, and keeps valid inward bends. It uses all those joints to fit the opening, including when joined fingertips alone would give a zero-width rectangle. A rounded opening is still a short polygonal approximation of the detected joints.
 
-Small landmark fluctuations are smoothed; deliberate changes follow promptly. Smoothing always uses the same anatomical indices before joined points are merged. Both the incoming and smoothed contours are checked for crossings and negligible area. Missing hands, malformed tracking, crossed contours, tiny openings, time discontinuities and large tracking jumps hide the window and reset its state. A valid opening must be reacquired; there is no automatic square replacement.
+Small landmark fluctuations are smoothed; deliberate changes follow promptly. The current minimum blend is 0.60, increased from 0.24, and a movement of 0.006 normalized image units follows directly, previously 0.012. This trades more stationary jitter for faster gentle following. Smoothing always uses the same anatomical indices before joined points are merged. Both the incoming and smoothed contours are checked for crossings and negligible area. Missing hands, malformed tracking, crossed contours, tiny openings, time discontinuities and large tracking jumps hide the window and reset its state. A valid opening must be reacquired; there is no automatic square replacement.
 
 This does not trace exact skin edges, segment every finger, or reproduce every arbitrary shape a hand could make. Occlusion, crossed fingers, camera angle and low light can prevent a usable contour. Depth comes from relative apparent palm size, not measured distance; palm rotation can affect it. The outline already includes visible screen tilt, so automatic rendering applies the additional depth treatment without adding that tilt twice.
 
@@ -30,13 +30,13 @@ Outline tracking, worlds, print textures and fullscreen operate locally. Prepari
 
 The 24 focused tests cover direct rectangle-like, triangular, rounded and concave openings; joined-tip merging; bounds and mirroring; detector reordering; asymmetric joining/separation; deformation and jitter; invalid tracking; timestamp handling; teleport recovery; and the optional joined-tip perspective reference. Existing perspective behavior remains covered.
 
-On synthetic joint input, a deliberate 1.5% image translation and a rectangle-to-concave deformation followed in one update. Stationary translation noise with RMS 0.001 normalized units produced contour RMS 0.000139. These are geometry/filter measurements, not measured webcam latency or proof of physical-hand accuracy.
+On synthetic joint input, a deliberate 1.5% image translation and a rectangle-to-concave deformation followed in one update. The latest gentle-motion comparison reduced mean position error from 0.002650 to 0.000792 normalized units. Stationary input noise with RMS 0.001 now produces contour RMS 0.000431, compared with 0.000139 before the response change. These are geometry/filter measurements, not measured webcam latency or proof of physical-hand accuracy.
 
 ```sh
 npx tsx --test tests/hand-outline.test.ts tests/perspective.test.ts
 ```
 
-Ten automatic-outline browser checks use a generated gray camera stream and deterministic landmarks. They verify four changing outlines without preset selection, actual heart-notch/triangle pixels, movement, missing/weak/crossed tracking and recovery, pinch suppression, both depth directions, all layouts, an explicitly submitted mocked still, saved-shape/mode transitions and camera restart. The other 45 browser checks cover existing behavior, optional shape editing and fullscreen. The live build matches the tested assets; see the [verification record](VERIFICATION.md).
+The preceding release passed ten automatic-outline browser checks using a generated gray camera stream and deterministic landmarks. They verified four changing outlines without preset selection, heart-notch/triangle pixels, movement, missing/weak/crossed tracking and recovery, pinch suppression, both depth directions, all layouts, an explicitly submitted mocked still, saved-shape/mode transitions and camera restart. Its other 45 browser checks covered existing behavior, optional shape editing and fullscreen. That release's live assets matched its tested build. Current-update integration and publication evidence is maintained separately in the [verification record](VERIFICATION.md).
 
 ```sh
 node --import tsx scripts/hand-outline-browser-check.mjs http://127.0.0.1:8798

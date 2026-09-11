@@ -1,4 +1,4 @@
-import type { FrameRect, Hand } from '../contracts';
+import type { FrameRect } from '../contracts';
 
 /** Source/background are RGBA. Mask contains person confidence, same pixel count. */
 export function blendInvisible(source: Uint8ClampedArray, background: Uint8ClampedArray, mask: Float32Array, fade: number): Uint8ClampedArray {
@@ -31,19 +31,4 @@ export function scaleMask(mask: Float32Array, mw: number, mh: number, width: num
     result[y * width + x] = mask[Math.min(mh - 1, Math.floor(y / height * mh)) * mw + sx];
   }
   return result;
-}
-
-export class PalmHold {
-  private since: number | null = null; private fired = false; private last: number | null = null;
-  reset() { this.since = null; this.fired = false; this.last = null; }
-  update(hands: Hand[], now: number): boolean {
-    if (this.last === now) return false;
-    if (!Number.isFinite(now) || (this.last !== null && (now <= this.last || now - this.last > 1000))) { this.reset(); return false; }
-    this.last = now;
-    const open = hands.some(h => h.score >= .6 && h.landmarks.length === 21 && [8,12,16,20].every(i => Math.hypot(h.landmarks[i].x-h.landmarks[0].x,h.landmarks[i].y-h.landmarks[0].y) > 1.3*Math.hypot(h.landmarks[i-2].x-h.landmarks[0].x,h.landmarks[i-2].y-h.landmarks[0].y)));
-    if (!open) { this.reset(); return false; }
-    this.since ??= now;
-    if (!this.fired && now - this.since >= 850) { this.fired = true; return true; }
-    return false;
-  }
 }

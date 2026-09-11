@@ -85,7 +85,7 @@ test('small stationary landmark noise is attenuated without freezing deliberate 
     bounded(result); squared += (result.rect.x - initial.rect.x) ** 2;
   }
   const rms = Math.sqrt(squared / 60);
-  assert.ok(rms < 0.00025, 'subpixel jitter should be reduced by at least four times');
+  assert.ok(rms < 0.0005, 'responsive filtering should still halve subpixel jitter');
   t.diagnostic(`Stationary translation input RMS=0.001; contour output RMS=${rms.toFixed(6)} normalized units`);
   const deliberate = handOutlineFixture('rounded', { dx: 0.03 });
   assert.deepEqual(tracker.update(deliberate, 2013), new HandOutlineTracker().update(deliberate, 2013));
@@ -107,6 +107,21 @@ test('asymmetric joining and unjoining keep anatomical smoothing correspondence 
     close(result.rect.y, last.rect.y); last = result;
   }
   assert.deepEqual([...counts].sort(), [12, 13]);
+});
+
+test('slow deliberate movement settles faster than the previous contour filter', t => {
+  const tracker = new HandOutlineTracker(); tracker.update(handOutlineFixture('rounded'), 0);
+  let previous = 0, oldError = 0, newError = 0;
+  for (let sample = 1; sample <= 30; sample++) {
+    const target = sample * .0025;
+    const motion = Math.abs(target - previous);
+    previous += (target - previous) * (.24 + .76 * Math.max(0, Math.min(1, (motion - .002) / .010)));
+    const current = tracker.update(handOutlineFixture('rounded', { dx: target }), sample * 33)!;
+    oldError += target - previous;
+    newError += target - (current.rect.x - .22);
+  }
+  assert.ok(newError < oldError * .5, 'the cumulative lag for slow movement must at least halve');
+  t.diagnostic(`Mean slow-motion position error: previous=${oldError / 30}, current=${newError / 30}`);
 });
 
 test('crossing, offscreen, collapsed, low-confidence and malformed tracking hide and reset the aperture', () => {
