@@ -18,3 +18,29 @@
 @media(max-width:370px){.mode-tabs{gap:2px}.mode-tabs button{padding:9px 7px;font-size:11px}.mode-tabs button span{display:none}.screen-open{font-size:10px;padding:9px}}
 @media(prefers-reduced-motion:reduce){.focus-view .screen-actions{transition:none}}
 #manual-shapes{margin:14px 0;border:1px solid #3a5141;border-radius:6px;padding:10px}#manual-shapes summary{cursor:pointer;font-size:11px;color:#c8d9c0;min-height:24px;line-height:24px}#manual-shapes summary:focus-visible{outline:2px solid var(--mint);outline-offset:3px}#manual-shapes .section-label{border:0;margin-top:10px;padding-top:3px}#hand-shape-state{color:#c8e2b3;min-height:34px}
+
+/* HandFrame gives the entire studio row to the camera; tools stay underneath. */
+.studio-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px}
+.handframe-mode main{max-width:1920px;padding:0 clamp(12px,2vw,32px)}
+.handframe-mode .topbar{height:62px;margin:0 clamp(12px,2vw,32px)}
+.handframe-mode .intro{display:none}
+.handframe-mode .playground{grid-template-columns:minmax(0,1fr);margin-top:14px}
+.handframe-mode .studio-bar{padding:10px 16px;flex-wrap:wrap}
+.handframe-mode .camera-actions{display:flex;flex-direction:row;gap:8px}
+.handframe-mode .camera-actions button{padding:10px 12px;min-height:40px}
+.handframe-mode #studio-status .status{min-height:0;margin:8px 16px 0;font-size:11px}
+.handframe-mode .viewport:not(.focus-view){display:flex;justify-content:center;align-items:center;margin:10px 14px;background:#050b09}
+.handframe-mode .viewport:not(.focus-view) #scene{width:min(100%,calc((100vh - 216px) * 16 / 9));width:min(100%,calc((100dvh - 216px) * 16 / 9));min-width:280px;height:auto;flex:none}
+.handframe-mode .studio-footer{padding:0 16px 12px;min-height:34px}
+.handframe-mode .controls{border-left:0;border-top:1px solid #344a3d;padding:22px}
+.handframe-mode .control-title{margin-bottom:10px}
+.handframe-mode #handframe-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;align-items:start}
+.handframe-mode #handframe-controls>section,.handframe-mode .depth-controls{min-width:0}
+.handframe-mode #handframe-controls .section-label{margin-top:0}
+.handframe-mode .styles{grid-template-columns:repeat(3,minmax(0,1fr))}
+.handframe-mode .manual-controls{max-width:420px}
+@media(max-width:1100px){.handframe-mode #handframe-controls{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.handframe-mode .studio-bar{gap:8px;padding:10px}.handframe-mode .studio-actions{flex:1;flex-wrap:wrap}.handframe-mode .camera-actions button{font-size:11px;padding:9px}.handframe-mode .viewport:not(.focus-view){margin:8px}.handframe-mode .viewport:not(.focus-view) #scene{width:100%;min-width:0}.handframe-mode .studio-footer{padding:0 10px 10px}.handframe-mode .controls{padding:18px}.handframe-mode #handframe-controls{gap:18px}}
+@media(max-width:520px){.handframe-mode #handframe-controls{grid-template-columns:minmax(0,1fr)}.handframe-mode .studio-actions{flex-basis:100%;justify-content:space-between}.handframe-mode .styles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+.handframe-mode .hint{font-size:11px}.handframe-mode .styles button{font-size:11px}.handframe-mode .switch-row{font-size:12px}.handframe-mode .switch-row small{font-size:10px}.handframe-mode .wide-view-hint{margin-top:0}

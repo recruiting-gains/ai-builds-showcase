@@ -12,7 +12,7 @@ Open **Saved shapes & drawing** for Rectangle, Triangle, Oval, Diamond, Hexagon 
 
 Custom outlines use 3–12 vertices and may be concave. Crossed or touching edges, repeated vertices, collapsed shapes and out-of-bounds coordinates are rejected. The editor keeps an invalid draft separate from the active design. The oval uses a bounded 64-segment outline. These are flat cutouts moved in perspective, not reconstructed 3D objects or a freehand brush.
 
-Choose a world before entering fullscreen. With Follow my hands on, form the opening directly and use the world buttons or Prepare a still; pinch shortcuts are disabled so joining fingers cannot accidentally change the world or prepare a crop. With it off, two-hand position/depth controls move the saved outline and the quick/0.6-second pinch shortcuts remain available. Mouse controls provide a separate fallback. Center depth establishes a neutral palm-size reference; depth remains an estimate affected by palm orientation.
+With Follow my hands on, form the opening directly. Bring both palms together and reopen to advance one world, including in fullscreen; the first opening only starts the session. Fingertip contact alone keeps the selected world. The world buttons and Prepare a still remain available on the main page. Pinch shortcuts stay disabled in this mode. With it off, two-hand position/depth controls move the saved outline and the quick/0.6-second pinch shortcuts remain available. Mouse controls provide a separate fallback. Center depth establishes a neutral palm-size reference; depth remains an estimate affected by palm orientation.
 
 ## Rendering and data
 
@@ -26,7 +26,7 @@ Acceptance requires correct clipping in neutral and both perspective directions,
 
 The preceding fullscreen/saved-shape update passed 88 application tests, 25 existing browser checks, 11 shape browser checks, nine fullscreen cases and eight print-flow scenarios. Those checks cover preset and custom clipping, editor recovery, native Chrome fullscreen, fallbacks, fit/fill pointer alignment, keyboard navigation, generated-stream identity and delayed fullscreen requests. They are the prior baseline, not verification of the new automatic-outline integration.
 
-The latest local update passes **118 application tests, including 25 contour/perspective tests**. Its expanded fullscreen suite passes **19 cases**, including prefixed APIs, transient/stalled requests, focus restoration after native exit, optional API failures and transient versus sustained page hiding. The deployed assets match this tested build. A separate embedded-browser simulated-preview check passed full-document expansion, Fill view, Just camera and exit. [Current automatic-outline acceptance scope](AUTOMATIC-HAND-SHAPES.md#verification).
+The preceding palm/response update passed **118 application tests, including 25 contour/perspective tests**. Its expanded fullscreen suite passes **19 cases**, including prefixed APIs, transient/stalled requests, focus restoration after native exit, optional API failures and transient versus sustained page hiding. The deployed assets match this tested build. A separate embedded-browser simulated-preview check passed full-document expansion, Fill view, Just camera and exit. [Current automatic-outline acceptance scope](AUTOMATIC-HAND-SHAPES.md#verification).
 
 Independent review found and corrected two lifecycle edges: an older fullscreen completion must not close a newer desired entry, and closing the editor must release an active point drag. Browser regressions cover both. These tests use generated streams and a stub tracker for fullscreen lifecycle coverage; the existing integration suite separately exercises MediaPipe with generated camera input. The user's existing embedded tab successfully opened and exited fullscreen during a targeted UI check. The original reported failure was not reproduced. A transient hidden-page event during fullscreen has a 150 ms confirmation window; a persistently hidden page still stops its camera. No physical-camera imagery was saved or sent, and no paid AI request was used for this update.
 
@@ -40,3 +40,5 @@ node scripts/fullscreen-browser-check.mjs http://127.0.0.1:8798
 ```
 
 Fullscreen behavior follows the browser's [requestFullscreen API and events](https://developer.mozilla.org/en-US/docs/Web/API/Element/requestFullscreen). A fallback expands the web document; it cannot promise control over the surrounding app window.
+
+The current wider studio keeps the same fitted canvas and fullscreen behavior. Its acceptance and release evidence are in [World cycling and wider view](WORLD-CYCLE-WIDE-VIEW.md).

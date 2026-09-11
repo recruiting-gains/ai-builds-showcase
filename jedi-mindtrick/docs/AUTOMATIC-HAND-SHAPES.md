@@ -2,14 +2,14 @@
 
 HandFrame follows the opening formed by both thumbs and index fingers. **Follow my hands** is on by default. The window comes from the detected finger joints, without selecting a preset or classifying the pose as a named shape.
 
-Automatic outlines were published in the preceding release. The current local follow-up prioritizes faster gentle movement and adds continuous palm visibility to Invisible. It passes 118 application tests, 74 browser checks and eight print-flow scenarios. The deployed HTML, JavaScript, CSS and vision worker match the tested build. The [actual-model benchmark](HANDFRAME-RESPONSIVENESS.md) uses a generated empty camera stream; it does not establish physical-camera accuracy or hand latency.
+Automatic outlines and continuous palm visibility are already available. The new follow-up adds close/reopen world cycling and a wider HandFrame studio. [Current behavior and verification](WORLD-CYCLE-WIDE-VIEW.md). The earlier [actual-model benchmark](HANDFRAME-RESPONSIVENESS.md) uses a generated empty camera stream; it does not establish physical-camera accuracy or hand latency.
 
 ## Use it
 
 1. Select HandFrame and start the camera. Keep Follow my hands on and Mouse & keyboard controls off.
 2. Hold both hands in view, palms toward the camera, with an open space between the thumbs and index fingers. Join the tips, bend the fingers or spread them apart to change the opening.
 3. Hold your hands at a similar distance and select Center depth. Move one hand closer to stretch that side of the picture. Lifting or turning your hands also changes the measured outline.
-4. Choose a world with the buttons. Use Prepare a still when wanted; pinch shortcuts are disabled while Follow my hands is on.
+4. The first opening keeps the selected world. Bring both palms close together, pause briefly, then reopen to advance one world. Keep both hands visible side by side. Fingertip contact alone does not change it. World buttons remain available. Use Prepare a still when wanted; pinch shortcuts are disabled while Follow my hands is on.
 5. Select Full screen for a clean view. Move or tap to reveal its toolbar. Fill view crops the camera to fill the screen; Fit shows the whole image. Just camera temporarily hides the effect. Esc returns to the controls.
 
 Saved shapes & drawing remains optional. Selecting a preset or applying a custom draft turns off Follow my hands; opening or cancelling the editor does not replace the active design. Turn Follow my hands back on to return to direct shaping. With it off, a quick pinch changes the world and a 0.6-second pinch prepares a still. Mouse controls can position, resize and tilt a saved outline without live hand tracking.

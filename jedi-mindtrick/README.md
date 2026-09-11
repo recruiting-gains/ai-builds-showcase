@@ -4,7 +4,7 @@ Disappear into the room. Hold another world in your hands.
 
 A browser camera playground with two independent effects: **Invisible**, which blends a captured empty background into your silhouette, and **HandFrame**, which follows the opening formed by both thumbs and index fingers, with a floating picture that can stretch in perspective. An original implementation inspired by a supplied visual demonstration.
 
-Automatic hand outlines and clean fullscreen are available from the preceding release. The current update adds continuous palm visibility and faster gentle hand following; 118 application tests, 74 browser checks and eight print-flow scenarios pass. The actual-model CPU/GPU benchmark uses a generated empty camera stream, not physical hands. This update is deployed; live HTML, JavaScript, CSS and the vision worker match the tested build. [Measured results and limits](docs/HANDFRAME-RESPONSIVENESS.md).
+HandFrame follows the shape between your fingers and can change worlds when both hands come together and reopen. Its camera now uses the full studio width, with the tools underneath. Invisible uses continuous open-palm → close-to-hide → open-to-return control. [World cycling and wider view](docs/WORLD-CYCLE-WIDE-VIEW.md) · [Verification and limits](docs/VERIFICATION.md).
 
 ## Try it
 
@@ -15,10 +15,10 @@ Start with the clearly labelled simulated preview. Its illustration is generated
 1. Choose **Invisible** or **HandFrame**.
 2. Select **Start your camera** and allow camera access.
 3. For Invisible, select **Capture empty background**, then step completely out for five seconds. Return and show a clearly open palm to arm control at fully visible. Slowly close that hand to fade toward hidden; reopen it to become visible again. The saved room is required before disappearing. Visible/Ghost/Hidden and the slider also work. [Continuous palm control](docs/PALM-VISIBILITY.md).
-4. For HandFrame, leave **Follow my hands** on and form an opening with both thumbs and index fingers. Join the tips, curve the fingers or spread them apart: the window follows those joints without selecting a preset. Hold your palms toward the camera at a similar distance and select **Center depth**. Push one hand closer to stretch that side; lifting or turning your hands also moves the measured outline. Use the world buttons to change the look and **Prepare a still** to select a crop. Pinch shortcuts are disabled while Follow my hands is on.
+4. For HandFrame, leave **Follow my hands** on and form an opening with both thumbs and index fingers. Join the tips, curve the fingers or spread them apart: the window follows those joints without selecting a preset. Hold your palms toward the camera at a similar distance and select **Center depth**. Push one hand closer to stretch that side; lifting or turning your hands also moves the measured outline. The first opening keeps your selected world. Bring both palms close together, pause briefly, then reopen to advance one world. Keep both hands visible; touching fingertips alone keeps the current look. World buttons also work, and **Prepare a still** selects a crop. Pinch shortcuts are disabled while Follow my hands is on.
 5. **Send still to AI** explicitly submits that selected crop. Preparing a still alone uploads nothing. The returned AI image appears inside HandFrame. The local preview continues during rendering.
 
-Select **Full screen** above the preview for a clean camera view. Move the pointer or tap to reveal **Exit full screen**, **Fill view**, and **Just camera**. Esc returns to the controls. In a browser that cannot enter native fullscreen, the camera expands within its tab.
+HandFrame opens in a wider studio with the camera controls above and design tools below. Select **Full screen** above the preview for a clean camera view. Move the pointer or tap to reveal **Exit full screen**, **Fill view**, and **Just camera**. Esc returns to the controls. In a browser that cannot enter native fullscreen, the camera expands within its tab. It starts fitted to show the whole image; leave Fill view off to keep the sides visible. A larger preview does not increase the lens field of view.
 
 **Saved shapes & drawing** is optional. Choosing Rectangle, Triangle, Oval, Diamond, Hexagon or Star—or applying a custom 3–12-point outline with **Use shape**—turns off Follow my hands. Turn it back on to shape the opening directly. With it off, the usual two-hand frame controls move the saved outline, a quick pinch changes the world, and a 0.6-second pinch prepares one still. Release before another pinch action. Mouse/keyboard controls also provide a fallback: drag the frame, use the size/depth/tilt sliders, or focus the canvas and use arrow keys. Live automatic outlines require mouse controls to be off. [Automatic hand outlines](docs/AUTOMATIC-HAND-SHAPES.md) · [Fullscreen and saved shapes](docs/FULLSCREEN-SHAPES.md).
 
@@ -67,7 +67,7 @@ Set `PLAYWRIGHT_CHANNEL` if using another installed Playwright channel. These te
 | `src/main.ts`, `src/style.css` | Interface, modes, frame compositing and explicit still submission |
 | `src/vision/` and `public/vision-worker.js` | Camera lifecycle, continuous palm visibility and bounded original-input vision |
 | `src/effects/` | Invisibility, mask alignment, tracked-hand coverage and portal |
-| `src/handframe/` | Automatic joint contours, saved shapes, frame/depth geometry, projective rendering, pinch timing and local filters |
+| `src/handframe/` | Automatic joint contours, saved shapes, frame/depth geometry, projective rendering, close/reopen world cycling, pinch timing and local filters |
 | `worker/` | Validated still endpoint, model call, durable idempotency and shared quota |
 | `harness/` | Executable check graph, bounded commands, checkpoints and recovery |
 | `tests/` | Pure effects, timing, lifecycle and real Worker logic with mocked AI |
