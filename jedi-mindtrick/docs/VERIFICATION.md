@@ -1,5 +1,20 @@
 # Verification record
 
+## Phone studio verification — September 11, 2026
+
+The [phone studio update](PHONE-STUDIO.md) passed **199 application tests**, **14 harness tests** and **23 dedicated phone browser checks**. The phone checks use real local image decoding, actual frame compositing and actual canvas recording, with generated camera streams and synthetic landmarks. A decoded 768 × 432 recording frame contains the selected photo. A two-color photo boundary moves by 19 pixels between sampled columns when the hands tilt, verifying that the picture contents tilt with the four corners.
+
+Eight existing browser suites also pass: **102 named checks plus eight print-flow measurements**. These include fullscreen, recording, continuous palm visibility, world cycling, saved shapes, hand outlines and the general browser/AI-still UI suite. Actual MediaPipe models were exercised only with generated camera input. The general suite includes an automated accessibility scan. No private reference media or actual AI provider call was used in these tests.
+
+Meaningful recovery checks cover corrupt photo replacement, stale/cleared photo loads, denied or unavailable cameras, cancellation during model loading, stale camera results, lost hands, invalid photo quadrilaterals, one-shot A/B switching, fullscreen fallback and reduced motion. Independent review caught and resolved a disabled camera selector after startup cancellation, photo contents failing to tilt with the outline, and same-source color selection clearing a pending/returned AI still. Frozen-image styles now need one texture readback in the print checks, instead of the observed failing 120. Initial test-harness timing failures and development-server reload interference were retained in private evidence; corrected tests ran against fixed production snapshots.
+
+The executable project graph passed all seven local command nodes, including the new bounded phone browser check and Cloudflare deployment dry run. Its isolated success graph completed; an intentionally failing fixture completed after a concrete correction; unchanged success resume repeated no completed commands. External publication, physical-camera and real-AI observations remain separate receipts. The new phone browser check also runs in the GitHub workflow.
+
+**Physical iPhone behavior remains unverified by these automated checks.** The phone's cameras, supported image formats, save menu and real hand-tracking response still need an on-device trial. The dashboard's depth uses CSS transforms; it does not claim a 3D sensor, reconstructed scene or guaranteed frame rate.
+
+The sections below are historical observations from earlier versions. The original dependency-check blocker was subsequently repaired and PR 10 merged; those earlier failures do not describe the current dependency state.
+
+
 Observed September 10, 2026 (America/Chicago). This record separates executed checks from observations that still require a physical device. The reference video is private and is not included as test or demo media.
 
 ## HandFrame responsiveness update

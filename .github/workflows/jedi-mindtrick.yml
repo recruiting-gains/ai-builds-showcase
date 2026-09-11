@@ -30,4 +30,8 @@ jobs:
       - run: npm test
       - run: npm run test:harness
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:phone
+        env:
+          PLAYWRIGHT_CHANNEL: chromium
       - run: npm run check:deploy
