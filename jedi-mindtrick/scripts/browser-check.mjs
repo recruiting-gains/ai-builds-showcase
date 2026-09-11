@@ -45,16 +45,32 @@ try {
   assert.ok(await frameSnapshot()===neutral,'Center depth must restore the same canvas pixels');pass('Center depth restores the neutral rendered surface');
   // Keep the still and returned-image path under perspective as well.
   await page.locator('#frame-depth').evaluate(input=>{input.value='65';input.dispatchEvent(new Event('input',{bubbles:true}));});
+  assert.equal(await page.locator('[data-style]').count(),8);
+  const worlds=['dream','thermal','ink','neon','aurora','ocean','sunset','cosmic'],worldFrames=[];
+  for(const world of worlds){
+    await page.locator(`[data-style="${world}"]`).click();await page.waitForTimeout(80);
+    assert.equal(await page.locator(`[data-style="${world}"]`).getAttribute('aria-pressed'),'true');
+    worldFrames.push(await frameSnapshot());
+    if(['aurora','ocean','sunset','cosmic'].includes(world))await page.locator('.viewport').screenshot({path:`test-results/world-${world}.png`});
+  }
+  assert.equal(new Set(worldFrames).size,8);pass('all eight worlds render distinct 3D surfaces and selected controls');
   const noUploads=report.network.filter(r=>r.method==='POST');assert.equal(noUploads.length,0);pass('local mode interactions upload no image');
   await page.locator('#capture-still').click();assert.equal(report.network.filter(r=>r.method==='POST').length,0);pass('preparing still does not upload');
   const selected=await page.locator('#still-preview').getAttribute('src');
   const cropSize=await page.locator('#still-preview').evaluate(async img=>{await img.decode();return {width:img.naturalWidth,height:img.naturalHeight};});assert.ok(cropSize.width>0&&cropSize.width<512&&cropSize.height>0&&cropSize.height<512);pass('selected crop fits provider reference-image dimensions');
   const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=c.height=8;const x=c.getContext('2d');x.fillStyle='#aa77ff';x.fillRect(0,0,8,8);return c.toDataURL('image/png').split(',')[1];});
-  let submissions=0;
-  await page.route('**/api/render',async route=>{submissions++;assert.equal(route.request().postDataJSON().image,selected.split(',')[1]);await route.fulfill({status:200,contentType:'image/png',body:Buffer.from(png,'base64')});});
-  await page.locator('#send-still').click();await page.waitForFunction(()=>document.querySelector('#still-status').textContent.includes('AI still returned'));
+  let submissions=0,releaseResponse;const responseGate=new Promise(resolve=>{releaseResponse=resolve;});
+  await page.route('**/api/render',async route=>{submissions++;assert.equal(route.request().postDataJSON().image,selected.split(',')[1]);assert.equal(route.request().postDataJSON().style,'cosmic');await responseGate;await route.fulfill({status:200,contentType:'image/png',body:Buffer.from(png,'base64')});});
+  assert.match(await page.locator('#still-status').textContent(),/Selected look: Cosmic/);
+  await page.locator('#send-still').click();await page.locator('[data-style="aurora"]').click();releaseResponse();
+  await page.waitForFunction(()=>document.querySelector('#still-status').textContent.includes('AI still returned'));
   await page.locator('.viewport').screenshot({path:'test-results/perspective-returned-still.png'});
   assert.equal(submissions,1);assert.equal(await page.locator('#send-still').isDisabled(),true);pass('explicit submit sends selected crop once and displays returned image (mock)');
+  const centerPixel=()=>page.locator('#scene').evaluate(c=>Array.from(c.getContext('2d').getImageData(415,285,1,1).data));
+  await page.waitForTimeout(80);const locallyFiltered=await centerPixel();assert.notDeepEqual(locallyFiltered,[170,119,255,255]);
+  await page.locator('[data-style="cosmic"]').click();await page.waitForTimeout(80);assert.deepEqual(await centerPixel(),[170,119,255,255]);
+  await page.locator('[data-style="aurora"]').click();await page.waitForTimeout(80);assert.deepEqual(await centerPixel(),locallyFiltered);
+  assert.equal(submissions,1);pass('world changes during and after AI rendering stay local, restore the original and never compound filters');
   await page.unroute('**/api/render');await page.locator('#capture-still').click();
   await page.route('**/api/render',route=>route.fulfill({status:502,contentType:'application/json',body:JSON.stringify({error:'Controlled provider failure.'})}));
   await page.locator('#send-still').click();await page.waitForFunction(()=>document.querySelector('#still-status').textContent.includes('Controlled provider failure'));

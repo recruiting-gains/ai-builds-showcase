@@ -39,3 +39,11 @@ Independent review corrected stale/duplicate palm triggers, client-midnight ledg
 The first live model, Stable Diffusion 1.5 img2img, was denied by the account with provider code 5018. A controlled FLUX.2 klein 4B diagnostic succeeded, so the implementation changed to that available model's multipart input and base64 JPEG/PNG output. Provider access failures, ordinary failures and timeouts now have distinct safe responses; diagnostic logs contain a classification/code, not image data or provider messages.
 
 Local reports/screenshots are generated into ignored `test-results/`; checkpoint/event evidence is under ignored `.harness/`. Public source contains no actual camera captures, reference video, private prompts, credential values or personal filesystem paths.
+
+## Four additional worlds
+
+Aurora, Deep sea, Golden hour and Cosmic expand HandFrame to eight local filters. The same catalog drives the controls and pinch cycle; all eight styles are accepted by the selected-still endpoint. Changing worlds on a returned image applies local colors to its original bitmap, and returning to its submitted look restores that image. Prepared crops explicitly name their frozen look.
+
+The update passed 71 application tests and 25 browser checks, including distinct rendered output for all eight worlds, a world change during an in-flight mocked render, original-image restoration, noncompounding filters, one-request submission, and all eight exact-crop/allowlisted-prompt Worker routes. An independent source and screenshot review found no material blocker. No live AI request was made for this palette update; new AI prompt aesthetics have not been judged from real provider outputs.
+
+Run `1789095905313-66b71cc8-31fc-4124-8539-15605609d9f8` passed all six command nodes on attempt 1. Source fingerprint: `336ddf9e03032e329482830aeeb617e43eb19f1bef16deb58191f0ec9ab96b9a`. Cloudflare version: `ab95748c-b83e-4999-8757-7a7c24529266`. Live HTML/health respond successfully; JavaScript and CSS match the tested production build. Physical-camera acceptance remains separate from generated camera and landmark fixtures.

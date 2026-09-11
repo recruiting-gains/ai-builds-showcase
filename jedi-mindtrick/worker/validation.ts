@@ -2,7 +2,11 @@ export const STYLES = {
   dream: 'a hand-painted dreamscape, soft watercolor, luminous sky, preserve the composition and main subject',
   ink: 'an elegant black and cream ink illustration, graphic novel linework, preserve the composition and main subject',
   neon: 'a cinematic neon illustration, teal and violet light, preserve the composition and main subject',
-  thermal: 'an artistic thermal color palette, violet shadows and amber highlights, preserve the composition and main subject'
+  thermal: 'an artistic thermal color palette, violet shadows and amber highlights, preserve the composition and main subject',
+  aurora: 'an aurora-lit dreamscape, purple shadows, emerald ribbons of light and mint highlights, preserve the composition and main subject',
+  ocean: 'an atmospheric deep-sea illustration, navy depths, cyan light and icy blue highlights, preserve the composition and main subject',
+  sunset: 'a golden-hour illustration, copper shadows, coral light and warm amber highlights, preserve the composition and main subject',
+  cosmic: 'a cosmic illustration, deep indigo and violet with silver-pink starlight, preserve the composition and main subject'
 } as const;
 export type RenderInput = { requestId: string; createdAt: number; image: string; style: keyof typeof STYLES };
 export const MAX_BODY = 400_000;

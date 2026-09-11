@@ -16,7 +16,7 @@ Start with the clearly labelled simulated preview. Its illustration is generated
 4. For HandFrame, form an L with each hand, palms toward the camera. Hold them side by side at the same distance and select **Center depth**. Push one hand toward the camera and pull the other back to stretch that side of the picture; raise either hand to tilt. A quick pinch changes the local style. A pinch held for 0.6 seconds prepares one still; release before another action. The mouse/keyboard controls provide a fallback: drag the frame, adjust size/3D stretch/tilt with the sliders, or focus the canvas and use arrow keys.
 5. **Send still to AI** explicitly submits that selected crop. Preparing a still alone uploads nothing. The returned AI image appears inside HandFrame. The local preview continues during rendering.
 
-The portal checkbox limits disappearance to the hand-shaped or manually positioned rectangle. The frame layouts offer an outline, postcard and cinema treatment. Thermal is a brightness-based color palette, not a temperature sensor.
+The portal checkbox limits disappearance to the hand-shaped or manually positioned rectangle. The frame layouts offer an outline, postcard and cinema treatment. Choose from eight local worlds: **Daydream**, **Thermal**, **Ink study**, **Neon night**, **Aurora**, **Deep sea**, **Golden hour**, and **Cosmic**. Thermal is a brightness-based color palette, not a temperature sensor. Quick pinches cycle through all eight. A prepared still keeps its selected crop and named look; prepare again to change that selection. Switching worlds on a returned AI still applies local colors without another upload. Returning to its original look restores the original AI image.
 
 ## Limits that matter
 

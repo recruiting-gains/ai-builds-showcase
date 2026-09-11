@@ -7,6 +7,18 @@ import { drawDemo, demoMask } from './demo';
 import { PerspectiveTracker, projectFrame, type FramePose } from './handframe/perspective';
 import { drawSurface } from './handframe/surface';
 
+const WORLDS: {id:LocalStyle;name:string;note:string}[] = [
+  {id:'dream',name:'Daydream',note:'Soft pastel colors with a painted finish.'},
+  {id:'thermal',name:'Thermal',note:'A brightness-based color palette. It does not measure temperature.'},
+  {id:'ink',name:'Ink study',note:'Bold ink shadows and warm paper highlights.'},
+  {id:'neon',name:'Neon night',note:'Electric violet with bright neon color.'},
+  {id:'aurora',name:'Aurora',note:'Purple shadows, emerald light and a mint glow.'},
+  {id:'ocean',name:'Deep sea',note:'Deep navy opens into cyan and icy blue.'},
+  {id:'sunset',name:'Golden hour',note:'Copper and coral warm into golden highlights.'},
+  {id:'cosmic',name:'Cosmic',note:'Indigo and violet fade into silver-pink starlight.'},
+];
+const worldName=(id:LocalStyle)=>WORLDS.find(world=>world.id===id)!.name;
+
 document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
 <header class="topbar"><a class="brand" href="/" aria-label="Jedi mindtrick home"><span class="brand-mark">⌑</span> JEDI MINDTRICK<span class="edition">CAMERA PLAYGROUND / 01</span></a><a class="about-link" href="#how-it-works">How it works <span>↗</span></a></header>
 <main>
@@ -31,7 +43,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
       </div>
       <div id="handframe-controls" hidden>
         <div class="section-label"><span>01 / CHOOSE YOUR WORLD</span><span>LOCAL FILTER</span></div>
-        <div class="styles" role="group" aria-label="Visual style"><button data-style="dream" class="active" aria-pressed="true"><i class="swatch dream"></i>Daydream</button><button data-style="thermal" aria-pressed="false"><i class="swatch thermal"></i>Thermal</button><button data-style="ink" aria-pressed="false"><i class="swatch ink"></i>Ink study</button><button data-style="neon" aria-pressed="false"><i class="swatch neon"></i>Neon night</button></div>
+        <div class="styles" role="group" aria-label="Visual style">${WORLDS.map(world=>`<button data-style="${world.id}" class="${world.id==='dream'?'active':''}" aria-pressed="${world.id==='dream'}"><i class="swatch ${world.id}" aria-hidden="true"></i>${world.name}</button>`).join('')}</div>
         <label class="select-row" for="layout">Frame layout<select id="layout"><option value="outline">Floating outline</option><option value="postcard">Postcard</option><option value="cinema">Cinema</option></select></label>
         <p class="hint" id="style-note">Instant color effects, processed on your device.</p>
         <div class="depth-controls"><div class="section-label"><span>02 / MOVE IN 3D</span><output id="depth-state">READY TO STRETCH</output></div>
@@ -65,6 +77,7 @@ let frame:FrameRect|null=null,lastGoodFrame:FrameRect|null=null,lastGoodAt=0;
 let manualFrame:FrameRect={x:.28,y:.23,width:.44,height:.54};
 let calibration:ReturnType<typeof setInterval>|null=null;
 let prepared:{image:string;requestId:string;createdAt:number;style:LocalStyle}|null=null,generated:ImageBitmap|null=null,generatedURL:string|null=null;
+let generatedStyle:LocalStyle|null=null;
 let aiEnabled=false,renderAbort:AbortController|null=null,renderGeneration=0;
 const pinch=new PinchController(),palm=new PalmHold(),perspective=new PerspectiveTracker();
 let pose:FramePose|null=null,manualDepth=0,manualRoll=0;
@@ -82,7 +95,7 @@ const pipeline=new CameraPipeline(result=>{
   if(mode==='invisible'&&!portal&&palm.update(hands,result.timestamp))setFade(targetFade>.5?0:100);
   if(mode==='handframe'){
     const action=pinch.update(hands,result.timestamp);
-    if(action==='next-style'){const list:LocalStyle[]=['dream','thermal','ink','neon'];setStyle(list[(list.indexOf(style)+1)%list.length]);}
+    if(action==='next-style'){const list=WORLDS.map(world=>world.id);setStyle(list[(list.indexOf(style)+1)%list.length]);}
     if(action==='capture'&&lastGoodFrame&&lastVision-lastGoodAt<1000)captureStill(lastGoodFrame);
   }
 },(message,active)=>{
@@ -101,10 +114,10 @@ function resetPerspective(){pose=null;perspective.reset();}
 function syncManualControls(){const disabled=live&&!manual;for(const id of ['#frame-depth','#frame-roll','#frame-size'])$<HTMLInputElement>(id).disabled=disabled;$('#perspective-manual-hint').textContent=disabled?'Your hands control depth and tilt. Enable mouse controls to use these sliders.':'Try the depth and tilt sliders, or use both hands with the camera.';}
 function centerDepth(){perspective.recenter();pose=null;manualDepth=manualRoll=0;$<HTMLInputElement>('#frame-depth').value='0';$<HTMLInputElement>('#frame-roll').value='0';$('#frame-depth-value').textContent='Centered';$('#frame-roll-value').textContent='0°';}
 function resetCalibration(){if(calibration)clearInterval(calibration);calibration=null;$('#countdown').hidden=true;}
-function clearStill(){renderGeneration++;renderAbort?.abort();renderAbort=null;prepared=null;generated?.close();generated=null;if(generatedURL)URL.revokeObjectURL(generatedURL);generatedURL=null;$('#still-panel').hidden=true;$<HTMLImageElement>('#still-preview').removeAttribute('src');}
+function clearStill(){renderGeneration++;renderAbort?.abort();renderAbort=null;prepared=null;generated?.close();generated=null;generatedStyle=null;if(generatedURL)URL.revokeObjectURL(generatedURL);generatedURL=null;$('#still-panel').hidden=true;$<HTMLImageElement>('#still-preview').removeAttribute('src');setStyle(style);}
 function stopCamera(message='Camera off. The simulated preview is ready.'){pipeline.stop();resetPerspective();live=false;hands=[];mask=null;background=null;frame=null;lastGoodFrame=null;lastVision=0;targetFade=fade=0;manual=true;$<HTMLInputElement>('#manual').checked=true;resetCalibration();clearStill();palm.reset();pinch.reset();$('#stop-camera').hidden=true;$<HTMLButtonElement>('#start-camera').disabled=false;$<HTMLButtonElement>('#capture-background').disabled=false;$<HTMLButtonElement>('#capture-still').disabled=false;$('#background-state').textContent='PREVIEW READY';setFade(0);syncManualControls();status(message);}
 function setFade(value:number){if(live&&!background&&value>0){status('Capture the empty background before disappearing.');return;}targetFade=value/100;$<HTMLInputElement>('#fade').value=String(value);$('#fade-value').textContent=`${value}%`;document.querySelectorAll<HTMLButtonElement>('[data-fade]').forEach(b=>{b.classList.toggle('active',Number(b.dataset.fade)===value);b.setAttribute('aria-pressed',String(Number(b.dataset.fade)===value));});}
-function setStyle(value:LocalStyle){style=value;document.querySelectorAll<HTMLButtonElement>('[data-style]').forEach(b=>{b.classList.toggle('active',b.dataset.style===value);b.setAttribute('aria-pressed',String(b.dataset.style===value));});$('#style-note').textContent=value==='thermal'?'A brightness-based color palette. It does not measure temperature.':'Instant color effects, processed on your device.';}
+function setStyle(value:LocalStyle){style=value;document.querySelectorAll<HTMLButtonElement>('[data-style]').forEach(b=>{b.classList.toggle('active',b.dataset.style===value);b.setAttribute('aria-pressed',String(b.dataset.style===value));});$('#style-note').textContent=WORLDS.find(world=>world.id===value)!.note+(generated&&value!==generatedStyle?' Applied locally to your AI still.':'');}
 function setMode(value:Mode){mode=value;palm.reset();pinch.reset();frame=null;resetPerspective();if(live)void pipeline.infer(performance.now(),mode==='invisible');document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(b=>{b.classList.toggle('active',b.dataset.mode===value);b.setAttribute('aria-pressed',String(b.dataset.mode===value));});$('#invisible-controls').hidden=value!=='invisible';$('#handframe-controls').hidden=value!=='handframe';$('#perspective-controls').hidden=value!=='handframe';$('#gesture-help').textContent=value==='invisible'?'Hold an open palm to disappear. Lower it, then repeat to return.':'Push one hand forward, pull the other back. Lift to tilt. Quick pinch: style. Hold 0.6s: prepare a still.';$('#effect-caption').textContent=value==='invisible'?'A little less here.':'A different world, within reach.';scene.setAttribute('aria-label',`${live?'Live camera':'Simulated'} ${value} effect. Use the adjacent controls to interact.`);}
 function activeFrame(){return manual||!live?manualFrame:frame;}
 function pixelRect(rect:FrameRect){return {x:Math.max(0,Math.round(rect.x*W)),y:Math.max(0,Math.round(rect.y*H)),width:Math.max(1,Math.min(Math.round(rect.width*W),W-Math.round(rect.x*W))),height:Math.max(1,Math.min(Math.round(rect.height*H),H-Math.round(rect.y*H)))};}
@@ -116,7 +129,7 @@ function captureStill(rect=activeFrame()){
   const data=crop.toDataURL('image/jpeg',.85);
   prepared={image:data.split(',')[1],requestId:crypto.randomUUID(),createdAt:Date.now(),style};
   $<HTMLImageElement>('#still-preview').src=data;$('#still-panel').hidden=false;
-  $('#still-status').textContent=aiEnabled?'Only this selected crop will be sent to Cloudflare AI.':'Still prepared. AI rendering is unavailable here; the local effects still work.';
+  $('#still-status').textContent=aiEnabled?`Selected look: ${worldName(prepared.style)}. Only this frozen crop and look will be sent. Prepare again to change the selection.`:'Still prepared. AI rendering is unavailable here; the local effects still work.';
   const button=$<HTMLButtonElement>('#send-still');button.disabled=!aiEnabled;button.textContent='Send still to AI ↗';
 }
 async function sendStill(){
@@ -124,14 +137,14 @@ async function sendStill(){
   // Capture age can exceed server request age. A newly explicit submission establishes request time.
   prepared.createdAt=Date.now();const submission={...prepared};const generation=++renderGeneration;
   renderAbort=new AbortController();const abort=renderAbort;
-  const button=$<HTMLButtonElement>('#send-still');button.disabled=true;button.textContent='Rendering one still…';$('#still-status').textContent='Sending this crop only. You can keep using the local preview.';
+  const button=$<HTMLButtonElement>('#send-still');button.disabled=true;button.textContent='Rendering one still…';$('#still-status').textContent=`Sending this crop in ${worldName(submission.style)}. You can keep using the local preview.`;
   const timer=setTimeout(()=>abort.abort(),55000);
   try {
     const response=await fetch('/api/render',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(submission),signal:abort.signal});
     if(!response.ok){const result=await response.json() as {error?:string};throw new Error(result.error||'AI image could not be returned.');}
     const blob=await response.blob();const bitmap=await createImageBitmap(blob);
     if(generation!==renderGeneration){bitmap.close();return;}
-    generated?.close();generated=bitmap;generatedURL=URL.createObjectURL(blob);$<HTMLImageElement>('#still-preview').src=generatedURL;
+    generated?.close();generated=bitmap;generatedStyle=submission.style;setStyle(style);generatedURL=URL.createObjectURL(blob);$<HTMLImageElement>('#still-preview').src=generatedURL;
     $('#still-status').textContent='AI still returned. It now appears inside your frame.';button.textContent='AI still ready ✓';
   } catch(error){if(generation===renderGeneration){$('#still-status').textContent=(error instanceof Error&&error.name!=='AbortError'?error.message:'The request timed out or was cancelled.')+' This request will not be repeated. Prepare a new still to make another attempt.';button.textContent='Prepare a new still to retry';}}
   finally{clearTimeout(timer);if(generation===renderGeneration)renderAbort=null;}
@@ -197,8 +210,9 @@ function render(now:number){
 }
 function drawHandSurface(rect:FrameRect,displayPose:FramePose){
   const p=pixelRect(rect),tw=384,th=256;
-  if(generated)textureCtx.drawImage(generated,0,0,tw,th);
-  else{textureCtx.drawImage(raw,p.x,p.y,p.width,p.height,0,0,tw,th);const pixels=textureCtx.getImageData(0,0,tw,th);stylePixels(pixels.data,style);textureCtx.putImageData(pixels,0,0);}
+  if(generated){textureCtx.clearRect(0,0,tw,th);textureCtx.drawImage(generated,0,0,tw,th);}
+  else textureCtx.drawImage(raw,p.x,p.y,p.width,p.height,0,0,tw,th);
+  if(!generated||style!==generatedStyle){const pixels=textureCtx.getImageData(0,0,tw,th);stylePixels(pixels.data,style);textureCtx.putImageData(pixels,0,0);}
   const layout=$<HTMLSelectElement>('#layout').value;
   if(layout==='postcard'){
     textureCtx.fillStyle='#e9e7d6';textureCtx.fillRect(0,0,tw,7);textureCtx.fillRect(0,th-25,tw,25);textureCtx.fillRect(0,0,7,th);textureCtx.fillRect(tw-7,0,7,th);

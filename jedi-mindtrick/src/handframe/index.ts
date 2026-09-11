@@ -10,6 +10,12 @@ const MIN_PINCH_MS = 60;
 const MAX_FRAME_GAP_MS = 1000;
 const MIN_SCORE = 0.5;
 const THERMAL_RAMP = [[7, 12, 47], [75, 18, 144], [215, 30, 90], [255, 152, 36], [255, 250, 208]];
+const WORLD_RAMPS = {
+  aurora: [[20, 10, 45], [81, 32, 118], [24, 143, 126], [99, 221, 178], [213, 255, 232]],
+  ocean: [[3, 16, 40], [10, 51, 96], [8, 131, 166], [67, 195, 224], [214, 247, 255]],
+  sunset: [[37, 15, 30], [118, 44, 47], [216, 98, 71], [248, 168, 81], [255, 236, 184]],
+  cosmic: [[13, 10, 38], [48, 31, 101], [108, 63, 177], [197, 128, 208], [247, 224, 241]],
+} as const;
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value));
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 const pastel = (channel: number, tint: number) => Math.round(channel / 32) * 23 + tint;
@@ -192,6 +198,16 @@ export function stylePixels(data: Uint8ClampedArray, style: LocalStyle): Uint8Cl
       }
       case 'dream': {
         data[i] = pastel(r, 64); data[i + 1] = pastel(g, 58); data[i + 2] = pastel(b, 79);
+        break;
+      }
+      case 'aurora':
+      case 'ocean':
+      case 'sunset':
+      case 'cosmic': {
+        // Map scene brightness through the selected world's original palette.
+        const ramp = WORLD_RAMPS[style], at = light * 4;
+        const low = Math.min(3, Math.floor(at)), mix = at - low;
+        for (let c = 0; c < 3; c++) data[i + c] = ramp[low][c] * (1 - mix) + ramp[low + 1][c] * mix;
         break;
       }
     }

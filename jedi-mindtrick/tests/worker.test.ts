@@ -309,3 +309,22 @@ test('origin and exact JSON media-type checks reject input before ledger or AI a
     assert.equal(f.calls(), 0);
   } finally { f.close(); }
 });
+
+
+test('all eight world styles reach the provider through the validated selected-crop route', async()=>{
+  const f=fixture();
+  try{
+    const styles=['dream','thermal','ink','neon','aurora','ocean','sunset','cosmic'] as const;
+    assert.deepEqual(Object.keys(STYLES).sort(),[...styles].sort());
+    for(const style of styles){
+      const selected={...input(),style};
+      assert.equal((await worker.default.fetch(request(selected),f.env)).status,200);
+      const inference=f.inferences.at(-1)!;
+      const form=await new Response(inference.values.multipart.body,{headers:{'Content-Type':inference.values.multipart.contentType}}).formData();
+      assert.equal(form.get('prompt'),'Transform the supplied image into '+STYLES[style]+'.');
+      const crop=form.get('input_image_0') as File;
+      assert.deepEqual(Buffer.from(await crop.arrayBuffer()),Buffer.from(selected.image,'base64'));
+    }
+    assert.equal(f.calls(),8);
+  }finally{f.close();}
+});

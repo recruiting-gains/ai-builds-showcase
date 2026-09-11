@@ -222,14 +222,52 @@ test('a second closed hand must open before another action can start', () => {
 });
 
 test('all local filters mutate RGB predictably, preserve alpha, and remain distinct', () => {
-  const styles: LocalStyle[] = ['thermal', 'ink', 'neon', 'dream'];
+  const styles: LocalStyle[] = ['thermal', 'ink', 'neon', 'dream', 'aurora', 'ocean', 'sunset', 'cosmic'];
   const outputs = styles.map(style => {
-    const pixels = new Uint8ClampedArray([0, 0, 0, 0, 90, 130, 190, 127, 255, 255, 255, 255]);
+    const pixels = new Uint8ClampedArray([0, 0, 0, 0, 128, 128, 128, 127, 255, 255, 255, 255,
+      90, 130, 190, 85, 220, 60, 30, 170, 30, 200, 80, 254]);
     assert.equal(stylePixels(pixels, style), pixels);
-    assert.deepEqual([pixels[3], pixels[7], pixels[11]], [0, 127, 255]);
+    assert.deepEqual([pixels[3], pixels[7], pixels[11], pixels[15], pixels[19], pixels[23]], [0, 127, 255, 85, 170, 254]);
+    for (let index = 0; index < pixels.length; index++) {
+      if (index % 4 !== 3) assert.ok(Number.isInteger(pixels[index]) && pixels[index] >= 0 && pixels[index] <= 255);
+    }
+    const luma = (offset: number) => 0.2126 * pixels[offset] + 0.7152 * pixels[offset + 1] + 0.0722 * pixels[offset + 2];
+    assert.ok(luma(0) < luma(4) && luma(4) < luma(8), `${style} must keep shadows, midtones, and highlights distinguishable`);
     return [...pixels];
   });
-  assert.equal(new Set(outputs.map(output => output.join(','))).size, 4);
+  for (const offset of [0, 4, 8]) {
+    assert.equal(new Set(outputs.map(output => output.slice(offset, offset + 3).join(','))).size, 8,
+      'every palette must differ at black, gray, and white');
+  }
+  assert.equal(new Set(outputs.map(output => output.slice(12).join(','))).size, 8,
+    'all eight filters must also differ on a representative multi-color scene');
   assert.deepEqual(outputs[0].slice(8, 11), [255, 250, 208]);
   assert.throws(() => stylePixels(new Uint8ClampedArray(3), 'ink'), /RGBA/);
+});
+
+test('new world palettes retain their intended colors and a smooth tonal range', () => {
+  const styles: LocalStyle[] = ['aurora', 'ocean', 'sunset', 'cosmic'];
+  const midtones = styles.map(style => {
+    const pixels = new Uint8ClampedArray(256 * 4);
+    for (let value = 0; value < 256; value++) pixels.set([value, value, value, value], value * 4);
+    stylePixels(pixels, style);
+    let previousLuma = -1;
+    for (let value = 0; value < 256; value++) {
+      const offset = value * 4;
+      assert.equal(pixels[offset + 3], value, `${style} must preserve all alpha levels`);
+      const luma = 0.2126 * pixels[offset] + 0.7152 * pixels[offset + 1] + 0.0722 * pixels[offset + 2];
+      assert.ok(luma >= previousLuma - 0.3, `${style} must preserve tonal ordering within byte rounding`);
+      if (value > 0) for (let channel = 0; channel < 3; channel++) {
+        assert.ok(Math.abs(pixels[offset + channel] - pixels[offset - 4 + channel]) <= 3,
+          `${style} must avoid abrupt color bands`);
+      }
+      previousLuma = luma;
+    }
+    return [...pixels.slice(128 * 4, 128 * 4 + 3)];
+  });
+  const [aurora, ocean, sunset, cosmic] = midtones;
+  assert.ok(aurora[1] > aurora[2] && aurora[2] > aurora[0], 'Aurora midtones should be emerald');
+  assert.ok(ocean[2] > ocean[1] && ocean[1] > ocean[0], 'Deep sea midtones should be cyan blue');
+  assert.ok(sunset[0] > sunset[1] && sunset[1] > sunset[2], 'Golden hour midtones should be copper coral');
+  assert.ok(cosmic[2] > cosmic[0] && cosmic[0] > cosmic[1], 'Cosmic midtones should be violet');
 });
