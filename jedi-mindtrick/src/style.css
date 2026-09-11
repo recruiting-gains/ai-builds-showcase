@@ -6,3 +6,6 @@
 .depth-controls{padding-top:4px}.range-ends{display:flex;justify-content:space-between;color:var(--muted,#9db9a5);font-size:10px;margin-top:2px}#perspective-controls input:disabled{opacity:.4}#frame-depth-value,#frame-roll-value{font-size:10px;color:#c8f5a4}#depth-state{font-size:9px}
 
 .aurora{background:linear-gradient(115deg,#291440,#0ea376,#c8ffe1)}.ocean{background:linear-gradient(115deg,#06102c,#078cb6,#d4faff)}.sunset{background:linear-gradient(115deg,#402027,#db6950,#ffe5a1)}.cosmic{background:linear-gradient(115deg,#100d31,#7053af,#f3d8ee)}
+
+.risograph{background:radial-gradient(circle,#0e665b 1px,transparent 1.3px) 0 0/5px 5px,linear-gradient(120deg,#ffe09a,#f5df68,#f4eedc)}.cyanotype{background:linear-gradient(115deg,#07396b,#326aa0,#f1f1df)}.stippling{background:radial-gradient(circle,#b83937 .9px,transparent 1.3px) 0 0/4px 4px,#f5eddd}.styles button{min-width:0}
+@media(max-width:460px){.styles{grid-template-columns:repeat(3,minmax(0,1fr))}}

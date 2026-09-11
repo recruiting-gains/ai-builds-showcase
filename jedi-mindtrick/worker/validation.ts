@@ -6,7 +6,10 @@ export const STYLES = {
   aurora: 'an aurora-lit dreamscape, purple shadows, emerald ribbons of light and mint highlights, preserve the composition and main subject',
   ocean: 'an atmospheric deep-sea illustration, navy depths, cyan light and icy blue highlights, preserve the composition and main subject',
   sunset: 'a golden-hour illustration, copper shadows, coral light and warm amber highlights, preserve the composition and main subject',
-  cosmic: 'a cosmic illustration, deep indigo and violet with silver-pink starlight, preserve the composition and main subject'
+  cosmic: 'a cosmic illustration, deep indigo and violet with silver-pink starlight, preserve the composition and main subject',
+  risograph: 'a two-color risograph print, green and golden yellow ink, ivory paper grain, subtle ink misregistration, preserve the composition and main subject',
+  cyanotype: 'a cyanotype print, deep Prussian blue shadows, chalky white highlights and textured photographic paper, preserve the composition and main subject',
+  stippling: 'a red-ink stippled illustration on ivory paper, fine dots of varied density describing the light and shade, preserve the composition and main subject'
 } as const;
 export type RenderInput = { requestId: string; createdAt: number; image: string; style: keyof typeof STYLES };
 export const MAX_BODY = 400_000;

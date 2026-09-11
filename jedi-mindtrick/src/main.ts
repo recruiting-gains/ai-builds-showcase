@@ -16,6 +16,9 @@ const WORLDS: {id:LocalStyle;name:string;note:string}[] = [
   {id:'ocean',name:'Deep sea',note:'Deep navy opens into cyan and icy blue.'},
   {id:'sunset',name:'Golden hour',note:'Copper and coral warm into golden highlights.'},
   {id:'cosmic',name:'Cosmic',note:'Indigo and violet fade into silver-pink starlight.'},
+  {id:'risograph',name:'Risograph',note:'Layered green and golden ink, soft paper grain and a slight print offset.'},
+  {id:'cyanotype',name:'Cyanotype',note:'Prussian blue shadows and chalky paper highlights.'},
+  {id:'stippling',name:'Stippling',note:'Fine red ink dots gather into shadows on ivory paper.'},
 ];
 const worldName=(id:LocalStyle)=>WORLDS.find(world=>world.id===id)!.name;
 
@@ -71,6 +74,7 @@ const bgCanvas=document.createElement('canvas');bgCanvas.width=scene.width;bgCan
 const W=scene.width,H=scene.height;
 const texture=document.createElement('canvas');texture.width=384;texture.height=256;
 const textureCtx=texture.getContext('2d',{willReadFrequently:true})!;
+let textureSource:ImageBitmap|HTMLCanvasElement|null=null,textureKey='';
 let mode:Mode='invisible',style:LocalStyle='dream',fade=0,targetFade=0,portal=false,manual=true,live=false;
 let background:ImageData|null=null,mask:Float32Array|null=null,hands:Hand[]=[],lastVision=0,inferenceMs=0;
 let frame:FrameRect|null=null,lastGoodFrame:FrameRect|null=null,lastGoodAt=0;
@@ -114,7 +118,7 @@ function resetPerspective(){pose=null;perspective.reset();}
 function syncManualControls(){const disabled=live&&!manual;for(const id of ['#frame-depth','#frame-roll','#frame-size'])$<HTMLInputElement>(id).disabled=disabled;$('#perspective-manual-hint').textContent=disabled?'Your hands control depth and tilt. Enable mouse controls to use these sliders.':'Try the depth and tilt sliders, or use both hands with the camera.';}
 function centerDepth(){perspective.recenter();pose=null;manualDepth=manualRoll=0;$<HTMLInputElement>('#frame-depth').value='0';$<HTMLInputElement>('#frame-roll').value='0';$('#frame-depth-value').textContent='Centered';$('#frame-roll-value').textContent='0°';}
 function resetCalibration(){if(calibration)clearInterval(calibration);calibration=null;$('#countdown').hidden=true;}
-function clearStill(){renderGeneration++;renderAbort?.abort();renderAbort=null;prepared=null;generated?.close();generated=null;generatedStyle=null;if(generatedURL)URL.revokeObjectURL(generatedURL);generatedURL=null;$('#still-panel').hidden=true;$<HTMLImageElement>('#still-preview').removeAttribute('src');setStyle(style);}
+function clearStill(){renderGeneration++;renderAbort?.abort();renderAbort=null;prepared=null;generated?.close();generated=null;generatedStyle=null;textureSource=null;textureKey='';if(generatedURL)URL.revokeObjectURL(generatedURL);generatedURL=null;$('#still-panel').hidden=true;$<HTMLImageElement>('#still-preview').removeAttribute('src');setStyle(style);}
 function stopCamera(message='Camera off. The simulated preview is ready.'){pipeline.stop();resetPerspective();live=false;hands=[];mask=null;background=null;frame=null;lastGoodFrame=null;lastVision=0;targetFade=fade=0;manual=true;$<HTMLInputElement>('#manual').checked=true;resetCalibration();clearStill();palm.reset();pinch.reset();$('#stop-camera').hidden=true;$<HTMLButtonElement>('#start-camera').disabled=false;$<HTMLButtonElement>('#capture-background').disabled=false;$<HTMLButtonElement>('#capture-still').disabled=false;$('#background-state').textContent='PREVIEW READY';setFade(0);syncManualControls();status(message);}
 function setFade(value:number){if(live&&!background&&value>0){status('Capture the empty background before disappearing.');return;}targetFade=value/100;$<HTMLInputElement>('#fade').value=String(value);$('#fade-value').textContent=`${value}%`;document.querySelectorAll<HTMLButtonElement>('[data-fade]').forEach(b=>{b.classList.toggle('active',Number(b.dataset.fade)===value);b.setAttribute('aria-pressed',String(Number(b.dataset.fade)===value));});}
 function setStyle(value:LocalStyle){style=value;document.querySelectorAll<HTMLButtonElement>('[data-style]').forEach(b=>{b.classList.toggle('active',b.dataset.style===value);b.setAttribute('aria-pressed',String(b.dataset.style===value));});$('#style-note').textContent=WORLDS.find(world=>world.id===value)!.note+(generated&&value!==generatedStyle?' Applied locally to your AI still.':'');}
@@ -202,27 +206,32 @@ function render(now:number){
     if(portal&&r)drawFrame(r,false);
   }else if(r){
     const displayPose=manual||!live?projectFrame(r,manualDepth,manualRoll):pose;
-    if(displayPose)drawHandSurface(r,displayPose);
+    if(displayPose)drawHandSurface(r,displayPose,live?`camera:${pipeline.video.currentTime}`:`preview:${reducedMotion?0:now}`);
   }
   if(now-lastMetric>400){lastMetric=now;const depth=manual||!live?manualDepth:pose?.depth;
     $('#depth-state').textContent=depth===undefined?'SHOW BOTH HANDS':Math.abs(depth)<.08?'CENTERED':depth>0?'LEFT SIDE CLOSER':'RIGHT SIDE CLOSER';$('#source-tag').textContent=live?'LIVE CAMERA · ON-DEVICE TRACKING':'INTERACTIVE PREVIEW · SIMULATED SCENE';$('#frame-tag').textContent=live?`${hands.length} HAND${hands.length===1?'':'S'} TRACKED`:'NO CAMERA CONNECTED';$('#live-metric').textContent=live?`${Math.round(inferenceMs)} ms / inference`:'YOUR CAMERA IS OFF';}
   requestAnimationFrame(render);
 }
-function drawHandSurface(rect:FrameRect,displayPose:FramePose){
+function drawHandSurface(rect:FrameRect,displayPose:FramePose,sourceRevision:string){
   const p=pixelRect(rect),tw=384,th=256;
-  if(generated){textureCtx.clearRect(0,0,tw,th);textureCtx.drawImage(generated,0,0,tw,th);}
-  else textureCtx.drawImage(raw,p.x,p.y,p.width,p.height,0,0,tw,th);
-  if(!generated||style!==generatedStyle){const pixels=textureCtx.getImageData(0,0,tw,th);stylePixels(pixels.data,style);textureCtx.putImageData(pixels,0,0);}
-  const layout=$<HTMLSelectElement>('#layout').value;
-  if(layout==='postcard'){
-    textureCtx.fillStyle='#e9e7d6';textureCtx.fillRect(0,0,tw,7);textureCtx.fillRect(0,th-25,tw,25);textureCtx.fillRect(0,0,7,th);textureCtx.fillRect(tw-7,0,7,th);
-    textureCtx.fillStyle='#234039';textureCtx.font='9px monospace';textureCtx.fillText(generated?'AN AI STILL / JEDI MINDTRICK':'A MOMENT / JEDI MINDTRICK',14,th-10);
-  }else if(layout==='cinema'){
-    textureCtx.fillStyle='#050b0be6';textureCtx.fillRect(0,0,tw,th*.09);textureCtx.fillRect(0,th*.91,tw,th*.09);
+  const layout=$<HTMLSelectElement>('#layout').value,source=generated??raw;
+  const nextKey=`${style}:${layout}:${generated?'still':`${sourceRevision}:${p.x},${p.y},${p.width},${p.height}`}`;
+  // The image can stay cached while its position and perspective keep moving.
+  if(textureSource!==source||textureKey!==nextKey){
+    if(generated){textureCtx.clearRect(0,0,tw,th);textureCtx.drawImage(generated,0,0,tw,th);}
+    else textureCtx.drawImage(raw,p.x,p.y,p.width,p.height,0,0,tw,th);
+    if(!generated||style!==generatedStyle){const pixels=textureCtx.getImageData(0,0,tw,th);stylePixels(pixels.data,style,tw);textureCtx.putImageData(pixels,0,0);}
+    if(layout==='postcard'){
+      textureCtx.fillStyle='#e9e7d6';textureCtx.fillRect(0,0,tw,7);textureCtx.fillRect(0,th-25,tw,25);textureCtx.fillRect(0,0,7,th);textureCtx.fillRect(tw-7,0,7,th);
+      textureCtx.fillStyle='#234039';textureCtx.font='9px monospace';textureCtx.fillText(generated?'AN AI STILL / JEDI MINDTRICK':'A MOMENT / JEDI MINDTRICK',14,th-10);
+    }else if(layout==='cinema'){
+      textureCtx.fillStyle='#050b0be6';textureCtx.fillRect(0,0,tw,th*.09);textureCtx.fillRect(0,th*.91,tw,th*.09);
+    }
+    textureCtx.strokeStyle='#e4ddb9';textureCtx.lineWidth=1.5;textureCtx.strokeRect(1,1,tw-2,th-2);
+    textureCtx.lineWidth=4;
+    for(const [x,y,dx,dy] of [[2,2,1,1],[tw-2,2,-1,1],[2,th-2,1,-1],[tw-2,th-2,-1,-1]]){textureCtx.beginPath();textureCtx.moveTo(x+dx*12,y);textureCtx.lineTo(x,y);textureCtx.lineTo(x,y+dy*12);textureCtx.stroke();}
+    textureSource=source;textureKey=nextKey;
   }
-  textureCtx.strokeStyle='#e4ddb9';textureCtx.lineWidth=1.5;textureCtx.strokeRect(1,1,tw-2,th-2);
-  textureCtx.lineWidth=4;
-  for(const [x,y,dx,dy] of [[2,2,1,1],[tw-2,2,-1,1],[2,th-2,1,-1],[tw-2,th-2,-1,-1]]){textureCtx.beginPath();textureCtx.moveTo(x+dx*12,y);textureCtx.lineTo(x,y);textureCtx.lineTo(x,y+dy*12);textureCtx.stroke();}
   drawSurface(ctx,texture,displayPose,W,H);
 }
 function drawFrame(rect:FrameRect,styled:boolean){

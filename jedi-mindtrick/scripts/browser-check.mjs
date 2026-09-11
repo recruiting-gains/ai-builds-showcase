@@ -45,15 +45,16 @@ try {
   assert.ok(await frameSnapshot()===neutral,'Center depth must restore the same canvas pixels');pass('Center depth restores the neutral rendered surface');
   // Keep the still and returned-image path under perspective as well.
   await page.locator('#frame-depth').evaluate(input=>{input.value='65';input.dispatchEvent(new Event('input',{bubbles:true}));});
-  assert.equal(await page.locator('[data-style]').count(),8);
-  const worlds=['dream','thermal','ink','neon','aurora','ocean','sunset','cosmic'],worldFrames=[];
+  assert.equal(await page.locator('[data-style]').count(),11);
+  const worlds=['dream','thermal','ink','neon','aurora','ocean','sunset','cosmic','risograph','cyanotype','stippling'],worldFrames=[];
   for(const world of worlds){
     await page.locator(`[data-style="${world}"]`).click();await page.waitForTimeout(80);
     assert.equal(await page.locator(`[data-style="${world}"]`).getAttribute('aria-pressed'),'true');
     worldFrames.push(await frameSnapshot());
-    if(['aurora','ocean','sunset','cosmic'].includes(world))await page.locator('.viewport').screenshot({path:`test-results/world-${world}.png`});
+    if(['aurora','ocean','sunset','cosmic','risograph','cyanotype','stippling'].includes(world))await page.locator('.viewport').screenshot({path:`test-results/world-${world}.png`});
   }
-  assert.equal(new Set(worldFrames).size,8);pass('all eight worlds render distinct 3D surfaces and selected controls');
+  assert.equal(new Set(worldFrames).size,11);pass('all eleven worlds render distinct 3D surfaces and selected controls');
+  await page.locator('[data-style="cosmic"]').click();
   const noUploads=report.network.filter(r=>r.method==='POST');assert.equal(noUploads.length,0);pass('local mode interactions upload no image');
   await page.locator('#capture-still').click();assert.equal(report.network.filter(r=>r.method==='POST').length,0);pass('preparing still does not upload');
   const selected=await page.locator('#still-preview').getAttribute('src');

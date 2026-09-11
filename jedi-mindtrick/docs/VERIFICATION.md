@@ -47,3 +47,11 @@ Aurora, Deep sea, Golden hour and Cosmic expand HandFrame to eight local filters
 The update passed 71 application tests and 25 browser checks, including distinct rendered output for all eight worlds, a world change during an in-flight mocked render, original-image restoration, noncompounding filters, one-request submission, and all eight exact-crop/allowlisted-prompt Worker routes. An independent source and screenshot review found no material blocker. No live AI request was made for this palette update; new AI prompt aesthetics have not been judged from real provider outputs.
 
 Run `1789095905313-66b71cc8-31fc-4124-8539-15605609d9f8` passed all six command nodes on attempt 1. Source fingerprint: `336ddf9e03032e329482830aeeb617e43eb19f1bef16deb58191f0ec9ab96b9a`. Cloudflare version: `ab95748c-b83e-4999-8757-7a7c24529266`. Live HTML/health respond successfully; JavaScript and CSS match the tested production build. Physical-camera acceptance remains separate from generated camera and landmark fixtures.
+
+## Three print worlds and texture reuse
+
+Risograph, Cyanotype and Stippling bring the catalog to eleven worlds. Stable grain and antialiased dots follow the picture on the existing perspective surface. The renderer reuses unchanged textures while continuing to draw each changing pose. See [print implementation and measurements](PRINT-FILTERS.md).
+
+The update passes 78 application tests, 25 browser checks and eight controlled flow scenarios. Each flow scenario paints 120 changing poses in about two seconds; frozen styles rebuild their texture once, compared with 120 times in the baseline. Five responsive widths from 320 to 1440 pixels were checked after a final mobile grid adjustment. Independent source and screenshot review found no material blocker. New AI styles use mocked provider coverage; physical-hand latency and new paid-provider aesthetics remain unverified.
+
+Run `1789096871671-96d888a5-a9d4-430c-8267-f6fffcbe9f07` passed all six command nodes on its third source revision, within the three-attempt limit. Source fingerprint: `304e5d8aacc2506e3f2f6f27568aeb6d9d93528a26fcc330e47c206c6cb99f3d`. Cloudflare version: `72ea1944-fbc0-425d-93a3-2dcf22b0d259`. Live HTML and health returned HTTP 200; JavaScript and CSS bytes match the tested production build.

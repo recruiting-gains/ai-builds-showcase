@@ -1,4 +1,5 @@
 import type { FrameRect, Hand, LocalStyle, Point } from '../contracts';
+import { applyPrintFilter } from './print-filters';
 export { PerspectiveTracker, projectFrame } from './perspective';
 export type { FramePose } from './perspective';
 
@@ -172,7 +173,8 @@ export class PinchController {
 }
 
 /** Original local color filters. They do not invoke or imitate an AI provider. */
-export function stylePixels(data: Uint8ClampedArray, style: LocalStyle): Uint8ClampedArray {
+export function stylePixels(data: Uint8ClampedArray, style: LocalStyle, width = data.length / 4): Uint8ClampedArray {
+  if(style==='risograph'||style==='cyanotype'||style==='stippling')return applyPrintFilter(data,width,data.length/4/width,style);
   if (data.length % 4 !== 0) throw new RangeError('RGBA pixels must contain complete four-channel pixels.');
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i], g = data[i + 1], b = data[i + 2];

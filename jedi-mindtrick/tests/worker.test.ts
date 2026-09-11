@@ -311,10 +311,10 @@ test('origin and exact JSON media-type checks reject input before ledger or AI a
 });
 
 
-test('all eight world styles reach the provider through the validated selected-crop route', async()=>{
+test('all eleven world styles reach the provider through the validated selected-crop route', async()=>{
   const f=fixture();
   try{
-    const styles=['dream','thermal','ink','neon','aurora','ocean','sunset','cosmic'] as const;
+    const styles=['dream','thermal','ink','neon','aurora','ocean','sunset','cosmic','risograph','cyanotype','stippling'] as const;
     assert.deepEqual(Object.keys(STYLES).sort(),[...styles].sort());
     for(const style of styles){
       const selected={...input(),style};
@@ -325,6 +325,6 @@ test('all eight world styles reach the provider through the validated selected-c
       const crop=form.get('input_image_0') as File;
       assert.deepEqual(Buffer.from(await crop.arrayBuffer()),Buffer.from(selected.image,'base64'));
     }
-    assert.equal(f.calls(),8);
+    assert.equal(f.calls(),11);
   }finally{f.close();}
 });
