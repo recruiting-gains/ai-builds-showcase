@@ -26,6 +26,8 @@ Open the [live HTTPS app](https://jedi-mindtrick.recruiting-gains.workers.dev) i
 
 Turn the phone sideways and prop it somewhere stable for more room to move both hands. Choose **HandFrame → Full screen** and leave **Fill view** off to preserve the whole camera image. Tap the picture to reveal the exit controls. If camera permission is unavailable inside another app's browser, open the same link directly in Safari.
 
+Tap **Record** below the camera (also available in fullscreen), make your hand movements, then tap **Stop recording**. Preview the clip and tap **Save video**. On iPhone, choose **Save Video** in the share menu when offered; **Download** saves through the browser to Downloads/Files. A website cannot silently write to Photos. Keep the page open until you have saved the clip; cancelling the menu retains it for another attempt. Tap **Discard clip** only when you are finished with it. Recordings contain the whole camera canvas and its effects, without the controls or microphone audio. Clips stop at one minute or the memory limit. [Recording behavior and checks](docs/RECORDING.md).
+
 For a shortcut, use Safari's **Share → Add to Home Screen → Add** ([Apple's instructions](https://support.apple.com/guide/iphone/bookmark-a-website-iph42ab2f3a7/ios)). Responsive layouts and fullscreen fallback are tested with simulated camera input; physical iPhone hand tracking and frame rate still depend on the device, lighting and browser.
 
 **Saved shapes & drawing** is optional. Choosing Rectangle, Triangle, Oval, Diamond, Hexagon or Star—or applying a custom 3–12-point outline with **Use shape**—turns off Follow my hands. Turn it back on to shape the opening directly. With it off, the usual two-hand frame controls move the saved outline, a quick pinch changes the world, and a 0.6-second pinch prepares one still. Release before another pinch action. Mouse/keyboard controls also provide a fallback: drag the frame, use the size/depth/tilt sliders, or focus the canvas and use arrow keys. Live automatic outlines require mouse controls to be off. [Automatic hand outlines](docs/AUTOMATIC-HAND-SHAPES.md) · [Fullscreen and saved shapes](docs/FULLSCREEN-SHAPES.md).
@@ -76,6 +78,7 @@ Set `PLAYWRIGHT_CHANNEL` if using another installed Playwright channel. These te
 | `src/vision/` and `public/vision-worker.js` | Camera lifecycle, continuous palm visibility and bounded original-input vision |
 | `src/effects/` | Invisibility, mask alignment, tracked-hand coverage and portal |
 | `src/handframe/` | Automatic joint contours, saved shapes, frame/depth geometry, projective rendering, close/reopen world cycling, pinch timing and local filters |
+| `src/recording.ts`, `src/recording-ui.ts` | Bounded canvas recording, local clip preview, explicit native sharing and download |
 | `worker/` | Validated still endpoint, model call, durable idempotency and shared quota |
 | `harness/` | Executable check graph, bounded commands, checkpoints and recovery |
 | `tests/` | Pure effects, timing, lifecycle and real Worker logic with mocked AI |

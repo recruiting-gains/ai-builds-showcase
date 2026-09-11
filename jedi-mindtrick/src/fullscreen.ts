@@ -138,7 +138,7 @@ export function installFullscreen(viewport: HTMLElement, opener: HTMLButtonEleme
     if (!active) return;
     if (event.key === 'Escape') { event.preventDefault(); void exit(); }
     if (event.key === 'Tab') {
-      const candidates: HTMLElement[] = [scene, ...viewport.querySelectorAll<HTMLButtonElement>('.screen-actions button')].filter(e => !e.hidden && (!(e instanceof HTMLButtonElement) || !e.disabled));
+      const candidates: HTMLElement[] = [scene, ...viewport.querySelectorAll<HTMLElement>('.screen-actions button, .recording-ui button, .recording-ui a[href], .recording-ui video[controls]')].filter(e => !e.closest('[hidden]') && e.getClientRects().length > 0 && (!(e instanceof HTMLButtonElement) || !e.disabled));
       const index = candidates.indexOf(document.activeElement as HTMLElement);
       if (event.shiftKey && index <= 0) { event.preventDefault(); const last = candidates.at(-1); if (last) focus(last); }
       else if (!event.shiftKey && (index === candidates.length - 1 || index < 0)) { event.preventDefault(); if (candidates[0]) focus(candidates[0]); }

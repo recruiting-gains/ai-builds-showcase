@@ -13,6 +13,7 @@ import { installShapeEditor } from './handframe/shape-editor';
 import { HandOutlineTracker } from './handframe/hand-outline';
 import { WorldCycle } from './handframe/world-cycle';
 import { installFullscreen } from './fullscreen';
+import { installRecording } from './recording-ui';
 
 const WORLDS: {id:LocalStyle;name:string;note:string}[] = [
   {id:'dream',name:'Daydream',note:'Soft pastel colors with a painted finish.'},
@@ -42,6 +43,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
     <div class="studio">
       <div class="studio-bar"><div class="mode-tabs" role="group" aria-label="Choose an effect"><button class="active" data-mode="invisible" aria-pressed="true"><span>01</span> Invisible</button><button data-mode="handframe" aria-pressed="false"><span>02</span> HandFrame</button></div><div class="studio-actions" id="studio-actions"><button id="full-screen" class="screen-open" aria-expanded="false" aria-controls="camera-view">Full screen <span aria-hidden="true">⛶</span></button></div></div><div id="studio-status"></div>
       <div class="viewport" id="camera-view"><canvas id="scene" width="768" height="432" aria-label="Interactive simulated preview of the Invisible effect"></canvas><div class="viewport-top"><span id="source-tag">INTERACTIVE PREVIEW · SIMULATED SCENE</span><span id="frame-tag">NO CAMERA CONNECTED</span></div><div class="viewport-bottom"><div><span class="record-dot"></span><span id="effect-caption">A little less here.</span></div><span id="live-metric">YOUR CAMERA IS OFF</span></div><div id="countdown" hidden></div><div class="screen-actions" role="group" aria-label="Full screen controls"><span id="screen-notice" role="status">Esc to return</span><button id="camera-only" aria-pressed="false">Just camera</button><button id="fill-screen" aria-pressed="false">Fill view</button><button id="exit-screen">Exit full screen <span aria-hidden="true">✕</span></button></div><span id="screen-camera-state">Simulated preview · Camera off</span></div>
+      <div id="recording-home"><section id="recording-dock" aria-label="Record your mindtrick"></section></div>
       <div class="studio-footer"><span id="gesture-help">Open palm: visible. Slowly close your hand to disappear. Open it again to return.</span><button id="reset" class="text-button">Reset effect ↺</button></div>
     </div>
     <aside class="controls" aria-label="Effect controls">
@@ -85,7 +87,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
         <p class="hint" id="perspective-manual-hint">Try the depth and tilt sliders, or use both hands with the camera.</p></div></div>
     </aside>
   </section>
-  <section id="how-it-works" class="notes"><article><span>01 / A CAMERA ILLUSION</span><h2>Leave a little mystery.</h2><p>Invisible blends your captured room into your silhouette. A steady camera and even lighting give it the best chance to work.</p></article><article><span>02 / FRAME YOUR IMAGINATION</span><h2>Your hands, the viewfinder.</h2><p>Form an opening with both thumbs and index fingers. The picture follows its outline as you move. Bring one hand closer for perspective. Bring both hands together and reopen to change worlds.</p></article><article><span>03 / ON YOUR TERMS</span><h2>Local until you say so.</h2><p>Live camera frames stay in your browser. AI rendering sends only your selected still. No accounts, microphone, or camera recordings.</p></article></section>
+  <section id="how-it-works" class="notes"><article><span>01 / A CAMERA ILLUSION</span><h2>Leave a little mystery.</h2><p>Invisible blends your captured room into your silhouette. A steady camera and even lighting give it the best chance to work.</p></article><article><span>02 / FRAME YOUR IMAGINATION</span><h2>Your hands, the viewfinder.</h2><p>Form an opening with both thumbs and index fingers. The picture follows its outline as you move. Bring one hand closer for perspective. Bring both hands together and reopen to change worlds.</p></article><article><span>03 / ON YOUR TERMS</span><h2>Local until you say so.</h2><p>Live camera frames stay in your browser. AI rendering sends only your selected still. No accounts or microphone. Record a clip only when you tap Record; save it directly from your browser.</p></article></section>
 </main><footer><span>JEDI MINDTRICK <span class="muted">/ Built by Cruz G.</span></span><span>Hand tracking + a little imagination.</span><a href="https://github.com/recruiting-gains/ai-builds-showcase/tree/codex/jedi-mindtrick/jedi-mindtrick" target="_blank" rel="noopener noreferrer">Explore the source ↗</a></footer>`;
 
 const $=<T extends HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
@@ -103,6 +105,7 @@ let shape:FrameShape='rectangle',customOutline=shapePoints('rectangle'),outline=
 let handFollowing=true,handOutline:Point[]|null=null;
 let worldNoticeUntil=0;
 let focusView:ReturnType<typeof installFullscreen>|null=null;
+let recording:ReturnType<typeof installRecording>|null=null;
 let background:ImageData|null=null,mask:Float32Array|null=null,hands:Hand[]=[],lastVision=0,inferenceMs=0;
 let handBackend='';
 let frame:FrameRect|null=null,lastGoodFrame:FrameRect|null=null,lastGoodAt=0;
@@ -141,6 +144,8 @@ const pipeline=new CameraPipeline(result=>{
   }else if(mode==='handframe')pinch.reset();
 },(message,active)=>{
   live=active;status(message);
+  if(!active)recording?.stop('Camera paused. Your clip is ready to save.');
+  recording?.refresh();
   const pending=message.includes('Loading')||message.includes('Waiting');
   $('#stop-camera').hidden=!active&&!pending;
   $<HTMLButtonElement>('#start-camera').disabled=active||pending;
@@ -170,7 +175,7 @@ function syncManualControls(){const disabled=live&&!manual;for(const id of ['#fr
 function centerDepth(){perspective.recenter();pose=null;manualDepth=manualRoll=0;$<HTMLInputElement>('#frame-depth').value='0';$<HTMLInputElement>('#frame-roll').value='0';$('#frame-depth-value').textContent='Centered';$('#frame-roll-value').textContent='0°';}
 function resetCalibration(){if(calibration)clearInterval(calibration);calibration=null;$('#countdown').hidden=true;}
 function clearStill(){renderGeneration++;renderAbort?.abort();renderAbort=null;prepared=null;generated?.close();generated=null;generatedStyle=null;textureSource=null;textureKey='';if(generatedURL)URL.revokeObjectURL(generatedURL);generatedURL=null;$('#still-panel').hidden=true;$<HTMLImageElement>('#still-preview').removeAttribute('src');setStyle(style);}
-function stopCamera(message='Camera off. The simulated preview is ready.'){if(focusView?.active)void focusView.exit();pipeline.stop();resetPerspective();live=false;hands=[];mask=null;personMask=null;lastMaskAt=0;background=null;frame=null;lastGoodFrame=null;lastVision=0;targetFade=fade=0;manual=true;$<HTMLInputElement>('#manual').checked=true;resetCalibration();clearStill();palm.reset();pinch.reset();$('#stop-camera').hidden=true;$<HTMLButtonElement>('#start-camera').disabled=false;$<HTMLButtonElement>('#capture-background').disabled=false;$<HTMLButtonElement>('#capture-still').disabled=false;$('#background-state').textContent='PREVIEW READY';setFade(0);syncManualControls();status(message);}
+function stopCamera(message='Camera off. The simulated preview is ready.'){recording?.stop();if(focusView?.active)void focusView.exit();pipeline.stop();resetPerspective();live=false;recording?.refresh();hands=[];mask=null;personMask=null;lastMaskAt=0;background=null;frame=null;lastGoodFrame=null;lastVision=0;targetFade=fade=0;manual=true;$<HTMLInputElement>('#manual').checked=true;resetCalibration();clearStill();palm.reset();pinch.reset();$('#stop-camera').hidden=true;$<HTMLButtonElement>('#start-camera').disabled=false;$<HTMLButtonElement>('#capture-background').disabled=false;$<HTMLButtonElement>('#capture-still').disabled=false;$('#background-state').textContent='PREVIEW READY';setFade(0);syncManualControls();status(message);}
 function setFade(value:number){if(live&&!background&&value>0){status('Capture the empty background before disappearing.');return;}targetFade=value/100;$<HTMLInputElement>('#fade').value=String(value);$('#fade-value').textContent=`${Math.round(value)}%`;document.querySelectorAll<HTMLButtonElement>('[data-fade]').forEach(b=>{b.classList.toggle('active',Number(b.dataset.fade)===value);b.setAttribute('aria-pressed',String(Number(b.dataset.fade)===value));});}
 function nextWorld(){const list=WORLDS.map(world=>world.id);setStyle(list[(list.indexOf(style)+1)%list.length]);}
 function setStyle(value:LocalStyle){style=value;if(mode==='handframe')$('#effect-caption').textContent=`${worldName(style)} · A world within reach.`;document.querySelectorAll<HTMLButtonElement>('[data-style]').forEach(b=>{b.classList.toggle('active',b.dataset.style===value);b.setAttribute('aria-pressed',String(b.dataset.style===value));});$('#style-note').textContent=WORLDS.find(world=>world.id===value)!.note+(generated&&value!==generatedStyle?' Applied locally to your AI still.':'');}
@@ -214,7 +219,8 @@ const shapeEditor=installShapeEditor($('#shape-editor'),points=>{customOutline=p
 $<HTMLInputElement>('#follow-hands').addEventListener('change',e=>setHandFollowing((e.target as HTMLInputElement).checked));
 document.querySelectorAll<HTMLButtonElement>('[data-shape]').forEach(b=>b.addEventListener('click',()=>{shapeEditor.close();setShape(b.dataset.shape as FrameShape);}));
 $('#custom-shape').addEventListener('click',()=>shapeEditor.open(customOutline,$('#custom-shape')));
-focusView=installFullscreen($('#camera-view'),$<HTMLButtonElement>('#full-screen'),active=>{if(!active){cameraOnly=false;$('#camera-only').setAttribute('aria-pressed','false');$('#camera-only').textContent='Just camera';}});
+focusView=installFullscreen($('#camera-view'),$<HTMLButtonElement>('#full-screen'),active=>{const dock=$('#recording-dock');(active?$('#camera-view'):$('#recording-home')).append(dock);try{dock.inert=false;}catch{/* Fullscreen fallback also supports hosts without inert. */}dock.removeAttribute('aria-hidden');if(!active){cameraOnly=false;$('#camera-only').setAttribute('aria-pressed','false');$('#camera-only').textContent='Just camera';}});
+recording=installRecording(scene,$('#recording-dock'),()=>live);
 $('#camera-only').addEventListener('click',()=>{cameraOnly=!cameraOnly;resetWorldCycle();$('#camera-only').setAttribute('aria-pressed',String(cameraOnly));$('#camera-only').textContent=cameraOnly?'Show effects':'Just camera';});
 $('#start-camera').addEventListener('click',()=>{stopCamera('Starting camera…');$('#stop-camera').hidden=false;void pipeline.start();});
 $('#stop-camera').addEventListener('click',()=>stopCamera());
