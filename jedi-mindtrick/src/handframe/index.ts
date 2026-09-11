@@ -47,6 +47,13 @@ function boundedRect(rect: FrameRect): FrameRect {
   return { x: centerX - width / 2, y: centerY - height / 2, width, height };
 }
 
+function followBlend(displacement: number): number {
+  // Small changes are usually landmark jitter. Larger movement should catch up
+  // promptly instead of carrying the fixed blend's lag through every sample.
+  // Distances are normalized image fractions; no prediction or extra state.
+  return 0.24 + 0.62 * clamp((displacement - 0.003) / 0.047, 0, 1);
+}
+
 /**
  * Fit a frame to the two index/thumb L poses. The parent must clear `previous`
  * after a null result; this function intentionally never holds stale tracking.
@@ -63,18 +70,22 @@ export function deriveFrame(hands: Hand[], previous?: FrameRect | null): FrameRe
   if (rawWidth < 0.10 || rawHeight < 0.045) return null;
   const target = boundedRect({ x, y, width: rawWidth, height: rawHeight });
   if (!previous || !validRect(previous)) return target;
-  const centerShift = Math.hypot(
-    target.x + target.width / 2 - previous.x - previous.width / 2,
-    target.y + target.height / 2 - previous.y - previous.height / 2,
-  );
+  const centerDX = target.x + target.width / 2 - previous.x - previous.width / 2;
+  const centerDY = target.y + target.height / 2 - previous.y - previous.height / 2;
+  const centerShift = Math.hypot(centerDX, centerDY);
   // A sudden tracking teleport cancels instead of animating through the screen.
   if (centerShift > 0.40) return null;
-  const blend = 0.32;
+  const movementBlend = followBlend(centerShift);
+  const resizeBlend = followBlend(Math.max(Math.abs(target.width - previous.width), Math.abs(target.height - previous.height)));
+  // Follow position and dimensions separately so moving a steady-size frame
+  // does not also amplify size jitter, and resizing does not drag its center.
+  const width = previous.width + (target.width - previous.width) * resizeBlend;
+  const height = previous.height + (target.height - previous.height) * resizeBlend;
   return boundedRect({
-    x: previous.x + (target.x - previous.x) * blend,
-    y: previous.y + (target.y - previous.y) * blend,
-    width: previous.width + (target.width - previous.width) * blend,
-    height: previous.height + (target.height - previous.height) * blend,
+    x: previous.x + previous.width / 2 + centerDX * movementBlend - width / 2,
+    y: previous.y + previous.height / 2 + centerDY * movementBlend - height / 2,
+    width,
+    height,
   });
 }
 

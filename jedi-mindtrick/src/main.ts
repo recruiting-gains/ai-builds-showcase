@@ -58,7 +58,7 @@ let aiEnabled=false,renderAbort:AbortController|null=null,renderGeneration=0;
 const pinch=new PinchController(),palm=new PalmHold();
 const status=(message:string)=>{$('#status').textContent=message;};
 const pipeline=new CameraPipeline(result=>{
-  hands=result.hands;lastVision=performance.now();inferenceMs=result.inferenceMs;
+  hands=result.hands;lastVision=result.timestamp;inferenceMs=result.inferenceMs;
   frame=deriveFrame(hands,frame);
   if(frame){lastGoodFrame=frame;lastGoodAt=lastVision;}
   if(result.mask&&result.maskWidth&&result.maskHeight){
@@ -152,8 +152,10 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)stopCamera(
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const simulatedMask=demoMask(W,H);let lastPaint=0,lastMetric=0;
 function render(now:number){
-  if(now-lastPaint<32){requestAnimationFrame(render);return;}lastPaint=now;
-  if(live&&pipeline.video.readyState>=2){rawCtx.save();rawCtx.translate(W,0);rawCtx.scale(-1,1);rawCtx.drawImage(pipeline.video,0,0,W,H);rawCtx.restore();void pipeline.infer(now,mode==='invisible');}
+  // Capture scheduling must not wait behind painting; the pipeline handles cadence and backpressure.
+  if(live)void pipeline.infer(now,mode==='invisible');
+  if(now-lastPaint<(mode==='handframe'?16:32)){requestAnimationFrame(render);return;}lastPaint=now;
+  if(live&&pipeline.video.readyState>=2){rawCtx.save();rawCtx.translate(W,0);rawCtx.scale(-1,1);rawCtx.drawImage(pipeline.video,0,0,W,H);rawCtx.restore();}
   else drawDemo(rawCtx,reducedMotion?0:now);
   if(live&&now-lastVision>1000){hands=[];frame=null;palm.reset();pinch.reset();}
   ctx.drawImage(raw,0,0);

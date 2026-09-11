@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { Hand, LocalStyle } from '../src/contracts';
+import type { FrameRect, Hand, LocalStyle } from '../src/contracts';
 import { deriveFrame, PinchController, stylePixels } from '../src/handframe/index';
 
 function hand(x: number, handedness: string, pinched = false): Hand {
@@ -13,6 +13,19 @@ function hand(x: number, handedness: string, pinched = false): Hand {
   return { landmarks, score: 0.95, handedness };
 }
 const pair = (pinched = false) => [hand(0.8, 'Left', pinched), hand(0.3, 'Right')];
+const translated = (dx: number, dy = 0) => pair().map(h => ({ ...h,
+  landmarks: h.landmarks.map(p => ({ ...p, x: p.x + dx, y: p.y + dy })) }));
+const resized = (factor: number) => pair().map(h => ({ ...h,
+  landmarks: h.landmarks.map(p => ({ ...p, x: 0.55 + (p.x - 0.55) * factor })) }));
+const center = (frame: FrameRect) => ({ x: frame.x + frame.width / 2, y: frame.y + frame.height / 2 });
+const centerError = (a: FrameRect, b: FrameRect) => Math.hypot(center(a).x - center(b).x, center(a).y - center(b).y);
+// Retain the former filter only as a comparison baseline for motion regressions.
+function previousBlend(target: FrameRect, previous: FrameRect): FrameRect {
+  return { x: previous.x + (target.x - previous.x) * 0.32,
+    y: previous.y + (target.y - previous.y) * 0.32,
+    width: previous.width + (target.width - previous.width) * 0.32,
+    height: previous.height + (target.height - previous.height) * 0.32 };
+}
 
 test('frame mirrors asymmetric source landmarks and ignores detector list order', () => {
   const hands = pair(), snapshot = structuredClone(hands);
@@ -47,6 +60,89 @@ test('frame rejects crossed fingertips, low confidence, malformed hands, and deg
   assert.equal(deriveFrame(weak), null);
   const flat = pair(); flat[0].landmarks[9] = { ...flat[0].landmarks[0] };
   assert.equal(deriveFrame(flat), null);
+});
+
+test('deliberate translation and resizing settle within three samples without overshoot', t => {
+  const initial = deriveFrame(pair())!;
+  const metrics: Record<string, { adaptive: number; previous: number }> = {};
+  for (const [name, input, error] of [
+    ['translation', translated(0.12), centerError],
+    ['resize', resized(1.4), (a: FrameRect, b: FrameRect) => Math.abs(a.width - b.width)],
+  ] as const) {
+    const target = deriveFrame(input)!;
+    let adaptive = initial, legacy = initial, adaptiveSamples = 0, previousSamples = 0;
+    let lastError = error(initial, target);
+    const tolerance = lastError * 0.10;
+    for (let sample = 1; sample <= 20; sample++) {
+      adaptive = deriveFrame(input, adaptive)!;
+      legacy = previousBlend(target, legacy);
+      const remaining = error(adaptive, target);
+      assert.ok(remaining <= lastError + 1e-12, `${name} must approach the target monotonically`);
+      assert.ok(adaptive.x >= 0 && adaptive.y >= 0 && adaptive.x + adaptive.width <= 1 && adaptive.y + adaptive.height <= 1);
+      if (name === 'translation') {
+        assert.ok(center(adaptive).x >= center(target).x - 1e-12 && center(adaptive).x <= center(initial).x + 1e-12);
+        assert.ok(Math.abs(adaptive.width - initial.width) < 1e-12);
+      } else {
+        assert.ok(adaptive.width >= initial.width && adaptive.width <= target.width + 1e-12);
+        assert.ok(centerError(adaptive, initial) < 1e-12, 'resizing must retain the intended center');
+      }
+      if (!adaptiveSamples && remaining <= tolerance) adaptiveSamples = sample;
+      if (!previousSamples && error(legacy, target) <= tolerance) previousSamples = sample;
+      lastError = remaining;
+    }
+    assert.ok(adaptiveSamples > 0 && adaptiveSamples <= 3, `${name} should reach 90% within three samples`);
+    assert.ok(adaptiveSamples <= previousSamples / 2, `${name} should at least halve the previous settling samples`);
+    metrics[name] = { adaptive: adaptiveSamples, previous: previousSamples };
+  }
+  t.diagnostic(`Samples to reach 90% of a deliberate change: ${JSON.stringify(metrics)}`);
+});
+
+test('continuous motion has less tracking error than the prior fixed blend', t => {
+  const initial = deriveFrame(pair())!;
+  let adaptive = initial, legacy = initial, adaptiveError = 0, previousError = 0;
+  for (let sample = 1; sample <= 8; sample++) {
+    const input = translated(sample * 0.015);
+    const target = deriveFrame(input)!;
+    adaptive = deriveFrame(input, adaptive)!;
+    legacy = previousBlend(target, legacy);
+    adaptiveError += centerError(adaptive, target);
+    previousError += centerError(legacy, target);
+  }
+  assert.ok(adaptiveError < previousError * 0.65, 'follow movement with at least 35% less accumulated spatial error');
+  t.diagnostic(`Eight-sample translation mean error: adaptive=${(adaptiveError / 8).toFixed(6)}, previous=${(previousError / 8).toFixed(6)} normalized units`);
+});
+
+test('stationary center and size jitter remain more suppressed than the prior fixed blend', t => {
+  const initial = deriveFrame(pair())!;
+  const metrics: Record<string, { adaptiveRms: number; previousRms: number }> = {};
+  for (const name of ['translation', 'resize'] as const) {
+    let adaptive = initial, legacy = initial, adaptiveSquared = 0, previousSquared = 0;
+    for (let sample = 0; sample < 60; sample++) {
+      const noise = (sample % 2 ? 1 : -1) * 0.0015;
+      const input = name === 'translation' ? translated(noise) : resized(1 + noise / initial.width);
+      const target = deriveFrame(input)!;
+      adaptive = deriveFrame(input, adaptive)!;
+      legacy = previousBlend(target, legacy);
+      const error = name === 'translation' ? centerError : (a: FrameRect, b: FrameRect) => Math.abs(a.width - b.width);
+      adaptiveSquared += error(adaptive, initial) ** 2;
+      previousSquared += error(legacy, initial) ** 2;
+    }
+    const adaptiveRms = Math.sqrt(adaptiveSquared / 60), previousRms = Math.sqrt(previousSquared / 60);
+    assert.ok(adaptiveRms < previousRms * 0.80, `${name} jitter must remain smaller than before`);
+    assert.ok(adaptiveRms < 0.0015 * 0.25, `${name} jitter must be strongly attenuated`);
+    metrics[name] = { adaptiveRms, previousRms };
+  }
+  t.diagnostic(`Stationary alternating-noise RMS: ${JSON.stringify(metrics)}`);
+});
+
+test('adaptive follow retains teleport rejection and does not hold a lost or crossed frame', () => {
+  const stale = { x: 0.05, y: 0.05, width: 0.16, height: 0.12 };
+  assert.equal(deriveFrame(translated(0, 0.20), stale), null);
+  const previous = deriveFrame(pair())!;
+  assert.equal(deriveFrame([], previous), null);
+  const crossed = pair();
+  for (const index of [4, 8]) { crossed[0].landmarks[index].x = 0.2; crossed[1].landmarks[index].x = 0.8; }
+  assert.equal(deriveFrame(crossed, previous), null);
 });
 
 test('short pinch advances once on release, with brief noise ignored', () => {

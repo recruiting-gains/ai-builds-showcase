@@ -124,10 +124,11 @@ test('a duplicate observation does not rearm an already fired held palm', () => 
 });
 
 function cameraFixture(permission: () => Promise<MediaStream>) {
-  const globals = ['document', 'navigator', 'Worker', 'createImageBitmap'] as const;
+  const globals = ['document', 'navigator', 'Worker', 'createImageBitmap', 'performance'] as const;
   const previous = new Map(globals.map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
-  const video = { muted: false, playsInline: false, srcObject: null, readyState: 4,
+  const video = { muted: false, playsInline: false, srcObject: null, readyState: 4, currentTime: 0,
     play: async () => {}, pause() {} };
+  const clock = { now: 100 };
   const workers: Array<{ onmessage: ((event: { data: unknown }) => void) | null; terminated: boolean; messages: unknown[] }> = [];
   class FakeWorker {
     onmessage: ((event: { data: unknown }) => void) | null = null;
@@ -139,13 +140,14 @@ function cameraFixture(permission: () => Promise<MediaStream>) {
     terminate() { this.terminated = true; }
   }
   const values = {
+    performance: { now: () => clock.now },
     document: { createElement: () => video },
     navigator: { mediaDevices: { getUserMedia: permission } },
     Worker: FakeWorker,
     createImageBitmap: async () => ({ close() {} }),
   };
   for (const name of globals) Object.defineProperty(globalThis, name, { configurable: true, value: values[name] });
-  return { workers, video, restore() {
+  return { workers, video, clock, restore() {
     for (const name of globals) {
       const descriptor = previous.get(name);
       if (descriptor) Object.defineProperty(globalThis, name, descriptor);
@@ -200,6 +202,76 @@ test('stop releases live resources and ignores a late inference result from the 
     assert.equal(f.video.srcObject, null);
     assert.equal(pipeline.active, false);
   } finally { pipeline.stop(); f.restore(); }
+});
+
+
+test('hand-only tracking samples fresh frames at 33ms while segmentation keeps its 85ms budget', async () => {
+  for (const segment of [false, true]) {
+    const { stream } = fakeStream();const f = cameraFixture(async () => stream);
+    const pipeline = new CameraPipeline(() => {}, () => {});
+    try {
+      await pipeline.start();const worker = f.workers[0];worker.onmessage!({data:{type:'ready'}});
+      const sentFrames = () => worker.messages.filter(m => (m as {type:string}).type === 'frame') as Array<{id:number;timestamp:number;segment:boolean}>;
+      await pipeline.infer(100, segment);const first = sentFrames()[0];
+      worker.onmessage!({data:{...first,type:'frame',hands:[],inferenceMs:5}});
+      f.video.currentTime = 1/30;
+      await pipeline.infer(132, segment);assert.equal(sentFrames().length,1);
+      await pipeline.infer(133, segment);assert.equal(sentFrames().length,segment?1:2);
+      if(segment){await pipeline.infer(184, true);assert.equal(sentFrames().length,1);await pipeline.infer(185,true);assert.equal(sentFrames().length,2);}
+      assert.ok(sentFrames().every(frame => frame.segment === segment));
+    } finally {pipeline.stop();f.restore();}
+  }
+});
+
+test('busy tracking drops pending frames and resumes from the newest video frame without a queue', async () => {
+  const {stream}=fakeStream();const f=cameraFixture(async()=>stream);const pipeline=new CameraPipeline(()=>{},()=>{});
+  try {
+    await pipeline.start();const worker=f.workers[0];worker.onmessage!({data:{type:'ready'}});
+    const sentFrames=()=>worker.messages.filter(m=>(m as {type:string}).type==='frame') as Array<{id:number;timestamp:number}>;
+    await pipeline.infer(100,false);
+    for(const now of [133,166,199,232]){f.video.currentTime=now/1000;await pipeline.infer(now,false);}
+    assert.equal(sentFrames().length,1);
+    f.clock.now=250;worker.onmessage!({data:{type:'frame',...sentFrames()[0],hands:[],inferenceMs:150}});
+    f.video.currentTime=.265;await pipeline.infer(265,false);
+    assert.equal(sentFrames().length,2);assert.equal(sentFrames()[1].timestamp,265);
+  } finally {pipeline.stop();f.restore();}
+});
+
+test('unchanged video frames are not inferred again, and a restarted stream can start at the same video time', async () => {
+  const {stream}=fakeStream();const f=cameraFixture(async()=>stream);const pipeline=new CameraPipeline(()=>{},()=>{});
+  try {
+    await pipeline.start();let worker=f.workers[0];worker.onmessage!({data:{type:'ready'}});
+    await pipeline.infer(100,false);const first=worker.messages.find(m=>(m as {type:string}).type==='frame') as {id:number};
+    worker.onmessage!({data:{type:'frame',id:first.id,timestamp:100,hands:[],inferenceMs:5}});
+    await pipeline.infer(200,false);assert.equal(worker.messages.length,2);
+    await pipeline.start();worker=f.workers[1];worker.onmessage!({data:{type:'ready'}});
+    await pipeline.infer(201,false);assert.equal(worker.messages.length,2);
+  } finally {pipeline.stop();f.restore();}
+});
+
+test('unresolved bitmap capture remains the single in-flight job and is released after stop', async () => {
+  const {stream}=fakeStream();const f=cameraFixture(async()=>stream);const pipeline=new CameraPipeline(()=>{},()=>{});
+  let resolveBitmap!:(bitmap:{close():void})=>void;let captures=0,closed=0;
+  Object.defineProperty(globalThis,'createImageBitmap',{configurable:true,value:()=>{captures++;return new Promise(resolve=>{resolveBitmap=resolve;});}});
+  try {
+    await pipeline.start();const worker=f.workers[0];worker.onmessage!({data:{type:'ready'}});
+    const pending=pipeline.infer(100,false);f.video.currentTime=.1;await pipeline.infer(200,false);
+    assert.equal(captures,1);pipeline.stop();resolveBitmap({close(){closed++;}});await pending;
+    assert.equal(closed,1);assert.equal(worker.messages.length,1);
+  } finally {pipeline.stop();f.restore();}
+});
+
+test('delayed inference is discarded using capture age and cannot make stale hands look fresh', async () => {
+  const {stream}=fakeStream();const f=cameraFixture(async()=>stream);const frames:unknown[]=[];const pipeline=new CameraPipeline(frame=>frames.push(frame),()=>{});
+  try {
+    await pipeline.start();const worker=f.workers[0];worker.onmessage!({data:{type:'ready'}});
+    await pipeline.infer(100,false);const first=worker.messages.find(m=>(m as {type:string}).type==='frame') as {id:number};
+    f.clock.now=1101;worker.onmessage!({data:{type:'frame',id:first.id,timestamp:100,hands:[],inferenceMs:1001}});
+    assert.equal(frames.length,0);f.video.currentTime=1.2;await pipeline.infer(1200,false);
+    const next=worker.messages.at(-1) as {id:number};f.clock.now=1225;
+    worker.onmessage!({data:{type:'frame',id:next.id,timestamp:1200,hands:[],inferenceMs:25}});
+    assert.equal(frames.length,1);
+  } finally {pipeline.stop();f.restore();}
 });
 
 function renderEnvelope() {

@@ -4,7 +4,7 @@ export class CameraPipeline {
   readonly video = document.createElement('video');
   private worker: Worker | null = null; private stream: MediaStream | null = null;
   private generation = 0; private busy = false; private ready = false;
-  private sentAt = 0; private lastSent = 0; private id = 0;
+  private sentAt = 0; private lastSent = -Infinity; private lastVideoTime = -1; private id = 0;
   private watchdog: ReturnType<typeof setInterval> | null = null;
   constructor(private onFrame: (frame: VisionFrame) => void, private onStatus: (message: string, active: boolean) => void) {
     this.video.muted = true; this.video.playsInline = true;
@@ -31,7 +31,11 @@ export class CameraPipeline {
       worker.onmessage = ({ data }: MessageEvent<VisionMessage>) => {
         if (generation !== this.generation) return;
         if (data.type === 'ready') { this.ready = true; this.onStatus('Camera on · processing on this device', true); }
-        if (data.type === 'frame' && data.id === this.id) { this.busy = false; this.onFrame(data); }
+        if (data.type === 'frame' && data.id === this.id) {
+          this.busy = false;
+          const age = performance.now() - data.timestamp;
+          if (Number.isFinite(age) && age >= 0 && age <= 1000) this.onFrame(data);
+        }
         if (data.type === 'error') this.fail(data.message);
       };
       worker.onerror = () => { if (generation === this.generation) this.fail('The vision worker could not load. Restart to try again.'); };
@@ -43,8 +47,10 @@ export class CameraPipeline {
     }
   }
   async infer(now: number, segment: boolean) {
-    if (!this.active || this.busy || now - this.lastSent < 85 || this.video.readyState < 2) return;
-    this.busy = true; this.sentAt = this.lastSent = now;
+    // HandFrame has no person-segmentation work; sample it more often without queuing frames.
+    const interval = segment ? 85 : 33;
+    if (!this.active || this.busy || now - this.lastSent < interval || this.video.readyState < 2 || this.video.currentTime === this.lastVideoTime) return;
+    this.busy = true; this.sentAt = this.lastSent = now; this.lastVideoTime = this.video.currentTime;
     const generation = this.generation, id = ++this.id;
     try {
       const bitmap = await createImageBitmap(this.video, { resizeWidth: 512, resizeHeight: 288 });
@@ -53,7 +59,7 @@ export class CameraPipeline {
     } catch { if (generation === this.generation) this.fail('This browser could not read a camera frame. Try another supported browser.'); }
   }
   stop() {
-    this.generation++; this.ready = this.busy = false;
+    this.generation++; this.ready = this.busy = false; this.lastSent = -Infinity; this.lastVideoTime = -1;
     this.worker?.terminate(); this.worker = null;
     this.stream?.getTracks().forEach(t => t.stop()); this.stream = null;
     this.video.pause(); this.video.srcObject = null;

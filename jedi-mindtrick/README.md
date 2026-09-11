@@ -63,7 +63,7 @@ Set `PLAYWRIGHT_CHANNEL` if using another installed Playwright channel. These te
 | `harness/` | Executable check graph, bounded commands, checkpoints and recovery |
 | `tests/` | Pure effects, timing, lifecycle and real Worker logic with mocked AI |
 
-The engineering harness is separate from the camera loop. It runs explicit commands and tracks operator-supplied external observations; it does not pretend to create agents. [Workflow, diagram and runnable recovery example](docs/WORKFLOW.md). [Ownership and acceptance contract](docs/OWNERSHIP.md). [Independent review](docs/REVIEW.md). [Verification evidence](docs/VERIFICATION.md).
+The engineering harness is separate from the camera loop. It runs explicit commands and tracks operator-supplied external observations; it does not pretend to create agents. [Workflow, diagram and runnable recovery example](docs/WORKFLOW.md). [Ownership and acceptance contract](docs/OWNERSHIP.md). [Independent review](docs/REVIEW.md). [Verification evidence](docs/VERIFICATION.md). [HandFrame responsiveness measurements](docs/HANDFRAME-RESPONSIVENESS.md).
 
 ## Deploy
 
