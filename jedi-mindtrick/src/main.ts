@@ -94,7 +94,7 @@ function pixelRect(rect:FrameRect){return {x:Math.max(0,Math.round(rect.x*W)),y:
 
 function captureStill(rect=activeFrame()){
   if(!rect){status('Make a frame with both hands, or enable mouse controls first.');return;}
-  clearStill();const r=pixelRect(rect),crop=document.createElement('canvas');const size=512;
+  clearStill();const r=pixelRect(rect),crop=document.createElement('canvas');const size=448;
   crop.width=size;crop.height=size;crop.getContext('2d')!.drawImage(raw,r.x,r.y,r.width,r.height,0,0,size,size);
   const data=crop.toDataURL('image/jpeg',.85);
   prepared={image:data.split(',')[1],requestId:crypto.randomUUID(),createdAt:Date.now(),style};

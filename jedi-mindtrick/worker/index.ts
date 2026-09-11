@@ -1,12 +1,12 @@
 import { DurableObject } from 'cloudflare:workers';
 import { MAX_BODY, STYLES, validateRender, readBounded, type RenderInput } from './validation';
 
-const MODEL='@cf/runwayml/stable-diffusion-v1-5-img2img' as const;
+const MODEL='@cf/black-forest-labs/flux-2-klein-4b' as const;
 const headers={ 'Cache-Control':'no-store', 'X-Content-Type-Options':'nosniff' };
 const error=(message:string,status=400)=>Response.json({error:message},{status,headers});
 
 /** One coordination object for this small preview's shared daily budget (20 calls).
- * Stores IDs/hashes/status for 48 hours, never camera or generated pixels. */
+ * Prunes IDs/hashes/status after 48 hours, never stores camera or generated pixels. */
 export class RenderLedger extends DurableObject<Env> {
   constructor(ctx:DurableObjectState,env:Env){
     super(ctx,env);
@@ -24,27 +24,38 @@ export class RenderLedger extends DurableObject<Env> {
     if(count>=20)return error('Today’s shared AI preview allowance is used. Local styles still work; try AI again tomorrow.',429);
     // These synchronous statements run without an interleaving await: claim before any model call.
     this.ctx.storage.sql.exec('INSERT INTO requests VALUES (?, ?, ?, ?)',input.requestId,hash,'submitted',now);
-    await this.ctx.storage.setAlarm(Date.now()+48*60*60*1000);
+    const oldest=this.ctx.storage.sql.exec<{created:number}>('SELECT created FROM requests ORDER BY created LIMIT 1').toArray()[0];
+    await this.ctx.storage.setAlarm(Math.max(now+1000,oldest.created+48*60*60*1000+1));
     let timeout:ReturnType<typeof setTimeout>|undefined;
-    const abort=new AbortController();let activeReader:ReadableStreamDefaultReader<Uint8Array>|undefined;
+    const abort=new AbortController();
     try {
       const generated=await Promise.race([
         (async()=>{
-          const stream=await this.env.AI.run(MODEL,{prompt:STYLES[input.style],image_b64:input.image,strength:.65,num_steps:20,width:512,height:512},{signal:abort.signal});
-          const reader=stream.getReader();activeReader=reader;const parts:Uint8Array[]=[];let size=0;
-          try {for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>4_000_000){await reader.cancel();throw new Error('Image too large');}parts.push(value);}}
-          finally{reader.releaseLock();}
-          const bytes=new Uint8Array(size);let offset=0;for(const part of parts){bytes.set(part,offset);offset+=part.length;}
-          if(bytes[0]!==137||bytes[1]!==80||bytes[2]!==78||bytes[3]!==71)throw new Error('Invalid generated image');
-          return bytes;
+          const image=Uint8Array.from(atob(input.image),c=>c.charCodeAt(0));
+          const form=new FormData();form.append('prompt','Transform the supplied image into '+STYLES[input.style]+'.');
+          form.append('width','512');form.append('height','512');
+          form.append('input_image_0',new Blob([image],{type:image[0]===137?'image/png':'image/jpeg'}),'selected-still');
+          const encoded=new Response(form);
+          const output=await this.env.AI.run(MODEL,{multipart:{body:encoded.body!,contentType:encoded.headers.get('Content-Type')!}},{signal:abort.signal});
+          if(typeof output.image!=='string'||output.image.length>5_333_336||!output.image.length||output.image.length%4!==0||!/^[A-Za-z0-9+/]+={0,2}$/.test(output.image))throw new Error('INVALID_IMAGE');
+          const bytes=Uint8Array.from(atob(output.image),c=>c.charCodeAt(0));
+          if(bytes.length>4_000_000)throw new Error('INVALID_IMAGE');
+          const mime=bytes[0]===137&&bytes[1]===80&&bytes[2]===78&&bytes[3]===71?'image/png':bytes[0]===255&&bytes[1]===216&&bytes[2]===255?'image/jpeg':null;
+          if(!mime)throw new Error('INVALID_IMAGE');
+          return {bytes,mime};
         })(),
-        new Promise<never>((_,reject)=>{timeout=setTimeout(()=>{abort.abort();void activeReader?.cancel().catch(()=>{});reject(new Error('TIMEOUT'));},45000);})
+        new Promise<never>((_,reject)=>{timeout=setTimeout(()=>{abort.abort();reject(new Error('TIMEOUT'));},45000);})
       ]);
       this.ctx.storage.sql.exec('UPDATE requests SET status=? WHERE id=?','complete',input.requestId);
-      return new Response(generated,{headers:{...headers,'Content-Type':'image/png','X-Render-Id':input.requestId}});
-    } catch {
+      return new Response(generated.bytes,{headers:{...headers,'Content-Type':generated.mime,'X-Render-Id':input.requestId}});
+    } catch(e) {
       this.ctx.storage.sql.exec('UPDATE requests SET status=? WHERE id=?','unknown-or-failed',input.requestId);
-      return error('The AI render did not return an image in time. Your local preview is safe. This request will not be repeated automatically.',502);
+      const providerCode=e instanceof Error?e.message.match(/^(\d{4}):/)?.[1]:undefined;
+      const category=abort.signal.aborted?'timeout':['5018','3041','5035'].includes(providerCode||'')?'unavailable':e instanceof Error&&e.message==='INVALID_IMAGE'?'invalid-image':'provider-failure';
+      // Record only a safe category/code; never provider messages, prompts or image data.
+      console.warn(JSON.stringify({event:'ai-render-failed',category,providerCode:providerCode||null}));
+      const message=category==='timeout'?'The AI render timed out.':category==='unavailable'?'The image provider is unavailable for this preview.':'The AI provider could not return a usable image.';
+      return error(message+' Your local preview is safe. This request will not be repeated automatically.',category==='timeout'?504:category==='unavailable'?503:502);
     } finally {if(timeout)clearTimeout(timeout);}
   }
   async alarm(){

@@ -1,6 +1,6 @@
 # Jedi mindtrick engineering workflow
 
-The project has an executable command-check harness in `harness/`, alongside the actual the coordinator, the feature engineer and the independent reviewer collaboration used to develop it. The harness runs checks; it does not create AI agents, impersonate a reviewer, open a camera, call an image provider or publish a deployment.
+The project has an executable command-check harness in `harness/`, alongside the coordinator, feature engineer and independent reviewer collaboration used to develop it. The harness runs checks; it does not create AI agents, impersonate a reviewer, open a camera, call an image provider or publish a deployment.
 
 ## Workflow graph
 
@@ -76,7 +76,7 @@ The attempt limit still applies. A non-idempotent stage cannot use this escape h
 
 ## External evidence gates
 
-Passing automated checks ends at `awaiting-evidence`, not at a claim that the camera effects or live deployment work. the coordinator must separately observe the required result, retain appropriate evidence, and supply a small JSON receipt for each gate.
+Passing automated checks ends at `awaiting-evidence`, not at a claim that the camera effects or live deployment work. The coordinator must separately observe the required result, retain appropriate evidence, and supply a small JSON receipt for each gate.
 
 Example shape, using the **actual** fingerprint printed by that run:
 

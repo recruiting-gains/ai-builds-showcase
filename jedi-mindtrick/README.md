@@ -6,6 +6,8 @@ A browser camera playground with two independent effects: **Invisible**, which b
 
 ## Try it
 
+[Open Jedi mindtrick](https://jedi-mindtrick.recruiting-gains.workers.dev)
+
 Start with the clearly labelled simulated preview. Its illustration is generated locally in Canvas; it is not a camera recording or an AI-generated result.
 
 1. Choose **Invisible** or **HandFrame**.
@@ -21,8 +23,8 @@ The portal checkbox limits disappearance to the hand-shaped or manually position
 - Keep the camera fixed for Invisible. Camera movement, changed lighting, clutter and moving backgrounds can reveal the illusion; recapture when the scene changes.
 - Hand tracking can be lost, especially with occlusion, crossed hands, low light or hands near the image edge. Tracking loss resets gestures. This is an experimental effect, not a promise of reliable gesture recognition in every setting.
 - Hand/person inference runs in a local classic Web Worker, using the original camera input. One inference job is in flight; stale results and previous camera sessions are ignored. Camera stop, a hidden tab, startup failure or a watchdog timeout release resources.
-- AI still rendering uses Cloudflare Workers AI's Stable Diffusion img2img model. It transforms the selected image; instant local filters do not call that model.
-- The public preview has **20 shared AI attempts per UTC day**, including failed or uncertain attempts. It keeps request ID, payload hash, status and timestamp for up to 48 hours to prevent duplicate calls. It does not store camera or generated-image pixels. Cloudflare processes explicitly submitted stills under its service policies.
+- AI still rendering uses Cloudflare Workers AI's FLUX.2 klein 4B model. It transforms the selected image; instant local filters do not call that model.
+- The public preview has **20 shared AI attempts per UTC day**, including failed or uncertain attempts. It keeps request ID, payload hash, status and timestamp to prevent duplicate calls. Records become eligible for deletion after 48 hours; requests prune expired records and an alarm schedules the oldest record’s cleanup. Platform scheduling can delay deletion. It does not store camera or generated-image pixels. Cloudflare processes explicitly submitted stills under its service policies.
 - A failed or uncertain render is not silently retried. Prepare a new still to make an explicit new attempt. The provider timeout is 45 seconds; abort is requested, but it cannot prove the remote model never ran.
 
 ## Run locally
@@ -80,6 +82,6 @@ MediaPipe Tasks Vision is provided by Google under its package license. The mode
 
 - [MediaPipe hand landmarks](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker/web_js)
 - [MediaPipe image segmentation](https://developers.google.com/edge/mediapipe/solutions/vision/image_segmenter/web_js)
-- [Cloudflare img2img model](https://developers.cloudflare.com/workers-ai/models/stable-diffusion-v1-5-img2img/)
+- [Cloudflare FLUX.2 klein model](https://developers.cloudflare.com/workers-ai/models/flux-2-klein-4b/)
 
 Built by Cruz G. The supplied reference video and its images are not included in this repository, public demo or training data.

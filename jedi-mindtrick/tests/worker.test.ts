@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { deflateSync } from 'node:zlib';
 import { build } from 'esbuild';
-import type { RenderInput } from '../worker/validation.ts';
+import { STYLES, type RenderInput } from '../worker/validation.ts';
 
 // Executes actual Worker/ledger source. Only the platform base and remote AI are
 // replaced; SQL statements execute against a real, isolated in-memory SQLite DB.
@@ -43,12 +43,14 @@ const png = Buffer.concat([
   chunk('tEXt', Buffer.from('Description\0Synthetic test pixel, never a camera frame')),
   chunk('IDAT', deflateSync(Buffer.from([0, 80, 120, 180, 255]))), chunk('IEND', Buffer.alloc(0)),
 ]);
-const imageStream = () => new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(png); controller.close(); } });
+const imageOutput = () => ({ image: png.toString('base64') });
 const input = (createdAt = Date.now()): RenderInput => ({ requestId: crypto.randomUUID(), createdAt, style: 'ink', image: png.toString('base64') });
 
-function fixture(provider: (signal: AbortSignal) => Promise<ReadableStream<Uint8Array>> = async () => imageStream()) {
+type Inference = { model: string; values: { multipart: { body: ReadableStream<Uint8Array>; contentType: string } }; signal: AbortSignal };
+function fixture(provider: (signal: AbortSignal) => Promise<unknown> = async () => imageOutput()) {
   const db = new DatabaseSync(':memory:');
   const alarms: number[] = [], names: string[] = [];
+  const inferences: Inference[] = [];
   let calls = 0;
   const ctx = { storage: {
     sql: { exec(query: string, ...values: Array<string | number | null>) {
@@ -60,12 +62,14 @@ function fixture(provider: (signal: AbortSignal) => Promise<ReadableStream<Uint8
   } };
   const env = {
     AI_RENDER_ENABLED: 'true',
-    AI: { run: async (_model: string, _values: unknown, options: { signal: AbortSignal }) => { calls++; return provider(options.signal); } },
+    AI: { run: async (model: string, values: Inference['values'], options: { signal: AbortSignal }) => {
+      calls++; inferences.push({ model, values, signal: options.signal }); return provider(options.signal);
+    } },
     RENDER_LEDGER: { getByName(name: string): Ledger { names.push(name); return ledger; } },
     ASSETS: { fetch: async () => new Response('fixture asset') },
   };
   const ledger = new worker.RenderLedger(ctx, env);
-  return { db, env, ledger, alarms, names, calls: () => calls, close: () => db.close() };
+  return { db, env, ledger, alarms, names, inferences, calls: () => calls, close: () => db.close() };
 }
 
 function request(body: RenderInput, headers: Record<string, string> = {}) {
@@ -92,12 +96,66 @@ test('real Worker route returns the provider PNG while ledger persists metadata 
   } finally { f.close(); }
 });
 
+test('FLUX multipart sends exactly the selected crop, allowlisted style and 512-pixel output size', async () => {
+  const f = fixture();
+  try {
+    const selected = input();
+    assert.equal((await worker.default.fetch(request(selected), f.env)).status, 200);
+    const inference = f.inferences[0];
+    assert.equal(inference.model, '@cf/black-forest-labs/flux-2-klein-4b');
+    assert.equal(inference.signal.aborted, false);
+    const form = await new Response(inference.values.multipart.body, {
+      headers: { 'Content-Type': inference.values.multipart.contentType },
+    }).formData();
+    assert.deepEqual([...form.keys()].sort(), ['height', 'input_image_0', 'prompt', 'width']);
+    assert.equal(form.get('prompt'), 'Transform the supplied image into ' + STYLES.ink + '.');
+    assert.equal(form.get('width'), '512');
+    assert.equal(form.get('height'), '512');
+    const crop = form.get('input_image_0');
+    assert.ok(crop instanceof File);
+    assert.equal(crop.type, 'image/png');
+    assert.deepEqual(Buffer.from(await crop.arrayBuffer()), Buffer.from(selected.image, 'base64'));
+  } finally { f.close(); }
+});
+
+test('provider JPEG-signature bytes are returned with JPEG MIME without conversion', async () => {
+  // Transport/signature fixture only: this deliberately does not assert image decoding or model quality.
+  const jpeg = Buffer.from([255, 216, 255, 224, 0, 4, 0, 0, 255, 217]);
+  const f = fixture(async () => ({ image: jpeg.toString('base64') }));
+  try {
+    const response = await f.ledger.render(input());
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('Content-Type'), 'image/jpeg');
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), jpeg);
+  } finally { f.close(); }
+});
+
+test('malformed and oversized provider outputs fail closed and retain each request claim', async t => {
+  t.mock.method(console, 'warn', () => {});
+  const tooManyBytes = Buffer.alloc(4_000_001);
+  png.copy(tooManyBytes);
+  const invalidOutputs = [
+    {}, { image: 123 }, { image: '' }, { image: '%%%%' }, { image: 'aGVsbG8=' },
+    { image: 'A'.repeat(5_333_340) }, { image: tooManyBytes.toString('base64') },
+  ];
+  for (const output of invalidOutputs) {
+    const f = fixture(async () => output);
+    try {
+      const selected = input();
+      assert.equal((await f.ledger.render(selected)).status, 502);
+      assert.equal((await f.ledger.render(selected)).status, 409);
+      assert.equal(f.calls(), 1);
+      assert.equal(f.db.prepare('SELECT status FROM requests').get()!.status, 'unknown-or-failed');
+    } finally { f.close(); }
+  }
+});
+
 test('simultaneous same-ID submissions invoke AI once and reject the duplicate', async () => {
   let release!: () => void;
   let entered!: () => void;
   const ready = new Promise<void>(resolve => { entered = resolve; });
   const wait = new Promise<void>(resolve => { release = resolve; });
-  const f = fixture(async () => { entered(); await wait; return imageStream(); });
+  const f = fixture(async () => { entered(); await wait; return imageOutput(); });
   try {
     const selected = input();
     const first = f.ledger.render(selected);
@@ -122,7 +180,8 @@ test('reusing an ID with another style or image rejects the conflicting request'
   } finally { f.close(); }
 });
 
-test('provider failure stays claimed and cannot cause another inference on retry', async () => {
+test('provider failure stays claimed and cannot cause another inference on retry', async t => {
+  t.mock.method(console, 'warn', () => {});
   const f = fixture(async () => { throw new Error('injected provider failure'); });
   try {
     const selected = input();
@@ -133,7 +192,30 @@ test('provider failure stays claimed and cannot cause another inference on retry
   } finally { f.close(); }
 });
 
+test('denied provider access returns 503, retains the claim and logs only safe classification', async t => {
+  const selected = input();
+  const logs: unknown[][] = [];
+  t.mock.method(console, 'warn', (...args: unknown[]) => { logs.push(args); });
+  const f = fixture(async () => { throw new Error('5018: PRIVATE_PROVIDER_DETAIL ' + selected.image); });
+  try {
+    const response = await f.ledger.render(selected);
+    assert.equal(response.status, 503);
+    const body = await response.text();
+    assert.match(body, /provider is unavailable/);
+    assert.equal((await f.ledger.render(selected)).status, 409);
+    assert.equal(f.calls(), 1);
+    assert.equal(f.db.prepare('SELECT status FROM requests').get()!.status, 'unknown-or-failed');
+    assert.deepEqual(logs, [[JSON.stringify({ event: 'ai-render-failed', category: 'unavailable', providerCode: '5018' })]]);
+    for (const visible of [body, JSON.stringify(logs)]) {
+      assert.ok(!visible.includes(selected.image));
+      assert.ok(!visible.includes('PRIVATE_PROVIDER_DETAIL'));
+    }
+  } finally { f.close(); }
+});
+
 test('the 45-second timeout aborts provider work and preserves the ambiguous claim', async t => {
+  const logs: unknown[][] = [];
+  t.mock.method(console, 'warn', (...args: unknown[]) => { logs.push(args); });
   t.mock.timers.enable({ apis: ['setTimeout'] });
   let aborted = false;
   let entered!: () => void;
@@ -147,12 +229,33 @@ test('the 45-second timeout aborts provider work and preserves the ambiguous cla
     const pending = f.ledger.render(selected);
     await ready;
     t.mock.timers.tick(45_000);
-    assert.equal((await pending).status, 502);
+    assert.equal((await pending).status, 504);
     assert.equal(aborted, true);
     assert.equal((await f.ledger.render(selected)).status, 409);
     assert.equal(f.calls(), 1);
     assert.equal(f.db.prepare('SELECT status FROM requests').get()!.status, 'unknown-or-failed');
+    assert.deepEqual(logs, [[JSON.stringify({ event: 'ai-render-failed', category: 'timeout', providerCode: null })]]);
   } finally { t.mock.timers.reset(); f.close(); }
+});
+
+test('a new request does not postpone cleanup of the oldest retained claim', async () => {
+  const savedNow = Date.now;
+  const start = Date.parse('2026-09-11T00:00:00Z');
+  let now = start;
+  Date.now = () => now;
+  const f = fixture();
+  try {
+    assert.equal((await f.ledger.render(input())).status, 200);
+    const firstExpiry = start + 48 * 3_600_000 + 1;
+    assert.deepEqual(f.alarms, [firstExpiry]);
+    now += 24 * 3_600_000;
+    assert.equal((await f.ledger.render(input())).status, 200);
+    assert.deepEqual(f.alarms, [firstExpiry, firstExpiry]);
+    now = firstExpiry;
+    await f.ledger.alarm();
+    assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM requests').get()!.n, 1);
+    assert.equal(f.alarms.at(-1), start + 72 * 3_600_000 + 1);
+  } finally { Date.now = savedNow; f.close(); }
 });
 
 test('the shared 20-call budget blocks a 21st unique request before inference', async () => {
