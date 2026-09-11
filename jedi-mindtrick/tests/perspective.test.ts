@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { FrameRect, Hand, Point } from '../src/contracts';
 import { PerspectiveTracker, projectFrame, type FramePose } from '../src/handframe/index';
+import { handOutlineFixture } from './hand-outline-fixtures';
 
 const rect: FrameRect = { x: 0.2, y: 0.25, width: 0.6, height: 0.4 };
 const near = (a: number, b: number, tolerance = 1e-10) => assert.ok(Math.abs(a - b) <= tolerance, `${a} ≈ ${b}`);
@@ -171,4 +172,56 @@ test('stale, backwards, and invalid timestamps cancel; duplicate timestamps neve
   const tracker = new PerspectiveTracker(); tracker.update(pair(), rect, 0);
   const pose = tracker.update(tilted(1.01, 1), rect, 33);
   assert.deepEqual(tracker.update(tilted(1.3, 0.8), rect, 33), pose);
+});
+
+test('joined-tip mode accepts apertures rejected by the legacy tip gap and uses stable wrist roll', () => {
+  const hands = handOutlineFixture('rounded');
+  assert.equal(new PerspectiveTracker().update(hands, rect, 0), null);
+  const tracker = new PerspectiveTracker();
+  const neutral = tracker.update(hands, rect, 0, true)!;
+  near(neutral.depth, 0); near(neutral.roll, 0);
+  const moved = structuredClone(hands);
+  // Finger-tip centers stay coincident while a whole hand tilts the aperture.
+  moved[1].landmarks[0].y += 0.10;
+  moved[1].landmarks[9].y += 0.10;
+  const pose = tracker.update(moved, rect, 33, true)!;
+  assert.ok(pose && Number.isFinite(pose.depth) && pose.roll > 0.05);
+  validQuad(pose);
+  assert.deepEqual(tracker.update([...moved].reverse(), rect, 33, true), pose);
+});
+
+test('joined-tip perspective retains palm, confidence, wrist separation and reset checks', () => {
+  const tracker = new PerspectiveTracker(); tracker.update(handOutlineFixture('rounded'), rect, 0, true);
+  const closeWrists = handOutlineFixture('rounded');
+  closeWrists[0].landmarks[0].x = 0.52; closeWrists[1].landmarks[0].x = 0.48;
+  assert.equal(tracker.update(closeWrists, rect, 33, true), null);
+  const weak = handOutlineFixture('rounded'); weak[1].score = 0.49;
+  assert.equal(tracker.update(weak, rect, 66, true), null);
+  const flat = handOutlineFixture('rounded'); flat[0].landmarks[9] = { ...flat[0].landmarks[0] };
+  assert.equal(tracker.update(flat, rect, 99, true), null);
+  assert.ok(tracker.update(handOutlineFixture('rounded'), rect, 132, true));
+  assert.equal(tracker.update(handOutlineFixture('rounded'), rect, 131, true), null);
+  assert.equal(tracker.update([], rect, 165, true), null);
+});
+
+test('switching perspective reference mode recalibrates instead of carrying incompatible roll', () => {
+  const tracker = new PerspectiveTracker(), hands = pair();
+  tracker.update(hands, rect, 0);
+  for (const index of [4, 8]) hands[1].landmarks[index].y += 0.15;
+  assert.ok(tracker.update(hands, rect, 33)!.roll > 0.1);
+  const automatic = tracker.update(hands, rect, 66, true)!;
+  near(automatic.depth, 0); near(automatic.roll, 0);
+  const legacy = tracker.update(hands, rect, 99)!;
+  near(legacy.depth, 0); near(legacy.roll, 0);
+});
+
+test('missing palm landmarks cancel safely and valid hands reacquire at neutral', () => {
+  for (const missing of [0, 9]) {
+    const tracker = new PerspectiveTracker(), hands = handOutlineFixture('heart');
+    tracker.update(hands, rect, 0, true);
+    delete hands[0].landmarks[missing];
+    assert.equal(tracker.update(hands, null, 33, true), null);
+    assert.equal(tracker.update(hands, rect, 66, true), null);
+    near(tracker.update(handOutlineFixture('heart'), rect, 99, true)!.depth, 0);
+  }
 });

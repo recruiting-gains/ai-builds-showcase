@@ -53,17 +53,17 @@ export function projectFrame(rect: FrameRect, depth: number, roll: number): Fram
   return { quad, depth, roll };
 }
 
-function trackedPair(hands: Hand[]): Hand[] | null {
-  if (hands.length !== 2 || !hands.every(hand => Number.isFinite(hand.score) && hand.score >= 0.5 &&
-    hand.landmarks.length === 21 && hand.landmarks.every(point =>
-      Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.x <= 1 &&
+function trackedPair(hands: Hand[], allowJoinedTips: boolean): Hand[] | null {
+  if (hands.length !== 2 || !hands.every(hand => hand && Number.isFinite(hand.score) && hand.score >= 0.5 &&
+    Array.isArray(hand.landmarks) && hand.landmarks.length === 21 && Array.from(hand.landmarks).every(point =>
+      point && Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.x <= 1 &&
       point.y >= 0 && point.y <= 1 && (point.z === undefined || Number.isFinite(point.z))) &&
     distance(hand.landmarks[0], hand.landmarks[9]) >= 0.035)) return null;
   const pair = [...hands].sort((a, b) => b.landmarks[0].x - a.landmarks[0].x);
   const [left, right] = pair;
   const leftTips = (left.landmarks[4].x + left.landmarks[8].x) / 2;
   const rightTips = (right.landmarks[4].x + right.landmarks[8].x) / 2;
-  return left.landmarks[0].x - right.landmarks[0].x >= 0.07 && leftTips - rightTips >= 0.08 ? pair : null;
+  return left.landmarks[0].x - right.landmarks[0].x >= 0.07 && (allowJoinedTips || leftTips - rightTips >= 0.08) ? pair : null;
 }
 
 function palmScale(hand: Hand): number {
@@ -87,17 +87,20 @@ export class PerspectiveTracker {
   private baseline: { ratio: number; roll: number } | null = null;
   private lastTimestamp: number | null = null;
   private pose: FramePose | null = null;
+  private joinedTips = false;
 
   reset(): void {
     this.baseline = null;
     this.lastTimestamp = null;
     this.pose = null;
+    this.joinedTips = false;
   }
 
   recenter(): void { this.reset(); }
 
-  update(hands: Hand[], rect: FrameRect | null, timestamp: number): FramePose | null {
-    const pair = trackedPair(hands);
+  update(hands: Hand[], rect: FrameRect | null, timestamp: number, allowJoinedTips = false): FramePose | null {
+    if (this.lastTimestamp !== null && this.joinedTips !== allowJoinedTips) this.reset();
+    const pair = trackedPair(hands, allowJoinedTips);
     if (!pair || !rect || !validRect(rect) || !Number.isFinite(timestamp) || timestamp < 0) {
       this.reset();
       return null;
@@ -111,11 +114,14 @@ export class PerspectiveTracker {
     }
     const [left, right] = pair;
     const ratio = Math.log(palmScale(left) / palmScale(right));
-    const tip = (hand: Hand) => ({ x: 1 - (hand.landmarks[4].x + hand.landmarks[8].x) / 2,
-      y: (hand.landmarks[4].y + hand.landmarks[8].y) / 2 });
+    // Joined fingertips have almost coincident centers. Separated wrists provide
+    // a stable roll reference for automatic contours instead of that tiny line.
+    const tip = (hand: Hand) => allowJoinedTips ? { x: 1 - hand.landmarks[0].x, y: hand.landmarks[0].y } :
+      { x: 1 - (hand.landmarks[4].x + hand.landmarks[8].x) / 2, y: (hand.landmarks[4].y + hand.landmarks[8].y) / 2 };
     const leftTip = tip(left), rightTip = tip(right);
     const tipRoll = Math.atan2(rightTip.y - leftTip.y, (rightTip.x - leftTip.x) * ASPECT);
     this.lastTimestamp = timestamp;
+    this.joinedTips = allowJoinedTips;
     if (!this.baseline) {
       this.baseline = { ratio, roll: tipRoll };
       this.pose = projectFrame(rect, 0, 0);

@@ -1,5 +1,5 @@
 import './style.css';
-import type { FrameRect, Hand, LocalStyle, Mode } from './contracts';
+import type { FrameRect, Hand, LocalStyle, Mode, Point } from './contracts';
 import { deriveFrame, PinchController, stylePixels } from './handframe';
 import { blendInvisible, portalMask, scaleMask, PalmHold } from './effects/invisible';
 import { CameraPipeline } from './vision/camera';
@@ -8,6 +8,7 @@ import { PerspectiveTracker, projectFrame, type FramePose } from './handframe/pe
 import { drawSurface, mappedShape, traceShape } from './handframe/surface';
 import { shapePoints, type FrameShape } from './handframe/shapes';
 import { installShapeEditor } from './handframe/shape-editor';
+import { HandOutlineTracker } from './handframe/hand-outline';
 import { installFullscreen } from './fullscreen';
 
 const WORLDS: {id:LocalStyle;name:string;note:string}[] = [
@@ -55,19 +56,23 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
       <div id="handframe-controls" hidden>
         <div class="section-label"><span>01 / CHOOSE YOUR WORLD</span><span>LOCAL FILTER</span></div>
         <div class="styles" role="group" aria-label="Visual style">${WORLDS.map(world=>`<button data-style="${world.id}" class="${world.id==='dream'?'active':''}" aria-pressed="${world.id==='dream'}"><i class="swatch ${world.id}" aria-hidden="true"></i>${world.name}</button>`).join('')}</div>
-        <div class="section-label"><span>02 / DESIGN YOUR SHAPE</span><span id="shape-name">RECTANGLE</span></div>
+        <div class="section-label"><span>02 / SHAPE IT WITH YOUR HANDS</span><span>AUTOMATIC</span></div>
+        <label class="switch-row"><span>Follow my hands<small>Your thumbs and index fingers draw the outline.</small></span><input id="follow-hands" type="checkbox" checked></label>
+        <p class="hint" id="hand-shape-state" role="status">Start your camera to form a shape with both hands.</p>
+        <p class="hint">Open a space between your thumbs and index fingers. Bring the tips together, curve them or spread them apart—the picture follows that opening.</p>
+        <details id="manual-shapes"><summary>Saved shapes & drawing</summary><div class="section-label"><span>OPTIONAL FIXED OUTLINE</span><span id="shape-name">RECTANGLE</span></div>
         <div class="shape-choices" role="group" aria-label="Frame shape">${SHAPES.map(s=>`<button data-shape="${s.id}" aria-pressed="${s.id==='rectangle'}" class="${s.id==='rectangle'?'active':''}"><span aria-hidden="true">${s.icon}</span>${s.name}</button>`).join('')}</div>
         <button id="custom-shape" class="secondary full" aria-expanded="false" aria-controls="shape-editor">Draw a custom shape <span aria-hidden="true">✎</span></button>
         <div id="shape-editor" hidden></div>
-        <p class="hint">Choose an outline, then move and stretch it with your hands. Your camera stays visible around it.</p>
+        <p class="hint">Choosing a saved outline turns off Follow my hands. Turn it back on to shape the picture directly with your fingers.</p></details>
         <label class="select-row" for="layout">Frame layout<select id="layout"><option value="outline">Floating outline</option><option value="postcard">Postcard</option><option value="cinema">Cinema</option></select></label>
         <p class="hint" id="style-note">Instant color effects, processed on your device.</p>
         <div class="depth-controls"><div class="section-label"><span>03 / MOVE IN 3D</span><output id="depth-state">READY TO STRETCH</output></div>
         <button id="center-depth" class="secondary full">Center depth <span>↔</span></button>
-        <p class="hint">Hold both L-shaped hands side by side, palms toward the camera. Center depth, then push one hand forward and pull the other back. Lift either hand to tilt.</p>
+        <p class="hint">Hold both hands side by side, palms toward the camera. Center depth, then push one hand forward and pull the other back. Your outline also follows the way you lift and turn your hands.</p>
         <p class="hint muted">Depth is estimated from hand size. Keep your palms facing the camera for steadier control.</p></div>
         <div class="section-label"><span>04 / MAKE AN AI STILL</span><span>OPTIONAL UPLOAD</span></div>
-        <button id="capture-still" class="secondary full">Prepare a still <span>⌑</span></button><p class="hint">A long pinch also prepares a crop. Sending it to Cloudflare AI is a separate, deliberate step.</p>
+        <button id="capture-still" class="secondary full">Prepare a still <span>⌑</span></button><p class="hint">Use this button to prepare a crop while shaping with your hands. Sending it to Cloudflare AI is a separate step.</p>
         <div id="still-panel" hidden><img id="still-preview" alt="Your selected frozen crop"><p id="still-status" class="hint" role="status">Only this selected crop will be sent.</p><button class="primary full" id="send-still" disabled>Send still to AI ↗</button><button id="clear-still" class="text-button">Clear still</button></div>
       </div>
       <div class="manual-controls"><label class="switch-row"><span>Mouse & keyboard controls<small>Drag the frame. Use the slider to resize.</small></span><input id="manual" type="checkbox" checked></label><label class="sr-only" for="frame-size">Frame size</label><input id="frame-size" type="range" min="22" max="70" value="44"><div id="perspective-controls" hidden>
@@ -76,7 +81,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
         <p class="hint" id="perspective-manual-hint">Try the depth and tilt sliders, or use both hands with the camera.</p></div></div>
     </aside>
   </section>
-  <section id="how-it-works" class="notes"><article><span>01 / A CAMERA ILLUSION</span><h2>Leave a little mystery.</h2><p>Invisible blends your captured room into your silhouette. A steady camera and even lighting give it the best chance to work.</p></article><article><span>02 / FRAME YOUR IMAGINATION</span><h2>Your hands, the viewfinder.</h2><p>Make an L with each hand. Bring one hand closer to stretch the picture in perspective. Lift one hand to tilt. Quick pinch: next style. Hold a pinch for 0.6 seconds: prepare one still. Release before trying again.</p></article><article><span>03 / ON YOUR TERMS</span><h2>Local until you say so.</h2><p>Live camera frames stay in your browser. AI rendering sends only your selected still. No accounts, microphone, or camera recordings.</p></article></section>
+  <section id="how-it-works" class="notes"><article><span>01 / A CAMERA ILLUSION</span><h2>Leave a little mystery.</h2><p>Invisible blends your captured room into your silhouette. A steady camera and even lighting give it the best chance to work.</p></article><article><span>02 / FRAME YOUR IMAGINATION</span><h2>Your hands, the viewfinder.</h2><p>Form an opening with both thumbs and index fingers. The picture follows its outline as you move. Bring one hand closer for perspective. Use the world buttons to change its look.</p></article><article><span>03 / ON YOUR TERMS</span><h2>Local until you say so.</h2><p>Live camera frames stay in your browser. AI rendering sends only your selected still. No accounts, microphone, or camera recordings.</p></article></section>
 </main><footer><span>JEDI MINDTRICK <span class="muted">/ Built by Cruz G.</span></span><span>Hand tracking + a little imagination.</span><a href="https://github.com/recruiting-gains/ai-builds-showcase/tree/codex/jedi-mindtrick/jedi-mindtrick" target="_blank" rel="noopener noreferrer">Explore the source ↗</a></footer>`;
 
 const $=<T extends HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
@@ -90,6 +95,7 @@ const textureCtx=texture.getContext('2d',{willReadFrequently:true})!;
 let textureSource:ImageBitmap|HTMLCanvasElement|null=null,textureKey='';
 let mode:Mode='invisible',style:LocalStyle='dream',fade=0,targetFade=0,portal=false,manual=true,live=false;
 let shape:FrameShape='rectangle',customOutline=shapePoints('rectangle'),outline=shapePoints(shape),cameraOnly=false;
+let handFollowing=true,handOutline:Point[]|null=null;
 let focusView:ReturnType<typeof installFullscreen>|null=null;
 let background:ImageData|null=null,mask:Float32Array|null=null,hands:Hand[]=[],lastVision=0,inferenceMs=0;
 let frame:FrameRect|null=null,lastGoodFrame:FrameRect|null=null,lastGoodAt=0;
@@ -98,13 +104,18 @@ let calibration:ReturnType<typeof setInterval>|null=null;
 let prepared:{image:string;requestId:string;createdAt:number;style:LocalStyle}|null=null,generated:ImageBitmap|null=null,generatedURL:string|null=null;
 let generatedStyle:LocalStyle|null=null;
 let aiEnabled=false,renderAbort:AbortController|null=null,renderGeneration=0;
-const pinch=new PinchController(),palm=new PalmHold(),perspective=new PerspectiveTracker();
+const pinch=new PinchController(),palm=new PalmHold(),perspective=new PerspectiveTracker(),handShape=new HandOutlineTracker();
 let pose:FramePose|null=null,manualDepth=0,manualRoll=0;
 const status=(message:string)=>{$('#status').textContent=message;};
 const pipeline=new CameraPipeline(result=>{
   hands=result.hands;lastVision=result.timestamp;inferenceMs=result.inferenceMs;
-  frame=deriveFrame(hands,frame);
-  pose=mode==='handframe'?perspective.update(hands,frame,result.timestamp):null;
+  const automatic=automaticShaping();
+  if(automatic){const formed=handShape.update(hands,result.timestamp);frame=formed?.rect??null;handOutline=formed?.outline??null;}
+  else{handOutline=null;frame=deriveFrame(hands,frame);}
+  pose=mode==='handframe'?perspective.update(hands,frame,result.timestamp,automatic):null;
+  // The measured contour already includes the hands' screen-space tilt.
+  // Apply only the stylized depth warp to avoid rotating that outline twice.
+  if(automatic&&pose&&frame)pose=projectFrame(frame,pose.depth,0);
   if(frame){lastGoodFrame=frame;lastGoodAt=lastVision;}
   if(result.mask&&result.maskWidth&&result.maskHeight){
     const next=scaleMask(result.mask,result.maskWidth,result.maskHeight,W,H);
@@ -112,11 +123,11 @@ const pipeline=new CameraPipeline(result=>{
     mask=next;
   }
   if(mode==='invisible'&&!portal&&palm.update(hands,result.timestamp))setFade(targetFade>.5?0:100);
-  if(mode==='handframe'){
+  if(mode==='handframe'&&!handFollowing){
     const action=pinch.update(hands,result.timestamp);
     if(action==='next-style'){const list=WORLDS.map(world=>world.id);setStyle(list[(list.indexOf(style)+1)%list.length]);}
     if(action==='capture'&&lastGoodFrame&&lastVision-lastGoodAt<1000)captureStill(lastGoodFrame);
-  }
+  }else if(mode==='handframe')pinch.reset();
 },(message,active)=>{
   live=active;status(message);
   const pending=message.includes('Loading')||message.includes('Waiting');
@@ -129,8 +140,11 @@ const pipeline=new CameraPipeline(result=>{
   syncManualControls();
 });
 
-function resetPerspective(){pose=null;perspective.reset();}
-function setShape(value:FrameShape){shape=value;outline=shapePoints(value,customOutline);$('#shape-name').textContent=value==='custom'?'CUSTOM':SHAPES.find(s=>s.id===value)!.name.toUpperCase();document.querySelectorAll<HTMLButtonElement>('[data-shape]').forEach(b=>{b.classList.toggle('active',b.dataset.shape===value);b.setAttribute('aria-pressed',String(b.dataset.shape===value));});$('#custom-shape').classList.toggle('active',value==='custom');}
+function automaticShaping(){return mode==='handframe'&&handFollowing&&live&&!manual;}
+function resetPerspective(){pose=null;frame=null;lastGoodFrame=null;perspective.reset();handShape.reset();handOutline=null;}
+function syncGestureHelp(){$('#gesture-help').textContent=mode==='invisible'?'Hold an open palm to disappear. Lower it, then repeat to return.':handFollowing?'Form an opening with both thumbs and index fingers. The outline follows your hands. Use the world buttons to change its look.':'Push one hand forward, pull the other back. Lift to tilt. Quick pinch: style. Hold 0.6s: prepare a still.';}
+function setHandFollowing(value:boolean){handFollowing=value;$<HTMLInputElement>('#follow-hands').checked=value;resetPerspective();pinch.reset();if(value&&live){manual=false;$<HTMLInputElement>('#manual').checked=false;}syncManualControls();syncGestureHelp();}
+function setShape(value:FrameShape){setHandFollowing(false);shape=value;outline=shapePoints(value,customOutline);$('#shape-name').textContent=value==='custom'?'CUSTOM':SHAPES.find(s=>s.id===value)!.name.toUpperCase();document.querySelectorAll<HTMLButtonElement>('[data-shape]').forEach(b=>{b.classList.toggle('active',b.dataset.shape===value);b.setAttribute('aria-pressed',String(b.dataset.shape===value));});$('#custom-shape').classList.toggle('active',value==='custom');}
 function syncManualControls(){const disabled=live&&!manual;for(const id of ['#frame-depth','#frame-roll','#frame-size'])$<HTMLInputElement>(id).disabled=disabled;$('#perspective-manual-hint').textContent=disabled?'Your hands control depth and tilt. Enable mouse controls to use these sliders.':'Try the depth and tilt sliders, or use both hands with the camera.';}
 function centerDepth(){perspective.recenter();pose=null;manualDepth=manualRoll=0;$<HTMLInputElement>('#frame-depth').value='0';$<HTMLInputElement>('#frame-roll').value='0';$('#frame-depth-value').textContent='Centered';$('#frame-roll-value').textContent='0°';}
 function resetCalibration(){if(calibration)clearInterval(calibration);calibration=null;$('#countdown').hidden=true;}
@@ -138,7 +152,7 @@ function clearStill(){renderGeneration++;renderAbort?.abort();renderAbort=null;p
 function stopCamera(message='Camera off. The simulated preview is ready.'){if(focusView?.active)void focusView.exit();pipeline.stop();resetPerspective();live=false;hands=[];mask=null;background=null;frame=null;lastGoodFrame=null;lastVision=0;targetFade=fade=0;manual=true;$<HTMLInputElement>('#manual').checked=true;resetCalibration();clearStill();palm.reset();pinch.reset();$('#stop-camera').hidden=true;$<HTMLButtonElement>('#start-camera').disabled=false;$<HTMLButtonElement>('#capture-background').disabled=false;$<HTMLButtonElement>('#capture-still').disabled=false;$('#background-state').textContent='PREVIEW READY';setFade(0);syncManualControls();status(message);}
 function setFade(value:number){if(live&&!background&&value>0){status('Capture the empty background before disappearing.');return;}targetFade=value/100;$<HTMLInputElement>('#fade').value=String(value);$('#fade-value').textContent=`${value}%`;document.querySelectorAll<HTMLButtonElement>('[data-fade]').forEach(b=>{b.classList.toggle('active',Number(b.dataset.fade)===value);b.setAttribute('aria-pressed',String(Number(b.dataset.fade)===value));});}
 function setStyle(value:LocalStyle){style=value;document.querySelectorAll<HTMLButtonElement>('[data-style]').forEach(b=>{b.classList.toggle('active',b.dataset.style===value);b.setAttribute('aria-pressed',String(b.dataset.style===value));});$('#style-note').textContent=WORLDS.find(world=>world.id===value)!.note+(generated&&value!==generatedStyle?' Applied locally to your AI still.':'');}
-function setMode(value:Mode){mode=value;palm.reset();pinch.reset();frame=null;resetPerspective();if(live)void pipeline.infer(performance.now(),mode==='invisible');document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(b=>{b.classList.toggle('active',b.dataset.mode===value);b.setAttribute('aria-pressed',String(b.dataset.mode===value));});$('#invisible-controls').hidden=value!=='invisible';$('#handframe-controls').hidden=value!=='handframe';$('#perspective-controls').hidden=value!=='handframe';$('#gesture-help').textContent=value==='invisible'?'Hold an open palm to disappear. Lower it, then repeat to return.':'Choose any shape. Push one hand forward, pull the other back. Lift to tilt. Quick pinch: style. Hold 0.6s: prepare a still.';$('#effect-caption').textContent=value==='invisible'?'A little less here.':'A different world, within reach.';scene.setAttribute('aria-label',`${live?'Live camera':'Simulated'} ${value} effect. Use the adjacent controls to interact.`);}
+function setMode(value:Mode){mode=value;palm.reset();pinch.reset();frame=null;resetPerspective();if(live)void pipeline.infer(performance.now(),mode==='invisible');document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(b=>{b.classList.toggle('active',b.dataset.mode===value);b.setAttribute('aria-pressed',String(b.dataset.mode===value));});$('#invisible-controls').hidden=value!=='invisible';$('#handframe-controls').hidden=value!=='handframe';$('#perspective-controls').hidden=value!=='handframe';syncGestureHelp();$('#effect-caption').textContent=value==='invisible'?'A little less here.':'A different world, within reach.';scene.setAttribute('aria-label',`${live?'Live camera':'Simulated'} ${value} effect. Use the adjacent controls to interact.`);}
 function activeFrame(){return manual||!live?manualFrame:frame;}
 function pixelRect(rect:FrameRect){return {x:Math.max(0,Math.round(rect.x*W)),y:Math.max(0,Math.round(rect.y*H)),width:Math.max(1,Math.min(Math.round(rect.width*W),W-Math.round(rect.x*W))),height:Math.max(1,Math.min(Math.round(rect.height*H),H-Math.round(rect.y*H)))};}
 
@@ -171,6 +185,7 @@ async function sendStill(){
 }
 
 const shapeEditor=installShapeEditor($('#shape-editor'),points=>{customOutline=points;setShape('custom');});
+$<HTMLInputElement>('#follow-hands').addEventListener('change',e=>setHandFollowing((e.target as HTMLInputElement).checked));
 document.querySelectorAll<HTMLButtonElement>('[data-shape]').forEach(b=>b.addEventListener('click',()=>{shapeEditor.close();setShape(b.dataset.shape as FrameShape);}));
 $('#custom-shape').addEventListener('click',()=>shapeEditor.open(customOutline,$('#custom-shape')));
 focusView=installFullscreen($('#camera-view'),$<HTMLButtonElement>('#full-screen'),active=>{if(!active){cameraOnly=false;$('#camera-only').setAttribute('aria-pressed','false');$('#camera-only').textContent='Just camera';}});
@@ -187,7 +202,7 @@ $<HTMLInputElement>('#frame-size').addEventListener('input',e=>{const width=Numb
 $('#center-depth').addEventListener('click',()=>{centerDepth();status(live&&!manual?'Hold both hands at the same distance, palms facing the camera. The next tracked pair sets your neutral depth.':'Depth and tilt centered. Try the sliders below.');});
 $<HTMLInputElement>('#frame-depth').addEventListener('input',e=>{manualDepth=Number((e.target as HTMLInputElement).value)/100;$('#frame-depth-value').textContent=manualDepth===0?'Centered':`${manualDepth>0?'Left':'Right'} closer ${Math.round(Math.abs(manualDepth)*100)}%`;});
 $<HTMLInputElement>('#frame-roll').addEventListener('input',e=>{const degrees=Number((e.target as HTMLInputElement).value);manualRoll=degrees*Math.PI/180;$('#frame-roll-value').textContent=`${degrees}°`;});
-$('#reset').addEventListener('click',()=>{setFade(0);setStyle('dream');setShape('rectangle');shapeEditor.close();frame=null;resetPerspective();centerDepth();manualFrame={x:.28,y:.23,width:.44,height:.54};$<HTMLInputElement>('#frame-size').value='44';palm.reset();pinch.reset();clearStill();});
+$('#reset').addEventListener('click',()=>{setFade(0);setStyle('dream');setShape('rectangle');setHandFollowing(true);shapeEditor.close();frame=null;resetPerspective();centerDepth();manualFrame={x:.28,y:.23,width:.44,height:.54};$<HTMLInputElement>('#frame-size').value='44';palm.reset();pinch.reset();clearStill();});
 $('#capture-still').addEventListener('click',()=>captureStill());$('#send-still').addEventListener('click',()=>void sendStill());$('#clear-still').addEventListener('click',clearStill);
 $('#capture-background').addEventListener('click',()=>{
   resetCalibration();
@@ -228,37 +243,38 @@ function render(now:number){
     if(portal&&r)drawFrame(r,false);
   }else if(r){
     const displayPose=manual||!live?projectFrame(r,manualDepth,manualRoll):pose;
-    if(displayPose)drawHandSurface(r,displayPose,live?`camera:${pipeline.video.currentTime}`:`preview:${reducedMotion?0:now}`);
+    const automatic=automaticShaping(),displayOutline=automatic?handOutline:outline;
+    if(displayPose&&displayOutline)drawHandSurface(r,displayPose,live?`camera:${pipeline.video.currentTime}`:`preview:${reducedMotion?0:now}`,displayOutline,!automatic&&shape==='rectangle');
   }
-  if(now-lastMetric>400){lastMetric=now;$('#screen-camera-state').hidden=live;const depth=manual||!live?manualDepth:pose?.depth;
+  if(now-lastMetric>400){lastMetric=now;$('#screen-camera-state').hidden=live;$('#hand-shape-state').textContent=!handFollowing?'Using your saved outline. Turn on Follow my hands to shape it directly.':!live?'Start your camera to form a shape with both hands.':manual?'Mouse controls are on. Turn them off to follow your hands.':handOutline?'Following your hand-shaped outline.':hands.length===2?'Open a clear space between your thumbs and index fingers.':'Show both hands to form an opening.';const depth=manual||!live?manualDepth:pose?.depth;
     $('#depth-state').textContent=depth===undefined?'SHOW BOTH HANDS':Math.abs(depth)<.08?'CENTERED':depth>0?'LEFT SIDE CLOSER':'RIGHT SIDE CLOSER';$('#source-tag').textContent=live?'LIVE CAMERA · ON-DEVICE TRACKING':'INTERACTIVE PREVIEW · SIMULATED SCENE';$('#frame-tag').textContent=live?`${hands.length} HAND${hands.length===1?'':'S'} TRACKED`:'NO CAMERA CONNECTED';$('#live-metric').textContent=live?`${Math.round(inferenceMs)} ms / inference`:'YOUR CAMERA IS OFF';}
   requestAnimationFrame(render);
 }
-function drawHandSurface(rect:FrameRect,displayPose:FramePose,sourceRevision:string){
+function drawHandSurface(rect:FrameRect,displayPose:FramePose,sourceRevision:string,displayOutline:readonly Point[],rectangleDecoration:boolean){
   const p=pixelRect(rect),tw=384,th=256;
   const layout=$<HTMLSelectElement>('#layout').value,source=generated??raw;
-  const nextKey=`${style}:${layout}:${shape==='rectangle'?'rectangle':'shaped'}:${generated?'still':`${sourceRevision}:${p.x},${p.y},${p.width},${p.height}`}`;
+  const nextKey=`${style}:${layout}:${rectangleDecoration?'rectangle':'shaped'}:${generated?'still':`${sourceRevision}:${p.x},${p.y},${p.width},${p.height}`}`;
   // The image can stay cached while its position and perspective keep moving.
   if(textureSource!==source||textureKey!==nextKey){
     if(generated){textureCtx.clearRect(0,0,tw,th);textureCtx.drawImage(generated,0,0,tw,th);}
     else textureCtx.drawImage(raw,p.x,p.y,p.width,p.height,0,0,tw,th);
     if(!generated||style!==generatedStyle){const pixels=textureCtx.getImageData(0,0,tw,th);stylePixels(pixels.data,style,tw);textureCtx.putImageData(pixels,0,0);}
-    if(layout==='postcard'&&shape==='rectangle'){
+    if(layout==='postcard'&&rectangleDecoration){
       textureCtx.fillStyle='#e9e7d6';textureCtx.fillRect(0,0,tw,7);textureCtx.fillRect(0,th-25,tw,25);textureCtx.fillRect(0,0,7,th);textureCtx.fillRect(tw-7,0,7,th);
       textureCtx.fillStyle='#234039';textureCtx.font='9px monospace';textureCtx.fillText(generated?'AN AI STILL / JEDI MINDTRICK':'A MOMENT / JEDI MINDTRICK',14,th-10);
     }else if(layout==='cinema'){
       textureCtx.fillStyle='#050b0be6';textureCtx.fillRect(0,0,tw,th*.09);textureCtx.fillRect(0,th*.91,tw,th*.09);
     }
-    if(shape==='rectangle'){
+    if(rectangleDecoration){
       textureCtx.strokeStyle='#e4ddb9';textureCtx.lineWidth=1.5;textureCtx.strokeRect(1,1,tw-2,th-2);
       textureCtx.lineWidth=4;
       for(const [x,y,dx,dy] of [[2,2,1,1],[tw-2,2,-1,1],[2,th-2,1,-1],[tw-2,th-2,-1,-1]]){textureCtx.beginPath();textureCtx.moveTo(x+dx*12,y);textureCtx.lineTo(x,y);textureCtx.lineTo(x,y+dy*12);textureCtx.stroke();}
     }
     textureSource=source;textureKey=nextKey;
   }
-  drawSurface(ctx,texture,displayPose,W,H,outline);
-  if(shape!=='rectangle'){
-    const boundary=mappedShape(displayPose.quad,outline).map(p=>({x:p.x*W,y:p.y*H}));
+  drawSurface(ctx,texture,displayPose,W,H,displayOutline);
+  if(!rectangleDecoration){
+    const boundary=mappedShape(displayPose.quad,displayOutline).map(p=>({x:p.x*W,y:p.y*H}));
     ctx.save();traceShape(ctx,boundary);ctx.clip();traceShape(ctx,boundary);ctx.strokeStyle=layout==='postcard'?'#e9e7d6':'#e4ddb9';ctx.lineWidth=layout==='postcard'?14:3;ctx.lineJoin='round';ctx.stroke();ctx.restore();
   }
 }

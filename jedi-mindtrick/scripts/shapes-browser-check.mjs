@@ -22,6 +22,7 @@ try{
   const readSamples=()=>page.locator('#scene').evaluate((canvas,points)=>{const data=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;return points.map(p=>{const i=(p.y*canvas.width+p.x)*4;return [data[i],data[i+1],data[i+2]];});},samples);
   const raw=await readSamples();
   await page.locator('[data-mode="handframe"]').click();await page.locator('[data-style="cyanotype"]').click();
+  await page.locator('#manual-shapes summary').click();
   const rect={x:.28,y:.23,width:.44,height:.54};
   async function verifySilhouette(name,points,depth,roll=0){
     await page.waitForTimeout(65);

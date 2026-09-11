@@ -2,7 +2,9 @@
 
 Disappear into the room. Hold another world in your hands.
 
-A browser camera playground with two independent effects: **Invisible**, which blends a captured empty background into your silhouette, and **HandFrame**, which uses two hands to move, tilt and stretch a floating picture in perspective. An original implementation inspired by a supplied visual demonstration.
+A browser camera playground with two independent effects: **Invisible**, which blends a captured empty background into your silhouette, and **HandFrame**, which follows the opening formed by both thumbs and index fingers, with a floating picture that can stretch in perspective. An original implementation inspired by a supplied visual demonstration.
+
+Automatic hand outlines and clean fullscreen are published on the live preview. This update passes 102 application tests, 55 browser checks and eight controlled motion scenarios. Live JavaScript and CSS match the tested build. Physical-hand accuracy and camera latency still require a real-camera trial.
 
 ## Try it
 
@@ -13,17 +15,20 @@ Start with the clearly labelled simulated preview. Its illustration is generated
 1. Choose **Invisible** or **HandFrame**.
 2. Select **Start your camera** and allow camera access.
 3. For Invisible, select **Capture empty background**, then step completely out for five seconds. Return to view. Hold an open palm for 0.85 seconds to disappear, lower it, and repeat to return. Visible/Ghost/Hidden and the slider also work.
-4. For HandFrame, form an L with each hand, palms toward the camera. Hold them side by side at the same distance and select **Center depth**. Push one hand toward the camera and pull the other back to stretch that side of the picture; raise either hand to tilt. A quick pinch changes the local style. A pinch held for 0.6 seconds prepares one still; release before another action. The mouse/keyboard controls provide a fallback: drag the frame, adjust size/3D stretch/tilt with the sliders, or focus the canvas and use arrow keys.
+4. For HandFrame, leave **Follow my hands** on and form an opening with both thumbs and index fingers. Join the tips, curve the fingers or spread them apart: the window follows those joints without selecting a preset. Hold your palms toward the camera at a similar distance and select **Center depth**. Push one hand closer to stretch that side; lifting or turning your hands also moves the measured outline. Use the world buttons to change the look and **Prepare a still** to select a crop. Pinch shortcuts are disabled while Follow my hands is on.
 5. **Send still to AI** explicitly submits that selected crop. Preparing a still alone uploads nothing. The returned AI image appears inside HandFrame. The local preview continues during rendering.
 
-Select **Full screen** above the preview for a clean camera view. Move the pointer or tap to reveal **Exit full screen**, **Fill view**, and **Just camera**. Esc returns to the controls. In a browser that cannot enter native fullscreen, the camera expands within its tab. HandFrame also offers **Rectangle, Triangle, Oval, Diamond, Hexagon and Star**, plus **Draw a custom shape**: place or drag 3–12 points and select **Use shape**. The selected outline follows your hands in perspective. [Fullscreen and shape controls](docs/FULLSCREEN-SHAPES.md).
+Select **Full screen** above the preview for a clean camera view. Move the pointer or tap to reveal **Exit full screen**, **Fill view**, and **Just camera**. Esc returns to the controls. In a browser that cannot enter native fullscreen, the camera expands within its tab.
 
-The portal checkbox limits disappearance to the hand-shaped or manually positioned rectangle. The frame layouts offer an outline, postcard and cinema treatment. Choose from eleven local worlds: **Daydream**, **Thermal**, **Ink study**, **Neon night**, **Aurora**, **Deep sea**, **Golden hour**, **Cosmic**, **Risograph**, **Cyanotype**, and **Stippling**. Thermal is a brightness-based color palette, not a temperature sensor. Quick pinches cycle through all eleven. A prepared still keeps its selected crop and named look; prepare again to change that selection. Switching worlds on a returned AI still applies local colors without another upload. Returning to its original look restores the original AI image. The print looks use stable, image-anchored grain or dots. Cached textures keep moving with the 3D frame without rebuilding a frozen picture every display tick. [Print effects and flow measurements](docs/PRINT-FILTERS.md).
+**Saved shapes & drawing** is optional. Choosing Rectangle, Triangle, Oval, Diamond, Hexagon or Star—or applying a custom 3–12-point outline with **Use shape**—turns off Follow my hands. Turn it back on to shape the opening directly. With it off, the usual two-hand frame controls move the saved outline, a quick pinch changes the world, and a 0.6-second pinch prepares one still. Release before another pinch action. Mouse/keyboard controls also provide a fallback: drag the frame, use the size/depth/tilt sliders, or focus the canvas and use arrow keys. Live automatic outlines require mouse controls to be off. [Automatic hand outlines](docs/AUTOMATIC-HAND-SHAPES.md) · [Fullscreen and saved shapes](docs/FULLSCREEN-SHAPES.md).
+
+The Invisible portal checkbox limits disappearance to a hand-positioned or manually positioned rectangle. HandFrame layouts offer an outline, postcard and cinema treatment. Choose from eleven local worlds: **Daydream**, **Thermal**, **Ink study**, **Neon night**, **Aurora**, **Deep sea**, **Golden hour**, **Cosmic**, **Risograph**, **Cyanotype**, and **Stippling**. Thermal is a brightness-based color palette, not a temperature sensor. A prepared still keeps its selected rectangular crop and named look; prepare again to change that selection. Switching worlds on a returned AI still applies local colors without another upload. Returning to its original look restores the original AI image. The print looks use stable, image-anchored grain or dots. Cached textures keep moving with the 3D frame without rebuilding a frozen picture every display tick. [Print effects and flow measurements](docs/PRINT-FILTERS.md).
 
 ## Limits that matter
 
 - Keep the camera fixed for Invisible. Camera movement, changed lighting, clutter and moving backgrounds can reveal the illusion; recapture when the scene changes.
 - Perspective depth is estimated from changes in apparent palm size. It is a visual control, not measured distance. Palm rotation can also affect the estimate; keep your palms facing the camera and use Center depth to reset.
+- Automatic outlines approximate the opening along detected thumb/index joints. They do not trace exact skin edges or recognize arbitrary shapes made with other fingers. Crossed contours, very small openings and invalid tracking hide the window until a valid opening returns; they do not substitute a square.
 - Hand tracking can be lost, especially with occlusion, crossed hands, low light or hands near the image edge. Tracking loss resets gestures. This is an experimental effect, not a promise of reliable gesture recognition in every setting.
 - Hand/person inference runs in a local classic Web Worker, using the original camera input. One inference job is in flight; stale results and previous camera sessions are ignored. Camera stop, a hidden tab, startup failure or a watchdog timeout release resources.
 - AI still rendering uses Cloudflare Workers AI's FLUX.2 klein 4B model. It transforms the selected image; instant local filters do not call that model.
@@ -61,7 +66,7 @@ Set `PLAYWRIGHT_CHANNEL` if using another installed Playwright channel. These te
 | `src/main.ts`, `src/style.css` | Interface, modes, frame compositing and explicit still submission |
 | `src/vision/camera.ts`, `public/vision-worker.js` | Camera lifecycle, bounded inference and original-input vision |
 | `src/effects/` | Invisibility, mask alignment, portal and palm timing |
-| `src/handframe/` | Frame/depth geometry, projective rendering, pinch state machine and local color filters |
+| `src/handframe/` | Automatic joint contours, saved shapes, frame/depth geometry, projective rendering, pinch timing and local filters |
 | `worker/` | Validated still endpoint, model call, durable idempotency and shared quota |
 | `harness/` | Executable check graph, bounded commands, checkpoints and recovery |
 | `tests/` | Pure effects, timing, lifecycle and real Worker logic with mocked AI |

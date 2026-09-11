@@ -101,7 +101,7 @@ try {
   await page.locator('#stop-camera').click();await page.waitForFunction(()=>document.querySelector('#live-metric').textContent==='YOUR CAMERA IS OFF');pass('camera stop returns to labelled preview');
   // Exercise the full camera → landmarks → perspective → render path with deterministic hands.
   await page.route('**/vision-worker.js',route=>readFile(new URL('./fixtures/perspective-worker.js',import.meta.url),'utf8').then(body=>route.fulfill({status:200,contentType:'text/javascript',body})));
-  await page.locator('[data-mode="handframe"]').click();await page.locator('#center-depth').click();await page.locator('#start-camera').click();
+  await page.locator('[data-mode="handframe"]').click();await page.locator('#follow-hands').uncheck();await page.locator('#center-depth').click();await page.locator('#start-camera').click();
   await page.waitForFunction(()=>document.querySelector('#frame-tag').textContent==='2 HANDS TRACKED');
   assert.equal(await page.locator('#frame-depth').isDisabled(),true);const trackedNeutral=await frameSnapshot();
   await page.waitForFunction(()=>document.querySelector('#depth-state').textContent==='LEFT SIDE CLOSER');
