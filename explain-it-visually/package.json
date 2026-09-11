@@ -19,11 +19,11 @@
     "@antv/infographic": "0.2.20"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20260903.1",
+    "@cloudflare/workers-types": "5.20260911.1",
     "@types/node": "^26.4.1",
     "typescript": "7.0.2",
     "vite": "^7.1.5",
     "vitest": "4.1.11",
-    "wrangler": "4.128.0"
+    "wrangler": "4.131.1"
   }
 }
