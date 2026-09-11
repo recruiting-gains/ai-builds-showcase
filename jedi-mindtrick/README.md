@@ -20,6 +20,14 @@ Start with the clearly labelled simulated preview. Its illustration is generated
 
 HandFrame opens in a wider studio with the camera controls above and design tools below. Select **Full screen** above the preview for a clean camera view. Move the pointer or tap to reveal **Exit full screen**, **Fill view**, and **Just camera**. Esc returns to the controls. In a browser that cannot enter native fullscreen, the camera expands within its tab. It starts fitted to show the whole image; leave Fill view off to keep the sides visible. A larger preview does not increase the lens field of view.
 
+### Use it on your phone
+
+Open the [live HTTPS app](https://jedi-mindtrick.recruiting-gains.workers.dev) in Safari on iPhone, select **Start your camera**, and allow camera access. The app runs from Cloudflare and uses the phone's front camera; your computer does not need to stay on. Internet access is required to load the app and its vision models, and to submit an optional AI still.
+
+Turn the phone sideways and prop it somewhere stable for more room to move both hands. Choose **HandFrame → Full screen** and leave **Fill view** off to preserve the whole camera image. Tap the picture to reveal the exit controls. If camera permission is unavailable inside another app's browser, open the same link directly in Safari.
+
+For a shortcut, use Safari's **Share → Add to Home Screen → Add** ([Apple's instructions](https://support.apple.com/guide/iphone/bookmark-a-website-iph42ab2f3a7/ios)). Responsive layouts and fullscreen fallback are tested with simulated camera input; physical iPhone hand tracking and frame rate still depend on the device, lighting and browser.
+
 **Saved shapes & drawing** is optional. Choosing Rectangle, Triangle, Oval, Diamond, Hexagon or Star—or applying a custom 3–12-point outline with **Use shape**—turns off Follow my hands. Turn it back on to shape the opening directly. With it off, the usual two-hand frame controls move the saved outline, a quick pinch changes the world, and a 0.6-second pinch prepares one still. Release before another pinch action. Mouse/keyboard controls also provide a fallback: drag the frame, use the size/depth/tilt sliders, or focus the canvas and use arrow keys. Live automatic outlines require mouse controls to be off. [Automatic hand outlines](docs/AUTOMATIC-HAND-SHAPES.md) · [Fullscreen and saved shapes](docs/FULLSCREEN-SHAPES.md).
 
 The Invisible portal checkbox limits disappearance to a hand-positioned or manually positioned rectangle and uses manual visibility controls instead of palm closure. HandFrame layouts offer an outline, postcard and cinema treatment. Choose from eleven local worlds: **Daydream**, **Thermal**, **Ink study**, **Neon night**, **Aurora**, **Deep sea**, **Golden hour**, **Cosmic**, **Risograph**, **Cyanotype**, and **Stippling**. Thermal is a brightness-based color palette, not a temperature sensor. A prepared still keeps its selected rectangular crop and named look; prepare again to change that selection. Switching worlds on a returned AI still applies local colors without another upload. Returning to its original look restores the original AI image. The print looks use stable, image-anchored grain or dots. Cached textures keep moving with the 3D frame without rebuilding a frozen picture every display tick. [Print effects and flow measurements](docs/PRINT-FILTERS.md).
@@ -78,10 +86,21 @@ The engineering harness is separate from the camera loop. It runs explicit comma
 
 `wrangler.jsonc` defines a Worker with static assets, a Workers AI binding and one small SQLite-backed Durable Object for the shared preview budget. No external database, authentication service or secret API key is needed.
 
+From a fresh checkout, use Node 24 or newer and a Cloudflare account with Workers AI access. Run these commands from the repository's `jedi-mindtrick` directory:
+
 ```sh
+npm ci
+npm run assets
+npm run types
+npm test
+npm run test:harness
+npm run build
 npm run check:deploy
+npx wrangler login
 npm run deploy
 ```
+
+`npm run deploy` publishes the built `dist` folder and Worker together. Wrangler prints the deployed HTTPS URL; use that URL from a phone or another computer. Rebuild before each later deployment. The repository's Jedi workflow validates changes but does not automatically publish them. See [Cloudflare's Wrangler commands](https://developers.cloudflare.com/workers/wrangler/commands/) for authentication and deployment options.
 
 Before claiming a release, verify the GitHub source, deployed assets, both real-camera modes and an actual returned AI still. Passing a synthetic test is evidence only for the behavior it exercises. The harness keeps unobserved external gates pending.
 
