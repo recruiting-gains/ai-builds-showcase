@@ -1,10 +1,14 @@
 import type { Point } from '../contracts';
 import type { FramePose } from './perspective';
+import { shapePoints, validateOutline } from './shapes';
 
 type Quad = FramePose['quad'];
+const RECTANGLE = shapePoints('rectangle');
+type PathContext = Pick<CanvasRenderingContext2D, 'beginPath' | 'moveTo' | 'lineTo' | 'closePath'>;
 
 /** Map a texture square to a planar quadrilateral, including perspective foreshortening. */
 export function surfaceMap(quad: Quad): (u: number, v: number) => Point {
+  if(quad.length!==4)throw new RangeError('The surface requires four corners.');
   const finite=quad.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
   const turns=quad.map((p,i)=>{const q=quad[(i+1)%4],r=quad[(i+2)%4];return (q.x-p.x)*(r.y-q.y)-(q.y-p.y)*(r.x-q.x);});
   if(!finite||!turns.every(turn=>turn>1e-9))throw new RangeError('The surface must be finite, convex and ordered clockwise.');
@@ -23,6 +27,27 @@ export function surfaceMap(quad: Quad): (u: number, v: number) => Point {
   };
 }
 
+function mapOutline(map: (u: number, v: number) => Point, outline: readonly Point[]): Point[] {
+  const error = validateOutline(outline);
+  if (error) throw new RangeError(error);
+  return outline.map(point => map(point.x, point.y));
+}
+
+/** The returned outline uses the same coordinate system as the supplied quad. */
+export function mappedShape(quad: Quad, outline: readonly Point[] = RECTANGLE): Point[] {
+  return mapOutline(surfaceMap(quad), outline);
+}
+
+/** Start a closed path, ready for the caller to stroke or clip without changing its styles. */
+export function traceShape(ctx: PathContext, points: readonly Point[]): void {
+  if (points.length < 3 || points.length > 64 || !points.every(point => Number.isFinite(point.x) && Number.isFinite(point.y))) {
+    throw new RangeError('A shape path requires 3–64 finite points.');
+  }
+  ctx.beginPath();
+  points.forEach((point, index) => index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y));
+  ctx.closePath();
+}
+
 function triangle(ctx: CanvasRenderingContext2D, texture: HTMLCanvasElement, source: Point[], target: Point[]) {
   const [s0, s1, s2] = source, [t0, t1, t2] = target;
   const sx1 = s1.x - s0.x, sx2 = s2.x - s0.x, sy1 = s1.y - s0.y, sy2 = s2.y - s0.y;
@@ -32,7 +57,7 @@ function triangle(ctx: CanvasRenderingContext2D, texture: HTMLCanvasElement, sou
   const b = (ty1 * sy2 - ty2 * sy1) / determinant, d = (ty2 * sx1 - ty1 * sx2) / determinant;
   ctx.save();
   // A subpixel overlap hides anti-aliased seams between adjacent triangles.
-  // The parent quad clip keeps the surface silhouette exact.
+  // The parent shape clip keeps even a concave surface silhouette exact.
   const center = {x:(t0.x+t1.x+t2.x)/3,y:(t0.y+t1.y+t2.y)/3};
   const area2=Math.abs(tx1*ty2-tx2*ty1);
   const longest=Math.max(Math.hypot(t1.x-t0.x,t1.y-t0.y),Math.hypot(t2.x-t1.x,t2.y-t1.y),Math.hypot(t0.x-t2.x,t0.y-t2.y));
@@ -47,11 +72,14 @@ function triangle(ctx: CanvasRenderingContext2D, texture: HTMLCanvasElement, sou
   ctx.drawImage(texture,0,0);ctx.restore();
 }
 
-/** Bounded 8×6 projective mesh: the image, borders and cinema bars share one surface. */
-export function drawSurface(ctx: CanvasRenderingContext2D, texture: HTMLCanvasElement, pose: FramePose, width: number, height: number): void {
+/** Bounded 8×6 projective mesh clipped to a normalized outline; rectangle by default. */
+export function drawSurface(ctx: CanvasRenderingContext2D, texture: HTMLCanvasElement, pose: FramePose, width: number, height: number, outline: readonly Point[] = RECTANGLE): void {
   const quad = pose.quad.map(p=>({x:p.x*width,y:p.y*height})) as Quad;
   const map=surfaceMap(quad);
-  ctx.save();ctx.beginPath();quad.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.closePath();ctx.clip();
+  // Clip once to the projectively mapped outline before any triangle expansion.
+  // Canvas' polygon clip preserves concave notches, including the star's center valleys.
+  const silhouette=mapOutline(map,outline);
+  ctx.save();traceShape(ctx,silhouette);ctx.clip();
   // A neutral frame needs just one draw; even a rotated parallelogram is affine.
   const [tl,tr,br,bl]=quad;
   if(Math.abs(tl.x+br.x-tr.x-bl.x)+Math.abs(tl.y+br.y-tr.y-bl.y)<.01){

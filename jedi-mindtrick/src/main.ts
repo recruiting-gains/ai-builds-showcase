@@ -5,7 +5,10 @@ import { blendInvisible, portalMask, scaleMask, PalmHold } from './effects/invis
 import { CameraPipeline } from './vision/camera';
 import { drawDemo, demoMask } from './demo';
 import { PerspectiveTracker, projectFrame, type FramePose } from './handframe/perspective';
-import { drawSurface } from './handframe/surface';
+import { drawSurface, mappedShape, traceShape } from './handframe/surface';
+import { shapePoints, type FrameShape } from './handframe/shapes';
+import { installShapeEditor } from './handframe/shape-editor';
+import { installFullscreen } from './fullscreen';
 
 const WORLDS: {id:LocalStyle;name:string;note:string}[] = [
   {id:'dream',name:'Daydream',note:'Soft pastel colors with a painted finish.'},
@@ -21,6 +24,11 @@ const WORLDS: {id:LocalStyle;name:string;note:string}[] = [
   {id:'stippling',name:'Stippling',note:'Fine red ink dots gather into shadows on ivory paper.'},
 ];
 const worldName=(id:LocalStyle)=>WORLDS.find(world=>world.id===id)!.name;
+const SHAPES: {id:FrameShape;name:string;icon:string}[] = [
+  {id:'rectangle',name:'Rectangle',icon:'▭'}, {id:'triangle',name:'Triangle',icon:'△'},
+  {id:'ellipse',name:'Oval',icon:'◯'}, {id:'diamond',name:'Diamond',icon:'◇'},
+  {id:'hexagon',name:'Hexagon',icon:'⬡'}, {id:'star',name:'Star',icon:'☆'},
+];
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
 <header class="topbar"><a class="brand" href="/" aria-label="Jedi mindtrick home"><span class="brand-mark">⌑</span> JEDI MINDTRICK<span class="edition">CAMERA PLAYGROUND / 01</span></a><a class="about-link" href="#how-it-works">How it works <span>↗</span></a></header>
@@ -28,8 +36,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
   <section class="intro"><div><p class="eyebrow"><span></span> A SMALL EXPERIMENT IN THE IMPOSSIBLE</p><h1>Now you see me.<br><em>Now, imagine.</em></h1></div><p class="intro-note">Disappear into the room.<br> Hold another world in your hands.<br><span>Two camera effects. One little mindtrick.</span></p></section>
   <section class="playground" aria-label="Camera playground">
     <div class="studio">
-      <div class="studio-bar"><div class="mode-tabs" role="group" aria-label="Choose an effect"><button class="active" data-mode="invisible" aria-pressed="true"><span>01</span> Invisible</button><button data-mode="handframe" aria-pressed="false"><span>02</span> HandFrame</button></div><span class="local-tag"><i></i> LOCAL VISION</span></div>
-      <div class="viewport"><canvas id="scene" width="768" height="432" aria-label="Interactive simulated preview of the Invisible effect"></canvas><div class="viewport-top"><span id="source-tag">INTERACTIVE PREVIEW · SIMULATED SCENE</span><span id="frame-tag">NO CAMERA CONNECTED</span></div><div class="viewport-bottom"><div><span class="record-dot"></span><span id="effect-caption">A little less here.</span></div><span id="live-metric">YOUR CAMERA IS OFF</span></div><div id="countdown" hidden></div></div>
+      <div class="studio-bar"><div class="mode-tabs" role="group" aria-label="Choose an effect"><button class="active" data-mode="invisible" aria-pressed="true"><span>01</span> Invisible</button><button data-mode="handframe" aria-pressed="false"><span>02</span> HandFrame</button></div><button id="full-screen" class="screen-open" aria-expanded="false" aria-controls="camera-view">Full screen <span aria-hidden="true">⛶</span></button></div>
+      <div class="viewport" id="camera-view"><canvas id="scene" width="768" height="432" aria-label="Interactive simulated preview of the Invisible effect"></canvas><div class="viewport-top"><span id="source-tag">INTERACTIVE PREVIEW · SIMULATED SCENE</span><span id="frame-tag">NO CAMERA CONNECTED</span></div><div class="viewport-bottom"><div><span class="record-dot"></span><span id="effect-caption">A little less here.</span></div><span id="live-metric">YOUR CAMERA IS OFF</span></div><div id="countdown" hidden></div><div class="screen-actions" role="group" aria-label="Full screen controls"><span id="screen-notice" role="status">Esc to return</span><button id="camera-only" aria-pressed="false">Just camera</button><button id="fill-screen" aria-pressed="false">Fill view</button><button id="exit-screen">Exit full screen <span aria-hidden="true">✕</span></button></div><span id="screen-camera-state">Simulated preview · Camera off</span></div>
       <div class="studio-footer"><span id="gesture-help">Hold an open palm to disappear. Lower it, then repeat to return.</span><button id="reset" class="text-button">Reset effect ↺</button></div>
     </div>
     <aside class="controls" aria-label="Effect controls">
@@ -47,13 +55,18 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
       <div id="handframe-controls" hidden>
         <div class="section-label"><span>01 / CHOOSE YOUR WORLD</span><span>LOCAL FILTER</span></div>
         <div class="styles" role="group" aria-label="Visual style">${WORLDS.map(world=>`<button data-style="${world.id}" class="${world.id==='dream'?'active':''}" aria-pressed="${world.id==='dream'}"><i class="swatch ${world.id}" aria-hidden="true"></i>${world.name}</button>`).join('')}</div>
+        <div class="section-label"><span>02 / DESIGN YOUR SHAPE</span><span id="shape-name">RECTANGLE</span></div>
+        <div class="shape-choices" role="group" aria-label="Frame shape">${SHAPES.map(s=>`<button data-shape="${s.id}" aria-pressed="${s.id==='rectangle'}" class="${s.id==='rectangle'?'active':''}"><span aria-hidden="true">${s.icon}</span>${s.name}</button>`).join('')}</div>
+        <button id="custom-shape" class="secondary full" aria-expanded="false" aria-controls="shape-editor">Draw a custom shape <span aria-hidden="true">✎</span></button>
+        <div id="shape-editor" hidden></div>
+        <p class="hint">Choose an outline, then move and stretch it with your hands. Your camera stays visible around it.</p>
         <label class="select-row" for="layout">Frame layout<select id="layout"><option value="outline">Floating outline</option><option value="postcard">Postcard</option><option value="cinema">Cinema</option></select></label>
         <p class="hint" id="style-note">Instant color effects, processed on your device.</p>
-        <div class="depth-controls"><div class="section-label"><span>02 / MOVE IN 3D</span><output id="depth-state">READY TO STRETCH</output></div>
+        <div class="depth-controls"><div class="section-label"><span>03 / MOVE IN 3D</span><output id="depth-state">READY TO STRETCH</output></div>
         <button id="center-depth" class="secondary full">Center depth <span>↔</span></button>
         <p class="hint">Hold both L-shaped hands side by side, palms toward the camera. Center depth, then push one hand forward and pull the other back. Lift either hand to tilt.</p>
         <p class="hint muted">Depth is estimated from hand size. Keep your palms facing the camera for steadier control.</p></div>
-        <div class="section-label"><span>03 / MAKE AN AI STILL</span><span>OPTIONAL UPLOAD</span></div>
+        <div class="section-label"><span>04 / MAKE AN AI STILL</span><span>OPTIONAL UPLOAD</span></div>
         <button id="capture-still" class="secondary full">Prepare a still <span>⌑</span></button><p class="hint">A long pinch also prepares a crop. Sending it to Cloudflare AI is a separate, deliberate step.</p>
         <div id="still-panel" hidden><img id="still-preview" alt="Your selected frozen crop"><p id="still-status" class="hint" role="status">Only this selected crop will be sent.</p><button class="primary full" id="send-still" disabled>Send still to AI ↗</button><button id="clear-still" class="text-button">Clear still</button></div>
       </div>
@@ -76,6 +89,8 @@ const texture=document.createElement('canvas');texture.width=384;texture.height=
 const textureCtx=texture.getContext('2d',{willReadFrequently:true})!;
 let textureSource:ImageBitmap|HTMLCanvasElement|null=null,textureKey='';
 let mode:Mode='invisible',style:LocalStyle='dream',fade=0,targetFade=0,portal=false,manual=true,live=false;
+let shape:FrameShape='rectangle',customOutline=shapePoints('rectangle'),outline=shapePoints(shape),cameraOnly=false;
+let focusView:ReturnType<typeof installFullscreen>|null=null;
 let background:ImageData|null=null,mask:Float32Array|null=null,hands:Hand[]=[],lastVision=0,inferenceMs=0;
 let frame:FrameRect|null=null,lastGoodFrame:FrameRect|null=null,lastGoodAt=0;
 let manualFrame:FrameRect={x:.28,y:.23,width:.44,height:.54};
@@ -110,19 +125,20 @@ const pipeline=new CameraPipeline(result=>{
   $<HTMLButtonElement>('#capture-background').disabled=pending;
   $<HTMLButtonElement>('#capture-still').disabled=pending;
   if(active){manual=false;$<HTMLInputElement>('#manual').checked=false;$('#background-state').textContent='NOT CAPTURED';}
-  else{resetPerspective();hands=[];mask=null;frame=null;background=null;targetFade=fade=0;palm.reset();pinch.reset();if(!pending){manual=true;$<HTMLInputElement>('#manual').checked=true;}}
+  else{resetPerspective();hands=[];mask=null;frame=null;background=null;targetFade=fade=0;palm.reset();pinch.reset();if(!pending){manual=true;$<HTMLInputElement>('#manual').checked=true;if(focusView?.active)void focusView.exit();}}
   syncManualControls();
 });
 
 function resetPerspective(){pose=null;perspective.reset();}
+function setShape(value:FrameShape){shape=value;outline=shapePoints(value,customOutline);$('#shape-name').textContent=value==='custom'?'CUSTOM':SHAPES.find(s=>s.id===value)!.name.toUpperCase();document.querySelectorAll<HTMLButtonElement>('[data-shape]').forEach(b=>{b.classList.toggle('active',b.dataset.shape===value);b.setAttribute('aria-pressed',String(b.dataset.shape===value));});$('#custom-shape').classList.toggle('active',value==='custom');}
 function syncManualControls(){const disabled=live&&!manual;for(const id of ['#frame-depth','#frame-roll','#frame-size'])$<HTMLInputElement>(id).disabled=disabled;$('#perspective-manual-hint').textContent=disabled?'Your hands control depth and tilt. Enable mouse controls to use these sliders.':'Try the depth and tilt sliders, or use both hands with the camera.';}
 function centerDepth(){perspective.recenter();pose=null;manualDepth=manualRoll=0;$<HTMLInputElement>('#frame-depth').value='0';$<HTMLInputElement>('#frame-roll').value='0';$('#frame-depth-value').textContent='Centered';$('#frame-roll-value').textContent='0°';}
 function resetCalibration(){if(calibration)clearInterval(calibration);calibration=null;$('#countdown').hidden=true;}
 function clearStill(){renderGeneration++;renderAbort?.abort();renderAbort=null;prepared=null;generated?.close();generated=null;generatedStyle=null;textureSource=null;textureKey='';if(generatedURL)URL.revokeObjectURL(generatedURL);generatedURL=null;$('#still-panel').hidden=true;$<HTMLImageElement>('#still-preview').removeAttribute('src');setStyle(style);}
-function stopCamera(message='Camera off. The simulated preview is ready.'){pipeline.stop();resetPerspective();live=false;hands=[];mask=null;background=null;frame=null;lastGoodFrame=null;lastVision=0;targetFade=fade=0;manual=true;$<HTMLInputElement>('#manual').checked=true;resetCalibration();clearStill();palm.reset();pinch.reset();$('#stop-camera').hidden=true;$<HTMLButtonElement>('#start-camera').disabled=false;$<HTMLButtonElement>('#capture-background').disabled=false;$<HTMLButtonElement>('#capture-still').disabled=false;$('#background-state').textContent='PREVIEW READY';setFade(0);syncManualControls();status(message);}
+function stopCamera(message='Camera off. The simulated preview is ready.'){if(focusView?.active)void focusView.exit();pipeline.stop();resetPerspective();live=false;hands=[];mask=null;background=null;frame=null;lastGoodFrame=null;lastVision=0;targetFade=fade=0;manual=true;$<HTMLInputElement>('#manual').checked=true;resetCalibration();clearStill();palm.reset();pinch.reset();$('#stop-camera').hidden=true;$<HTMLButtonElement>('#start-camera').disabled=false;$<HTMLButtonElement>('#capture-background').disabled=false;$<HTMLButtonElement>('#capture-still').disabled=false;$('#background-state').textContent='PREVIEW READY';setFade(0);syncManualControls();status(message);}
 function setFade(value:number){if(live&&!background&&value>0){status('Capture the empty background before disappearing.');return;}targetFade=value/100;$<HTMLInputElement>('#fade').value=String(value);$('#fade-value').textContent=`${value}%`;document.querySelectorAll<HTMLButtonElement>('[data-fade]').forEach(b=>{b.classList.toggle('active',Number(b.dataset.fade)===value);b.setAttribute('aria-pressed',String(Number(b.dataset.fade)===value));});}
 function setStyle(value:LocalStyle){style=value;document.querySelectorAll<HTMLButtonElement>('[data-style]').forEach(b=>{b.classList.toggle('active',b.dataset.style===value);b.setAttribute('aria-pressed',String(b.dataset.style===value));});$('#style-note').textContent=WORLDS.find(world=>world.id===value)!.note+(generated&&value!==generatedStyle?' Applied locally to your AI still.':'');}
-function setMode(value:Mode){mode=value;palm.reset();pinch.reset();frame=null;resetPerspective();if(live)void pipeline.infer(performance.now(),mode==='invisible');document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(b=>{b.classList.toggle('active',b.dataset.mode===value);b.setAttribute('aria-pressed',String(b.dataset.mode===value));});$('#invisible-controls').hidden=value!=='invisible';$('#handframe-controls').hidden=value!=='handframe';$('#perspective-controls').hidden=value!=='handframe';$('#gesture-help').textContent=value==='invisible'?'Hold an open palm to disappear. Lower it, then repeat to return.':'Push one hand forward, pull the other back. Lift to tilt. Quick pinch: style. Hold 0.6s: prepare a still.';$('#effect-caption').textContent=value==='invisible'?'A little less here.':'A different world, within reach.';scene.setAttribute('aria-label',`${live?'Live camera':'Simulated'} ${value} effect. Use the adjacent controls to interact.`);}
+function setMode(value:Mode){mode=value;palm.reset();pinch.reset();frame=null;resetPerspective();if(live)void pipeline.infer(performance.now(),mode==='invisible');document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(b=>{b.classList.toggle('active',b.dataset.mode===value);b.setAttribute('aria-pressed',String(b.dataset.mode===value));});$('#invisible-controls').hidden=value!=='invisible';$('#handframe-controls').hidden=value!=='handframe';$('#perspective-controls').hidden=value!=='handframe';$('#gesture-help').textContent=value==='invisible'?'Hold an open palm to disappear. Lower it, then repeat to return.':'Choose any shape. Push one hand forward, pull the other back. Lift to tilt. Quick pinch: style. Hold 0.6s: prepare a still.';$('#effect-caption').textContent=value==='invisible'?'A little less here.':'A different world, within reach.';scene.setAttribute('aria-label',`${live?'Live camera':'Simulated'} ${value} effect. Use the adjacent controls to interact.`);}
 function activeFrame(){return manual||!live?manualFrame:frame;}
 function pixelRect(rect:FrameRect){return {x:Math.max(0,Math.round(rect.x*W)),y:Math.max(0,Math.round(rect.y*H)),width:Math.max(1,Math.min(Math.round(rect.width*W),W-Math.round(rect.x*W))),height:Math.max(1,Math.min(Math.round(rect.height*H),H-Math.round(rect.y*H)))};}
 
@@ -133,7 +149,7 @@ function captureStill(rect=activeFrame()){
   const data=crop.toDataURL('image/jpeg',.85);
   prepared={image:data.split(',')[1],requestId:crypto.randomUUID(),createdAt:Date.now(),style};
   $<HTMLImageElement>('#still-preview').src=data;$('#still-panel').hidden=false;
-  $('#still-status').textContent=aiEnabled?`Selected look: ${worldName(prepared.style)}. Only this frozen crop and look will be sent. Prepare again to change the selection.`:'Still prepared. AI rendering is unavailable here; the local effects still work.';
+  $('#still-status').textContent=aiEnabled?`Selected look: ${worldName(prepared.style)}. This entire rectangular preview and look will be sent; the frame shape only changes its display. Prepare again to change the selection.`:'Still prepared. AI rendering is unavailable here; the local effects still work.';
   const button=$<HTMLButtonElement>('#send-still');button.disabled=!aiEnabled;button.textContent='Send still to AI ↗';
 }
 async function sendStill(){
@@ -154,6 +170,11 @@ async function sendStill(){
   finally{clearTimeout(timer);if(generation===renderGeneration)renderAbort=null;}
 }
 
+const shapeEditor=installShapeEditor($('#shape-editor'),points=>{customOutline=points;setShape('custom');});
+document.querySelectorAll<HTMLButtonElement>('[data-shape]').forEach(b=>b.addEventListener('click',()=>{shapeEditor.close();setShape(b.dataset.shape as FrameShape);}));
+$('#custom-shape').addEventListener('click',()=>shapeEditor.open(customOutline,$('#custom-shape')));
+focusView=installFullscreen($('#camera-view'),$<HTMLButtonElement>('#full-screen'),active=>{if(!active){cameraOnly=false;$('#camera-only').setAttribute('aria-pressed','false');$('#camera-only').textContent='Just camera';}});
+$('#camera-only').addEventListener('click',()=>{cameraOnly=!cameraOnly;$('#camera-only').setAttribute('aria-pressed',String(cameraOnly));$('#camera-only').textContent=cameraOnly?'Show effects':'Just camera';});
 $('#start-camera').addEventListener('click',()=>{stopCamera('Starting camera…');$('#stop-camera').hidden=false;void pipeline.start();});
 $('#stop-camera').addEventListener('click',()=>stopCamera());
 document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode as Mode)));
@@ -166,7 +187,7 @@ $<HTMLInputElement>('#frame-size').addEventListener('input',e=>{const width=Numb
 $('#center-depth').addEventListener('click',()=>{centerDepth();status(live&&!manual?'Hold both hands at the same distance, palms facing the camera. The next tracked pair sets your neutral depth.':'Depth and tilt centered. Try the sliders below.');});
 $<HTMLInputElement>('#frame-depth').addEventListener('input',e=>{manualDepth=Number((e.target as HTMLInputElement).value)/100;$('#frame-depth-value').textContent=manualDepth===0?'Centered':`${manualDepth>0?'Left':'Right'} closer ${Math.round(Math.abs(manualDepth)*100)}%`;});
 $<HTMLInputElement>('#frame-roll').addEventListener('input',e=>{const degrees=Number((e.target as HTMLInputElement).value);manualRoll=degrees*Math.PI/180;$('#frame-roll-value').textContent=`${degrees}°`;});
-$('#reset').addEventListener('click',()=>{setFade(0);setStyle('dream');frame=null;resetPerspective();centerDepth();manualFrame={x:.28,y:.23,width:.44,height:.54};$<HTMLInputElement>('#frame-size').value='44';palm.reset();pinch.reset();clearStill();});
+$('#reset').addEventListener('click',()=>{setFade(0);setStyle('dream');setShape('rectangle');shapeEditor.close();frame=null;resetPerspective();centerDepth();manualFrame={x:.28,y:.23,width:.44,height:.54};$<HTMLInputElement>('#frame-size').value='44';palm.reset();pinch.reset();clearStill();});
 $('#capture-still').addEventListener('click',()=>captureStill());$('#send-still').addEventListener('click',()=>void sendStill());$('#clear-still').addEventListener('click',clearStill);
 $('#capture-background').addEventListener('click',()=>{
   resetCalibration();
@@ -197,7 +218,8 @@ function render(now:number){
   if(live&&now-lastVision>1000){hands=[];frame=null;resetPerspective();palm.reset();pinch.reset();}
   ctx.drawImage(raw,0,0);
   const r=activeFrame();
-  if(mode==='invisible'){
+  if(focusView?.active&&cameraOnly){/* Clean camera view keeps the selected effect ready to restore. */}
+  else if(mode==='invisible'){
     fade=reducedMotion?targetFade:fade+(targetFade-fade)*.14;
     let bg=background;
     if(!live){const b=bgCanvas.getContext('2d',{willReadFrequently:true})!;drawDemo(b,reducedMotion?0:now,false);bg=b.getImageData(0,0,W,H);}
@@ -208,31 +230,37 @@ function render(now:number){
     const displayPose=manual||!live?projectFrame(r,manualDepth,manualRoll):pose;
     if(displayPose)drawHandSurface(r,displayPose,live?`camera:${pipeline.video.currentTime}`:`preview:${reducedMotion?0:now}`);
   }
-  if(now-lastMetric>400){lastMetric=now;const depth=manual||!live?manualDepth:pose?.depth;
+  if(now-lastMetric>400){lastMetric=now;$('#screen-camera-state').hidden=live;const depth=manual||!live?manualDepth:pose?.depth;
     $('#depth-state').textContent=depth===undefined?'SHOW BOTH HANDS':Math.abs(depth)<.08?'CENTERED':depth>0?'LEFT SIDE CLOSER':'RIGHT SIDE CLOSER';$('#source-tag').textContent=live?'LIVE CAMERA · ON-DEVICE TRACKING':'INTERACTIVE PREVIEW · SIMULATED SCENE';$('#frame-tag').textContent=live?`${hands.length} HAND${hands.length===1?'':'S'} TRACKED`:'NO CAMERA CONNECTED';$('#live-metric').textContent=live?`${Math.round(inferenceMs)} ms / inference`:'YOUR CAMERA IS OFF';}
   requestAnimationFrame(render);
 }
 function drawHandSurface(rect:FrameRect,displayPose:FramePose,sourceRevision:string){
   const p=pixelRect(rect),tw=384,th=256;
   const layout=$<HTMLSelectElement>('#layout').value,source=generated??raw;
-  const nextKey=`${style}:${layout}:${generated?'still':`${sourceRevision}:${p.x},${p.y},${p.width},${p.height}`}`;
+  const nextKey=`${style}:${layout}:${shape==='rectangle'?'rectangle':'shaped'}:${generated?'still':`${sourceRevision}:${p.x},${p.y},${p.width},${p.height}`}`;
   // The image can stay cached while its position and perspective keep moving.
   if(textureSource!==source||textureKey!==nextKey){
     if(generated){textureCtx.clearRect(0,0,tw,th);textureCtx.drawImage(generated,0,0,tw,th);}
     else textureCtx.drawImage(raw,p.x,p.y,p.width,p.height,0,0,tw,th);
     if(!generated||style!==generatedStyle){const pixels=textureCtx.getImageData(0,0,tw,th);stylePixels(pixels.data,style,tw);textureCtx.putImageData(pixels,0,0);}
-    if(layout==='postcard'){
+    if(layout==='postcard'&&shape==='rectangle'){
       textureCtx.fillStyle='#e9e7d6';textureCtx.fillRect(0,0,tw,7);textureCtx.fillRect(0,th-25,tw,25);textureCtx.fillRect(0,0,7,th);textureCtx.fillRect(tw-7,0,7,th);
       textureCtx.fillStyle='#234039';textureCtx.font='9px monospace';textureCtx.fillText(generated?'AN AI STILL / JEDI MINDTRICK':'A MOMENT / JEDI MINDTRICK',14,th-10);
     }else if(layout==='cinema'){
       textureCtx.fillStyle='#050b0be6';textureCtx.fillRect(0,0,tw,th*.09);textureCtx.fillRect(0,th*.91,tw,th*.09);
     }
-    textureCtx.strokeStyle='#e4ddb9';textureCtx.lineWidth=1.5;textureCtx.strokeRect(1,1,tw-2,th-2);
-    textureCtx.lineWidth=4;
-    for(const [x,y,dx,dy] of [[2,2,1,1],[tw-2,2,-1,1],[2,th-2,1,-1],[tw-2,th-2,-1,-1]]){textureCtx.beginPath();textureCtx.moveTo(x+dx*12,y);textureCtx.lineTo(x,y);textureCtx.lineTo(x,y+dy*12);textureCtx.stroke();}
+    if(shape==='rectangle'){
+      textureCtx.strokeStyle='#e4ddb9';textureCtx.lineWidth=1.5;textureCtx.strokeRect(1,1,tw-2,th-2);
+      textureCtx.lineWidth=4;
+      for(const [x,y,dx,dy] of [[2,2,1,1],[tw-2,2,-1,1],[2,th-2,1,-1],[tw-2,th-2,-1,-1]]){textureCtx.beginPath();textureCtx.moveTo(x+dx*12,y);textureCtx.lineTo(x,y);textureCtx.lineTo(x,y+dy*12);textureCtx.stroke();}
+    }
     textureSource=source;textureKey=nextKey;
   }
-  drawSurface(ctx,texture,displayPose,W,H);
+  drawSurface(ctx,texture,displayPose,W,H,outline);
+  if(shape!=='rectangle'){
+    const boundary=mappedShape(displayPose.quad,outline).map(p=>({x:p.x*W,y:p.y*H}));
+    ctx.save();traceShape(ctx,boundary);ctx.clip();traceShape(ctx,boundary);ctx.strokeStyle=layout==='postcard'?'#e9e7d6':'#e4ddb9';ctx.lineWidth=layout==='postcard'?14:3;ctx.lineJoin='round';ctx.stroke();ctx.restore();
+  }
 }
 function drawFrame(rect:FrameRect,styled:boolean){
   const p=pixelRect(rect),layout=$<HTMLSelectElement>('#layout').value;ctx.save();ctx.strokeStyle=styled?'#e4ddb9':'#c8f5a4';ctx.lineWidth=2;
