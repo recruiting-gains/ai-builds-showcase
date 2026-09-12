@@ -46,9 +46,11 @@ WebKit must be installed with Playwright before that optional engine check. Repo
 - The existing 31 phone checks pass, including front/back switching, one-hand opt-in, local picture replacement, close/reopen cycling, fullscreen fallback and a decoded recording containing the effect.
 - The new stability suite passes 14 checks in Chromium and 14 in WebKit. Its old live baseline reproduced distorted input, transient photo loss, excessive photo size/position jitter and rejected portrait hand geometry.
 - With identical repeated synthetic hand input, whole-photo width variation fell from 64 to 32 canvas pixels; fingertip-pinned photo-center variation fell from 6 to 1 pixel. These measure those fixtures, not a universal percentage improvement on every phone.
-- Actual MediaPipe processing succeeds for generated portrait and landscape camera streams. The worker reports the correct aspect and releases its resources on stop.
+- Actual MediaPipe processing succeeds in Chromium for generated portrait and landscape camera streams. The worker reports the correct aspect and releases its resources on stop.
 - The dependency audit reports zero vulnerabilities for this project's lockfile.
 
 An older camera test stub lacked decoded dimensions; it was corrected to model a ready 1280 × 720 video, while a separate zero-dimension test verifies capture waits for metadata. The WebKit startup test allowance was increased from 8 to 20 seconds after a cold-start timeout, remaining below the app's 30-second model watchdog. Neither correction removes the behavioral assertions.
+
+A separate actual-worker WebKit smoke test stopped before model loading with the app’s camera-permission error. It produced no worker/model requests. The diagnostic rerun preserved that failure; it is not counted as a passing model test. The WebKit compositor/gesture suite above passed with its synthetic camera.
 
 Physical iPhone recognition, thermal performance and perceived hand response still require a camera trial on that phone. These tests do not claim to reproduce its lighting, hardware or actual hand movements. Refresh the app once after publication, add local pictures again, then start the camera.

@@ -92,7 +92,16 @@ try {
         workersTerminated: window.__visionAspect.workers.every(worker => worker.terminated) }));
       assert.equal(result.cleanup.liveTracks, 0); assert.equal(result.cleanup.workersTerminated, true); assert.ok(result.cleanup.stops >= 1);
       assert.deepEqual(result.errors, []); result.checks.push('Stop releases stream and worker'); result.ok = true;
-    } catch (error) { result.ok = false; result.failure = String(error.stack || error); throw error; }
+    } catch (error) {
+      result.ok = false; result.failure = String(error.stack || error);
+      if (!result.observed) result.observed = await page.evaluate(() => ({
+        frames: window.__visionAspect?.frames, errors: window.__visionAspect?.errors,
+        status: document.querySelector('#status')?.textContent,
+        activeStreams: window.__visionAspect?.streams.filter(stream => stream.getTracks().some(track => track.readyState === 'live')).length,
+        workers: window.__visionAspect?.workers,
+      })).catch(() => ({ unavailable: 'Page closed before failure diagnostics could be read.' }));
+      throw error;
+    }
     finally { await context.close(); }
   }
   report.ok = true;
