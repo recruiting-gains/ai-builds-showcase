@@ -1,5 +1,19 @@
 # Verification record
 
+## Clear pictures and one-hand reveal — September 11, 2026
+
+The [photo visibility update](PHOTO-VISIBILITY.md) passed the executable project graph's seven local command nodes: application tests, frontend and Worker typechecks, asset verification, production build, phone browser checks and deployment dry run. All 15 new reveal-controller tests pass, along with all existing application tests and 14 harness tests.
+
+**31 phone browser checks** pass in Chrome and the installed Playwright Chromium used by the final local harness. **18 independent patterned-image checks** also pass. A tall 1:2 test screenshot draws at 216 × 432 pixels with its top and bottom markers present even when Cinema is selected. The independent 3:5 portrait measures 258 × 432; the 2:1 landscape measures 768 × 384. Their circles remain circular. An actually presented recorded landscape frame retains all four colored edges and its aspect ratio, with a 136 × 136 circle.
+
+Eight existing browser suites pass on the same immutable application assets: **102 named checks plus eight print-flow measurements**. Each frozen print effect rebuilds its texture once across 120 changing-pose frames. General checks include an automated accessibility scan and actual MediaPipe processing of generated camera input. AI responses are mocked; no real provider call or private-image upload was made.
+
+Recovery covers corrupt photo replacement, camera cancellation/denial/unavailability, one-hand opt-in only for the rear-camera photo mode, open-palm arming, closure, missing hands, reappearance, camera changes, safe slot retention, two-hand A/B cycling and recording. One test correction replaced an immediate two-animation-frame assertion after Just camera with a bounded wait for a fresh tracking result; its pixel assertion remains unchanged. Independent review required no application correction. All browser review receipts match the final built assets.
+
+The isolated harness success, deliberate failure, corrected retry and unchanged-resume examples passed. Project source fingerprint: `751d2d9aea08e67f3417de4c440e6c642ff7c847c01a9ab0a702d743605fae32`. Publication is verified separately from physical-camera and actual-AI receipts.
+
+These checks use generated camera streams and synthetic hand landmarks. **Physical iPhone recognition and latency remain unverified for this update.** The complete image fits within the landscape camera canvas; this does not mean it fills a portrait phone's entire physical screen. The supplied recording also appeared to return the same photo after one close/reopen; without tracking diagnostics that observation does not establish a specific controller fault, and the passing synthetic cycle checks do not prove it resolved. The visibility fix does not claim to change that controller.
+
 ## Phone studio verification — September 11, 2026
 
 The [phone studio update](PHONE-STUDIO.md) passed **199 application tests**, **14 harness tests** and **23 dedicated phone browser checks**. The phone checks use real local image decoding, actual frame compositing and actual canvas recording, with generated camera streams and synthetic landmarks. A decoded 768 × 432 recording frame contains the selected photo. A two-color photo boundary moves by 19 pixels between sampled columns when the hands tilt, verifying that the picture contents tilt with the four corners.

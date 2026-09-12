@@ -4,7 +4,7 @@ Disappear into the room. Hold another world in your hands.
 
 A browser camera playground with two independent effects: **Invisible**, which blends a captured empty background into your silhouette, and **HandFrame**, which follows the opening formed by both thumbs and index fingers, with a floating picture that can stretch in perspective. An original implementation inspired by a supplied visual demonstration.
 
-HandFrame follows the shape between your fingers and can change worlds when both hands come together and reopen. Its phone studio also offers front/back camera selection and two local picture slots: open your hands to reveal a picture, then close and reopen to switch. [Phone studio guide](docs/PHONE-STUDIO.md). Its camera now uses the full studio width, with the tools underneath. Invisible uses continuous open-palm → close-to-hide → open-to-return control. [World cycling and wider view](docs/WORLD-CYCLE-WIDE-VIEW.md) · [Verification and limits](docs/VERIFICATION.md).
+HandFrame follows the shape between your fingers and can change worlds when both hands come together and reopen. Its phone studio also offers front/back camera selection and two local picture slots: open your hands to reveal a picture, then close and reopen to switch. [Phone studio guide](docs/PHONE-STUDIO.md) · [Clear pictures and one-hand reveal](docs/PHOTO-VISIBILITY.md). Its camera now uses the full studio width, with the tools underneath. Invisible uses continuous open-palm → close-to-hide → open-to-return control. [World cycling and wider view](docs/WORLD-CYCLE-WIDE-VIEW.md) · [Verification and limits](docs/VERIFICATION.md).
 
 ## Try it
 
@@ -24,7 +24,7 @@ HandFrame opens in a wider studio with the camera controls above and design tool
 
 Open the [live HTTPS app](https://jedi-mindtrick.recruiting-gains.workers.dev) in Safari on iPhone, select **Start your camera**, and allow camera access. Choose **Front · selfie** or **Back · world** before starting. The app runs from Cloudflare and uses the selected camera; your computer does not need to stay on. Internet access is required to load the app and its vision models, and to submit an optional AI still.
 
-To use your own photos, choose **Add picture 1** and optionally **Add picture 2** before starting the camera. **My pictures** reveals the selected image inside your hand opening, and closing/reopening swaps it once. Photos stay in this tab; add them again after refreshing. Choose **Color worlds** to return to the live filters.
+To use your own photos, choose **Add picture 1** and optionally **Add picture 2** before starting the camera. **My pictures → Open to full view** enlarges the whole image into the camera view at its original proportions. Closing both hands and reopening swaps it once. **Fit between hands** and **Stretch with hands** retain the shaped effect. With **Back · world**, optionally enable **One-hand full picture**: open one palm to reveal the whole photo and close it to hide. **Next picture** switches photos in this mode. Photos stay in this tab; add them again after refreshing. Choose **Color worlds** to return to the live filters.
 
 Turn the phone sideways and prop it somewhere stable for more room to move both hands. Choose **HandFrame → Full screen** and leave **Fill view** off to preserve the whole camera image. Tap the picture to reveal the exit controls. If camera permission is unavailable inside another app's browser, open the same link directly in Safari.
 
@@ -80,7 +80,7 @@ Set `PLAYWRIGHT_CHANNEL` if using another installed Playwright channel. These te
 | `src/vision/` and `public/vision-worker.js` | Camera lifecycle, continuous palm visibility and bounded original-input vision |
 | `src/effects/` | Invisibility, mask alignment, tracked-hand coverage and portal |
 | `src/handframe/` | Automatic joint contours, saved shapes, frame/depth geometry, projective rendering, close/reopen world cycling, pinch timing and local filters |
-| `src/photos.ts`, `src/handframe/photo-pose.ts`, `src/studio-depth.ts` | Two bounded local image slots, finger-corner photo projection and decorative dashboard interaction |
+| `src/photos.ts`, `src/handframe/photo-pose.ts`, `src/handframe/photo-reveal.ts`, `src/studio-depth.ts` | Two bounded local image slots, proportional full-photo reveal, optional single-palm control, finger-corner projection and decorative dashboard interaction |
 | `src/recording.ts`, `src/recording-ui.ts` | Bounded canvas recording, local clip preview, explicit native sharing and download |
 | `worker/` | Validated still endpoint, model call, durable idempotency and shared quota |
 | `harness/` | Executable check graph, bounded commands, checkpoints and recovery |

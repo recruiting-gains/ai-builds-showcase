@@ -1,17 +1,21 @@
 # Phone studio: cameras and pictures
 
-HandFrame can use a local picture instead of a color effect. Add up to two pictures, open the space between your thumbs and index fingers to reveal one, and bring both palms together then reopen to switch to the other. The first opening retains the selected picture. Keeping your hands open does not repeatedly switch. The buttons also work without gestures.
+HandFrame can use a local picture instead of a color effect. Add up to two pictures and open your hands to enlarge the whole image at its original proportions. With both hands, bring your palms together then reopen to switch to the other. Back · world also offers an optional one-palm reveal. The first opening retains the selected picture. Keeping your hands open does not repeatedly switch. The buttons also work without gestures.
 
 ## Try it on your phone
 
 1. Open [Jedi Mindtrick](https://jedi-mindtrick.recruiting-gains.workers.dev/) in Safari or Chrome. On a phone, HandFrame is selected initially.
 2. Add **picture 1** and optionally **picture 2**. The app selects **My pictures**. Pictures are held only in this tab; refresh requires adding them again. Choose pictures before starting the camera, because an operating-system picker can pause a camera tab.
 3. Choose **Front · selfie** or **Back · world**, then **Start your camera**. Allow camera access. When already running, changing this choice stops the old stream and starts the selected camera. If a requested camera is unavailable, the message explains how to choose another and retry.
-4. Prop the phone sideways to see both hands comfortably. Form an opening with thumbs and index fingers; one L may point downward. The whole picture maps between the four finger corners and moves with their width, height, tilt and perspective. Open corners must form a valid surface; closing or crossing them hides the photo until the opening returns.
-5. Bring both palms together until the cue appears, then reopen to switch once. **Next picture** and the picture cards offer a touch alternative. **Color worlds** restores the eleven existing filters; gestures then switch colors instead of photos.
+4. Leave **Picture movement → Open to full view** selected. Prop the phone sideways to see both hands comfortably, then open them apart. The whole image grows into the available camera view without changing its proportions. Closing your hands shrinks it away. A narrow fingertip opening no longer squashes the photo into a strip. For the rear camera, turn on **One-hand full picture** to use one open palm instead; slowly close that hand to hide the photo and reopen it to return.
+5. In two-hand mode, bring both palms together until the cue appears, then reopen to switch once. In one-hand mode, **Next picture** switches images; opening and closing the palm only controls the reveal. **Next picture** and the picture cards offer a touch alternative. **Color worlds** restores the eleven existing filters; gestures then switch colors instead of photos.
 6. Use **Full screen**, then **Record**, make your movements, and stop. **Save video** opens the supported share menu; **Download** saves via the browser. Select **Save Video** if your phone offers it. The website cannot silently write to Photos.
 
-**Stretch with hands** maps the entire picture to the opening, matching the reference's stretching effect. **Fit inside frame** adds space around the image based on the surface's average displayed proportions; perspective still follows the fingers. The surrounding camera stays visible. A bigger view does not increase the camera lens's field of view.
+**Open to full view** is the default for photos. It uses the whole camera canvas and fits every image edge; portrait images leave room at the sides. **Fit between hands** keeps the image inside a shaped hand opening, while **Stretch with hands** intentionally changes its proportions and tilts it with the fingers. If the four corners cannot form a convex plane but the measured opening remains valid, those shaping modes use the measured opening surface instead of hiding a loaded photo. Cinema bars are not drawn over local photos.
+
+Instagram screenshots are decoded like other pictures. Any Instagram interface or black margin already captured in the screenshot remains part of that image; crop it in Photos before adding it if you want only the picture. The app does not guess which content to remove. A bigger preview does not increase the camera lens's field of view.
+
+One-hand mode is optional and available with **Back · world**. Show a clearly open palm to arm it. A closed hand, missing/invalid tracking, a mode change or camera switch clears the reveal; after losing tracking, show an open palm again. It uses the ordinary hand detector, with no depth sensor or microphone. The compositor is still the same canvas captured by Record.
 
 ## Local resources and recovery
 
