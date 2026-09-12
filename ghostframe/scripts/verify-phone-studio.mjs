@@ -14,6 +14,9 @@ try{
   await new Promise(resolve=>setTimeout(resolve,250));
  }
  if(!ready)throw new Error(`Preview server did not become ready: ${serverLog}`);
- child=spawn(process.execPath,['--import','tsx','scripts/phone-studio-browser-check.mjs',base],{cwd:root,stdio:'inherit'});
- process.exitCode=await new Promise((resolve,reject)=>{child.once('error',reject);child.once('exit',code=>resolve(code??1));});
+ for(const script of ['scripts/phone-studio-browser-check.mjs','scripts/tracking-stability-browser-check.mjs']){
+  child=spawn(process.execPath,['--import','tsx',script,base],{cwd:root,stdio:'inherit'});
+  process.exitCode=await new Promise((resolve,reject)=>{child.once('error',reject);child.once('exit',code=>resolve(code??1));});
+  if(process.exitCode!==0)break;
+ }
 }catch(error){console.error(error);process.exitCode=1;}finally{clearTimeout(timeout);child?.kill('SIGTERM');server.kill('SIGTERM');}

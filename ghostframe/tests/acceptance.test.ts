@@ -77,7 +77,7 @@ test('camera masks align with mirrored display coordinates after enlargement', (
 function cameraFixture(permission: () => Promise<MediaStream>) {
   const globals = ['document', 'navigator', 'Worker', 'createImageBitmap', 'performance'] as const;
   const previous = new Map(globals.map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
-  const video = { muted: false, playsInline: false, srcObject: null, readyState: 4, currentTime: 0,
+  const video = { muted: false, playsInline: false, srcObject: null, readyState: 4, currentTime: 0, videoWidth: 1280, videoHeight: 720,
     play: async () => {}, pause() {} };
   const clock = { now: 100 };
   const workers: Array<{ onmessage: ((event: { data: unknown }) => void) | null; terminated: boolean; messages: unknown[] }> = [];

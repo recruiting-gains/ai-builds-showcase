@@ -13,6 +13,40 @@ function trace(options: PoseOptions = {}): number[] {
   });
 }
 
+const cameraAspect = (hand: Hand, aspect: number): Hand => ({ ...hand,
+  landmarks: hand.landmarks.map(point => ({ ...point,
+    x: .5 + (point.x - .5) * (16 / 9) / aspect, z: (point.z ?? 0) * (16 / 9) / aspect,
+  })),
+});
+
+test('physical palm closure is equivalent in portrait and landscape camera coordinates', () => {
+  for (const aspect of [9 / 16, 3 / 4, 1, 4 / 3, 16 / 9]) {
+    const control = new PalmVisibility(), reference = new PalmVisibility();
+    for (const [sample, closure] of [0, .2, .4, .6, .8, 1, .5, 0].entries()) {
+      const hand = palmPose(closure, { scale: .35, rotation: .25, tilt: .2 });
+      const input = cameraAspect(hand, aspect);
+      assert.ok(input.landmarks.every(point => point.x >= 0 && point.x <= 1));
+      const actual = control.update([input], sample * 33, aspect);
+      const expected = reference.update([hand], sample * 33);
+      assert.notEqual(actual, null); assert.notEqual(expected, null);
+      assert.ok(Math.abs(actual! - expected!) < 1e-10);
+    }
+  }
+});
+
+test('camera orientation changes require a fresh open palm and invalid aspect fails closed', () => {
+  const control = new PalmVisibility();
+  assert.equal(control.update([palmPose(0, { scale: .35 })], 0), 0);
+  assert.equal(control.update([cameraAspect(palmPose(1, { scale: .35 }), 9 / 16)], 33, 9 / 16), null);
+  assert.equal(control.update([cameraAspect(palmPose(0, { scale: .35 }), 9 / 16)], 66, 9 / 16), 0);
+  assert.equal(control.update([cameraAspect(palmPose(1, { scale: .35 }), 9 / 16)], 99, 9 / 16), 1);
+  for (const invalid of [0, -1, NaN, Infinity]) {
+    control.update([palmPose(0)], 100);
+    assert.equal(control.update([palmPose(0)], 133, invalid), null);
+    assert.equal(control.update([palmPose(1)], 166), null);
+  }
+});
+
 test('open arms visible, gradual closure hides monotonically, and reopening restores without toggles', t => {
   const values = trace();
   assert.equal(values[0], 0); assert.equal(values[5], 1); assert.equal(values.at(-1), 0);

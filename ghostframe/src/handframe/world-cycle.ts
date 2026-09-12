@@ -7,12 +7,13 @@ const CONTACT_GRACE_MS = 700;
 const CONTACT_INFER = 0.7;
 const CLOSE_ENTER = 1.45, CLOSE_HOLD = 1.65, CLOSE_DWELL_MS = 140;
 const OPEN_ENTER = 2.3, OPEN_HOLD = 2.1, OPEN_DWELL_MS = 100;
-const distance = (a: Point, b: Point) => Math.hypot((a.x - b.x) * ASPECT, a.y - b.y);
+const metric = (aspect: number) => (a: Point, b: Point) => Math.hypot((a.x - b.x) * aspect, a.y - b.y);
 type TrackedHand = { wrist: Point; center: Point; palm: number };
 type Phase = 'waiting-open' | 'open' | 'closed';
 export type WorldCycleStatus = Phase | 'closing' | 'occluded' | 'reacquiring';
 
-function measure(hand: Hand): TrackedHand | null {
+function measure(hand: Hand, aspect: number): TrackedHand | null {
+  const distance = metric(aspect);
   // The worker supplies MediaPipe's left/right label score here, not presence
   // confidence. A nearly 50/50 label is expected when the palms turn sideways.
   if (!hand || !Number.isFinite(hand.score) || hand.score < 0.5 || hand.score > 1 ||
@@ -27,7 +28,7 @@ function measure(hand: Hand): TrackedHand | null {
   // A prayer pose turns both palms edge-on. Their projected width can vanish
   // even while the depth landmarks still describe a plausible palm.
   const width = Math.hypot(distance(points[5], points[17]),
-    ((points[5].z ?? 0) - (points[17].z ?? 0)) * ASPECT);
+    ((points[5].z ?? 0) - (points[17].z ?? 0)) * aspect);
   if (width < palm * 0.2 || width > palm * 2.5) return null;
   // Inspect the entire input for disconnected landmarks, while permitting
   // normal curled/foreshortened finger segments. Finger tips do not set close.
@@ -54,6 +55,7 @@ function measure(hand: Hand): TrackedHand | null {
  * caller resets on camera/mode/manual-control changes.
  */
 export class WorldCycle {
+  private aspect = ASPECT;
   private phase: Phase = 'waiting-open';
   private candidateSince: number | null = null;
   private lastTimestamp: number | null = null;
@@ -78,12 +80,16 @@ export class WorldCycle {
     this.missing = null;
   }
 
-  update(hands: Hand[], timestamp: number): boolean {
+  update(hands: Hand[], timestamp: number, aspect = ASPECT): boolean {
+    if (!Number.isFinite(aspect) || aspect <= 0) { this.reset(); return false; }
+    if (Math.abs(aspect - this.aspect) > .001) this.reset();
+    this.aspect = aspect;
+    const distance = metric(aspect);
     if (!Number.isFinite(timestamp) || timestamp < 0 || !Array.isArray(hands) ||
       hands.length < 1 || hands.length > 2) {
       this.reset(); return false;
     }
-    const measured = hands.map(measure);
+    const measured = hands.map(hand => measure(hand, aspect));
     if (measured.some(hand => !hand)) { this.reset(); return false; }
     if (this.lastTimestamp !== null) {
       if (timestamp < this.lastTimestamp || timestamp - this.lastTimestamp > MAX_GAP_MS) {
@@ -151,6 +157,7 @@ export class WorldCycle {
   }
 
   private retainOpen(hand: TrackedHand, timestamp: number): boolean {
+    const distance = metric(this.aspect);
     if (this.phase !== 'open' || !this.previous || this.lastPairTimestamp === null ||
       timestamp - this.lastPairTimestamp > OPEN_GRACE_MS) return false;
     const continuous = this.previous.some(before =>
@@ -166,6 +173,7 @@ export class WorldCycle {
   }
 
   private bridgeContact(hand: TrackedHand, timestamp: number): boolean {
+    const distance = metric(this.aspect);
     if (!this.previous || this.lastPairTimestamp === null ||
       timestamp - this.lastPairTimestamp > CONTACT_GRACE_MS ||
       (this.phase !== 'closed' && (this.phase !== 'open' || this.candidateSince === null))) return false;

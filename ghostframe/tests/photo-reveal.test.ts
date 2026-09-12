@@ -87,6 +87,21 @@ test('small two-hand tremors are damped while large changes and endpoints respon
   assert.equal(reveal.update(close(), 48, 'two'), 0);
 });
 
+test('repeated separation tremor does not make the whole picture pulse at raw amplitude', () => {
+  const reveal = new PhotoReveal(), raw: number[] = [], displayed: number[] = [];
+  for (let sample = 0; sample < 90; sample++) {
+    const hands = worldCyclePair(sample % 2 ? 2.02 : 2.18);
+    const amount = reveal.update(hands, sample * 33, 'two')!;
+    if (sample > 10) {
+      displayed.push(amount); raw.push(new PhotoReveal().update(hands, 0, 'two')!);
+    }
+  }
+  const extent = (values: number[]) => Math.max(...values) - Math.min(...values);
+  assert.ok(extent(displayed) < extent(raw) * .45);
+  assert.equal(reveal.update(open(), 3000, 'two'), 1);
+  assert.equal(reveal.update(close(), 3033, 'two'), 0);
+});
+
 test('two-hand reveal is independent of camera reflection, hand labels, order and scale', () => {
   for (const scale of [0.35, 0.75, 1.1]) {
     for (const mirrored of [false, true]) {
@@ -129,13 +144,23 @@ test('edge-on prayer palms remain valid with ambiguous handedness and overlappin
   }
 });
 
-test('two-hand loss hides immediately and reacquisition uses only the current geometry', () => {
+test('brief two-hand detector loss holds the measured picture; current closure still hides immediately', () => {
   const reveal = new PhotoReveal();
   assert.equal(reveal.update(open(), 0, 'two'), 1);
-  assert.equal(reveal.update(open().slice(0, 1), 16, 'two'), null);
+  assert.equal(reveal.update(open().slice(0, 1), 16, 'two'), 1);
+  assert.equal(reveal.update([], 31, 'two'), 1);
   assert.equal(reveal.update(close(), 32, 'two'), 0);
-  assert.equal(reveal.update([], 48, 'two'), null);
-  const partial = reveal.update(worldCyclePair(2.1), 64, 'two');
+  assert.equal(reveal.update([], 48, 'two'), 0);
+  assert.equal(reveal.update(open(), 64, 'two'), 1);
+});
+
+test('missing detections cannot prolong the two-hand grace and reacquisition measures afresh', () => {
+  const reveal = new PhotoReveal();
+  assert.equal(reveal.update(open(), 0, 'two'), 1);
+  for (const time of [33, 66, 100, 150]) assert.equal(reveal.update([], time, 'two'), 1);
+  assert.equal(reveal.update([], 151, 'two'), null);
+  assert.equal(reveal.update(open().slice(0, 1), 167, 'two'), null);
+  const partial = reveal.update(worldCyclePair(2.1), 200, 'two');
   assert.equal(partial, new PhotoReveal().update(worldCyclePair(2.1), 0, 'two'));
 });
 
@@ -170,7 +195,7 @@ test('invalid, reversed and stale timestamps reset control while duplicate frame
 });
 
 test('malformed pairs, duplicate detections, weak scores and implausible thumb/index data cannot reveal', () => {
-  const invalid: Hand[][] = [[], open().slice(0, 1), [...open(), open()[0]]];
+  const invalid: Hand[][] = [[...open(), open()[0]], [{ ...open()[0], score: .49 }]];
   const duplicated = open()[0]; invalid.push([duplicated, structuredClone(duplicated)]);
   for (const mutate of [
     (hands: Hand[]) => { hands[0].score = 0.49; },
@@ -202,4 +227,43 @@ test('two-hand geometry tolerates absent optional depth and never mutates caller
   const before = structuredClone(hands);
   assert.equal(new PhotoReveal().update(hands, 0, 'two'), 1);
   assert.deepEqual(hands, before);
+});
+
+const atAspect = (hands: Hand[], aspect: number): Hand[] => hands.map(hand => ({ ...hand,
+  landmarks: hand.landmarks.map(point => ({ ...point,
+    x: .5 + (point.x - .5) * (16 / 9) / aspect, z: (point.z ?? 0) * (16 / 9) / aspect,
+  })),
+}));
+
+test('the same physical palms reveal equally in portrait, square and landscape cameras', () => {
+  for (const aspect of [9 / 16, 3 / 4, 1, 4 / 3, 16 / 9]) {
+    const reveal = new PhotoReveal();
+    for (const [sample, separation] of [3.2, 1.1, 2.1, 2.4, 3.2].entries()) {
+      const source = worldCyclePair(separation, { scale: .35 });
+      const portrait = atAspect(source, aspect);
+      assert.ok(portrait.every(hand => hand.landmarks.every(point => point.x >= 0 && point.x <= 1)));
+      const amount = reveal.update(portrait, sample * 33, 'two', aspect);
+      assert.notEqual(amount, null);
+      if (sample === 0 || sample === 4) assert.equal(amount, 1);
+      if (sample === 1) assert.equal(amount, 0);
+    }
+    const source = worldCyclePair(2.1, { scale: .35 });
+    const expected = new PhotoReveal().update(source, 0, 'two')!;
+    assert.ok(Math.abs(new PhotoReveal().update(atAspect(source, aspect), 0, 'two', aspect)! - expected) < 1e-10);
+    const oneHand = new PhotoReveal();
+    assert.equal(oneHand.update(atAspect([palmPose(0, { scale: .35 })], aspect), 0, 'one', aspect), 1);
+    assert.equal(oneHand.update(atAspect([palmPose(1, { scale: .35 })], aspect), 33, 'one', aspect), 0);
+  }
+});
+
+test('camera aspect changes discard held photo measurements and one-hand arming', () => {
+  const reveal = new PhotoReveal();
+  assert.equal(reveal.update(open(), 0, 'two'), 1);
+  assert.equal(reveal.update([], 33, 'two', 9 / 16), null);
+  assert.equal(reveal.update(one(0), 66, 'one'), 1);
+  assert.equal(reveal.update(atAspect([palmPose(1, { scale: .35 })], 9 / 16), 99, 'one', 9 / 16), null);
+  for (const invalid of [0, -1, NaN, Infinity]) {
+    reveal.update(open(), 100, 'two');
+    assert.equal(reveal.update(open(), 133, 'two', invalid), null);
+  }
 });

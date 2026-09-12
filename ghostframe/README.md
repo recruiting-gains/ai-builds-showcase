@@ -4,7 +4,7 @@ Disappear into the room. Hold another world in your hands.
 
 A browser camera playground with two independent effects: **Invisible**, which blends a captured empty background into your silhouette, and **HandFrame**, which follows the opening formed by both thumbs and index fingers, with a floating picture that can stretch in perspective. An original implementation inspired by a supplied visual demonstration.
 
-HandFrame follows the shape between your fingers and can change worlds when both hands come together and reopen. Its phone studio also offers front/back camera selection and two local picture slots: open your hands to reveal a picture, then close and reopen to switch. [Phone studio guide](docs/PHONE-STUDIO.md) · [Clear pictures and one-hand reveal](docs/PHOTO-VISIBILITY.md). Its camera now uses the full studio width, with the tools underneath. Invisible uses continuous open-palm → close-to-hide → open-to-return control. [World cycling and wider view](docs/WORLD-CYCLE-WIDE-VIEW.md) · [Verification and limits](docs/VERIFICATION.md).
+HandFrame follows the shape between your fingers and can change worlds when both hands come together and reopen. Its phone studio also offers front/back camera selection and two local picture slots: open your hands to reveal a picture, then close and reopen to switch. [Phone tracking repair](docs/PHONE-TRACKING-STABILITY.md) · [Phone studio guide](docs/PHONE-STUDIO.md) · [Clear pictures and one-hand reveal](docs/PHOTO-VISIBILITY.md). Its camera now uses the full studio width, with the tools underneath. Invisible uses continuous open-palm → close-to-hide → open-to-return control. [World cycling and wider view](docs/WORLD-CYCLE-WIDE-VIEW.md) · [Verification and limits](docs/VERIFICATION.md).
 
 ## Try it
 

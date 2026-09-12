@@ -6,10 +6,11 @@ const LEFT_CHAIN = [4, 3, 2, 5, 6, 7, 8];
 const RIGHT_CHAIN = [...LEFT_CHAIN].reverse();
 type Connection = 'like-tips' | 'opposing-tips';
 const ASPECT = 16 / 9;
-const distance = (a: Point, b: Point) => Math.hypot((a.x - b.x) * ASPECT, a.y - b.y);
+const metric = (aspect: number) => (a: Point, b: Point) => Math.hypot((a.x - b.x) * aspect, a.y - b.y);
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value));
 
-function validHand(hand: Hand): boolean {
+function validHand(hand: Hand, aspect: number): boolean {
+  const distance = metric(aspect);
   if (!hand || !Number.isFinite(hand.score) || hand.score < 0.5 || !Array.isArray(hand.landmarks) || hand.landmarks.length !== 21) return false;
   for (const point of hand.landmarks) {
     if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y) ||
@@ -50,7 +51,8 @@ function crossedChain(points: readonly Point[]): boolean {
   return false;
 }
 
-function mergeAdjacent(points: readonly Point[], threshold: number): Point[] {
+function mergeAdjacent(points: readonly Point[], threshold: number, aspect: number): Point[] {
+  const distance = metric(aspect);
   const groups: { x: number; y: number; count: number }[] = [];
   for (const point of points) {
     const last = groups.at(-1);
@@ -91,6 +93,7 @@ const copy = (value: HandOutline): HandOutline => ({ rect: { ...value.rect }, ou
  * in mirrored display coordinates. Null cancels the aperture until reacquired.
  */
 export class HandOutlineTracker {
+  private aspect = ASPECT;
   private previous: Point[] | null = null;
   private result: HandOutline | null = null;
   private lastTimestamp: number | null = null;
@@ -98,8 +101,12 @@ export class HandOutlineTracker {
 
   reset(): void { this.previous = null; this.result = null; this.lastTimestamp = null; this.connection = null; }
 
-  update(hands: Hand[], timestamp: number): HandOutline | null {
-    if (hands.length !== 2 || !hands.every(validHand) || !Number.isFinite(timestamp) || timestamp < 0) {
+  update(hands: Hand[], timestamp: number, aspect = ASPECT): HandOutline | null {
+    if (!Number.isFinite(aspect) || aspect <= 0) { this.reset(); return null; }
+    if (Math.abs(aspect - this.aspect) > .001) this.reset();
+    this.aspect = aspect;
+    const distance = metric(aspect);
+    if (hands.length !== 2 || !hands.every(hand => validHand(hand, aspect)) || !Number.isFinite(timestamp) || timestamp < 0) {
       this.reset(); return null;
     }
     const [left, right] = [...hands].sort((a, b) => b.landmarks[0].x - a.landmarks[0].x);
@@ -114,7 +121,7 @@ export class HandOutlineTracker {
     const candidates = ([['like-tips', rightChain], ['opposing-tips', [...rightChain].reverse()]] as const)
       .map(([connection, chain]) => {
         const raw = [...leftChain, ...chain].map(point => ({ x: 1 - point.x, y: point.y }));
-        return { connection, raw, target: fit(mergeAdjacent(raw, join)),
+        return { connection, raw, target: fit(mergeAdjacent(raw, join, aspect)),
           bridgeLength: distance(leftChain.at(-1)!, chain[0]) + distance(chain.at(-1)!, leftChain[0]) };
       }).filter(candidate => candidate.target !== null)
       .sort((a, b) => a.bridgeLength - b.bridgeLength);
@@ -140,7 +147,7 @@ export class HandOutlineTracker {
       const blend = 0.60 + 0.40 * clamp((motion - 0.0015) / 0.0045, 0, 1);
       return { x: before.x + (point.x - before.x) * blend, y: before.y + (point.y - before.y) * blend };
     });
-    const result = fit(mergeAdjacent(points, join));
+    const result = fit(mergeAdjacent(points, join, aspect));
     // Even valid endpoints can make an invalid interpolated polygon. Hide it.
     if (!result) { this.reset(); return null; }
     this.previous = points; this.result = result; this.lastTimestamp = timestamp; this.connection = connection;
