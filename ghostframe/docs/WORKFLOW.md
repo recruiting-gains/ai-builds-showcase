@@ -1,4 +1,4 @@
-# Jedi mindtrick engineering workflow
+# GhostFrame engineering workflow
 
 The project has an executable command-check harness in `harness/`, alongside the coordinator, feature engineer and independent reviewer collaboration used to develop it. The harness runs checks; it does not create AI agents, impersonate a reviewer, open a camera, call an image provider or publish a deployment.
 

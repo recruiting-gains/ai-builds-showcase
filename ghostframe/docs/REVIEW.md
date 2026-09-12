@@ -1,4 +1,4 @@
-# Independent acceptance review — Jedi mindtrick
+# Independent acceptance review — GhostFrame
 
 Status: implementation review checkpoint. All executed synthetic/mocked tests pass and the seven identified source issues have been corrected. Browser, webcam, provider and deployment observations remain separate release evidence; they are not established by this review.
 

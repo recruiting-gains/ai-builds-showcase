@@ -14,7 +14,7 @@ try {
   page.on('pageerror',error=>report.pageErrors.push(error.message));
   page.on('request',request=>report.network.push({method:request.method(),url:request.url()}));
   await page.goto(base,{waitUntil:'networkidle'});
-  assert.match(await page.title(),/Jedi mindtrick/);pass('application loaded');
+  assert.match(await page.title(),/GhostFrame/);pass('application loaded');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);pass('desktop fits viewport');
   const before=await page.locator('#scene').evaluate(c=>Array.from(c.getContext('2d').getImageData(415,285,1,1).data));
   await page.locator('[data-fade="100"]').click();

@@ -1,9 +1,9 @@
-name: Jedi mindtrick checks
+name: GhostFrame checks
 on:
   push:
-    paths: ['jedi-mindtrick/**', '.github/workflows/jedi-mindtrick.yml']
+    paths: ['ghostframe/**', '.github/workflows/ghostframe.yml']
   pull_request:
-    paths: ['jedi-mindtrick/**', '.github/workflows/jedi-mindtrick.yml']
+    paths: ['ghostframe/**', '.github/workflows/ghostframe.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: jedi-mindtrick
+        working-directory: ghostframe
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: jedi-mindtrick/package-lock.json
+          cache-dependency-path: ghostframe/package-lock.json
       - run: npm ci
       - run: npm audit --audit-level=moderate --ignore-scripts
       - run: npm run assets

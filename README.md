@@ -43,15 +43,15 @@ A cozy animated office for project activity. Choose among five rooms, switch flo
 
 ## Live builds
 
-### Jedi Mindtrick
+### GhostFrame
 
-[![Jedi Mindtrick's actual violet and blue phone studio, with a simulated scene, camera selection and two local picture slots. Camera is off in this preview.](./docs/assets/showcase/jedi-mindtrick.png)](https://jedi-mindtrick.recruiting-gains.workers.dev/)
+[![GhostFrame's actual violet and blue phone studio, with a simulated scene, camera selection and two local picture slots. Camera is off in this preview.](./docs/assets/showcase/ghostframe.png)](https://jedi-mindtrick.recruiting-gains.workers.dev/)
 
 A camera playground for your hands. Fade into a saved view of your room, or shape a moving window with your fingers—even with one L upside down—and explore eleven local color effects. Choose front or back camera, add up to two local pictures, and open your hands to enlarge a whole photo without squeezing it. The back camera also offers an optional one-palm reveal. Bring both palms together, then reopen to switch pictures or colors; in one-hand mode, use Next picture. A small cue shows when the two-hand gesture is ready.
 
 Live hand tracking and color effects run on your device. An optional, separately submitted still can use Cloudflare AI. A dimensional violet and blue dashboard works on your phone or computer; fullscreen keeps the camera view clear. Record a short clip of your effects and save or share it from your browser. The preview above uses a simulated scene, and tracking quality varies with the camera and lighting.
 
-[**Open live build ↗**](https://jedi-mindtrick.recruiting-gains.workers.dev/) · [Source & phone setup](./jedi-mindtrick) · [What was tested](./jedi-mindtrick/docs/VERIFICATION.md)
+[**Open live build ↗**](https://jedi-mindtrick.recruiting-gains.workers.dev/) · [Source & phone setup](./ghostframe) · [What was tested](./ghostframe/docs/VERIFICATION.md)
 
 <table>
   <tr>

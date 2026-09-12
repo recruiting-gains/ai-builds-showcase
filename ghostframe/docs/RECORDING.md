@@ -1,4 +1,4 @@
-# Record a mindtrick
+# Record with GhostFrame
 
 Tap **Record**, move your hands, then tap **Stop recording**. Preview the resulting clip and choose **Save video**. The same controls are available in the normal studio and fullscreen. Stopping the recording leaves the camera running.
 
