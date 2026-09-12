@@ -4,7 +4,7 @@ HandFrame can use a local picture instead of a color effect. Add up to two pictu
 
 ## Try it on your phone
 
-1. Open [Jedi Mindtrick](https://jedi-mindtrick.recruiting-gains.workers.dev/) in Safari or Chrome. On a phone, HandFrame is selected initially.
+1. Open [GhostFrame](https://jedi-mindtrick.recruiting-gains.workers.dev/) in Safari or Chrome. On a phone, HandFrame is selected initially.
 2. Add **picture 1** and optionally **picture 2**. The app selects **My pictures**. Pictures are held only in this tab; refresh requires adding them again. Choose pictures before starting the camera, because an operating-system picker can pause a camera tab.
 3. Choose **Front · selfie** or **Back · world**, then **Start your camera**. Allow camera access. When already running, changing this choice stops the old stream and starts the selected camera. If a requested camera is unavailable, the message explains how to choose another and retry.
 4. Leave **Picture movement → Open to full view** selected. Prop the phone sideways to see both hands comfortably, then open them apart. The whole image grows into the available camera view without changing its proportions. Closing your hands shrinks it away. A narrow fingertip opening no longer squashes the photo into a strip. For the rear camera, turn on **One-hand full picture** to use one open palm instead; slowly close that hand to hide the photo and reopen it to return.

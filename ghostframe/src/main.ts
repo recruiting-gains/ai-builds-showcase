@@ -42,14 +42,14 @@ const SHAPES: {id:FrameShape;name:string;icon:string}[] = [
 ];
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
-<header class="topbar"><a class="brand" href="/" aria-label="Jedi mindtrick home"><span class="brand-mark">⌑</span> JEDI MINDTRICK<span class="edition">YOUR HANDS. NEW DIMENSIONS.</span></a><a class="about-link" href="#how-it-works">How it works <span>↗</span></a></header>
+<header class="topbar"><a class="brand" href="/" aria-label="GhostFrame home"><span class="brand-mark">⌑</span> GHOSTFRAME<span class="edition">YOUR HANDS. NEW DIMENSIONS.</span></a><a class="about-link" href="#how-it-works">How it works <span>↗</span></a></header>
 <main>
-  <section class="intro"><div><p class="eyebrow"><span></span> A SMALL EXPERIMENT IN THE IMPOSSIBLE</p><h1>Now you see me.<br><em>Now, imagine.</em></h1></div><p class="intro-note">Disappear into the room.<br> Hold another world in your hands.<br><span>Two camera effects. One little mindtrick.</span></p></section>
+  <section class="intro"><div><p class="eyebrow"><span></span> A SMALL EXPERIMENT IN THE IMPOSSIBLE</p><h1>Now you see me.<br><em>Now, imagine.</em></h1></div><p class="intro-note">Disappear into the room.<br> Hold another world in your hands.<br><span>Two camera effects. One playful studio.</span></p></section>
   <section class="playground" aria-label="Camera playground">
     <div class="studio"><div class="studio-heading"><div><span class="eyebrow">YOUR POCKET STUDIO</span><h2>Make room for <em>imagination.</em></h2></div><span class="orbital-mark" aria-hidden="true"><i></i><i></i><i></i></span></div>
       <div class="studio-bar"><div class="mode-tabs" role="group" aria-label="Choose an effect"><button class="active" data-mode="invisible" aria-pressed="true"><span>01</span> Invisible</button><button data-mode="handframe" aria-pressed="false"><span>02</span> HandFrame</button></div><div class="studio-actions" id="studio-actions"><button id="full-screen" class="screen-open" aria-expanded="false" aria-controls="camera-view">Full screen <span aria-hidden="true">⛶</span></button></div></div><div id="studio-status"></div>
       <div class="viewport" id="camera-view"><canvas id="scene" width="768" height="432" aria-label="Interactive simulated preview of the Invisible effect"></canvas><div class="viewport-top"><span id="source-tag">INTERACTIVE PREVIEW · SIMULATED SCENE</span><span id="frame-tag">NO CAMERA CONNECTED</span></div><div class="viewport-bottom"><div><span class="record-dot"></span><span id="effect-caption">A little less here.</span></div><span id="live-metric">YOUR CAMERA IS OFF</span></div><div id="countdown" hidden></div><div class="screen-actions" role="group" aria-label="Full screen controls"><span id="screen-notice" role="status">Esc to return</span><button id="camera-only" aria-pressed="false">Just camera</button><button id="fill-screen" aria-pressed="false">Fill view</button><button id="exit-screen">Exit full screen <span aria-hidden="true">✕</span></button></div><span id="screen-camera-state">Simulated preview · Camera off</span></div>
-      <div id="recording-home"><section id="recording-dock" aria-label="Record your mindtrick"></section></div>
+      <div id="recording-home"><section id="recording-dock" aria-label="Record your GhostFrame"></section></div>
       <div class="studio-footer"><span id="gesture-help">Open palm: visible. Slowly close your hand to disappear. Open it again to return.</span><button id="reset" class="text-button">Reset effect ↺</button></div>
     </div>
     <aside class="controls" aria-label="Effect controls">
@@ -99,7 +99,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
     </aside>
   </section>
   <section id="how-it-works" class="notes"><article><span>01 / A CAMERA ILLUSION</span><h2>Leave a little mystery.</h2><p>Invisible blends your captured room into your silhouette. A steady camera and even lighting give it the best chance to work.</p></article><article><span>02 / FRAME YOUR IMAGINATION</span><h2>Your hands, the viewfinder.</h2><p>Form an opening with both thumbs and index fingers. The picture follows its outline as you move. Bring one hand closer for perspective. Bring both hands together and reopen to change worlds.</p></article><article><span>03 / ON YOUR TERMS</span><h2>Local until you say so.</h2><p>Live camera frames stay in your browser. AI rendering sends only your selected still. No accounts or microphone. Record a clip only when you tap Record; save it directly from your browser.</p></article></section>
-</main><footer><span>JEDI MINDTRICK <span class="muted">/ Built by Cruz G.</span></span><span>Hand tracking + a little imagination.</span><a href="https://github.com/recruiting-gains/ai-builds-showcase/tree/main/jedi-mindtrick" target="_blank" rel="noopener noreferrer">Explore the source ↗</a></footer>`;
+</main><footer><span>GHOSTFRAME <span class="muted">/ Built by Cruz G.</span></span><span>Hand tracking + a little imagination.</span><a href="https://github.com/recruiting-gains/ai-builds-showcase/tree/main/ghostframe" target="_blank" rel="noopener noreferrer">Explore the source ↗</a></footer>`;
 
 const $=<T extends HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
 const worldCue=document.createElement('span');worldCue.id='world-gesture';worldCue.className='world-gesture';worldCue.setAttribute('role','status');worldCue.hidden=true;$('#camera-view').append(worldCue);
@@ -404,7 +404,7 @@ function drawHandSurface(rect:FrameRect,displayPose:FramePose,sourceRevision:str
     if(!photo&&(!generated||style!==generatedStyle)){const pixels=textureCtx.getImageData(0,0,tw,th);stylePixels(pixels.data,style,tw);textureCtx.putImageData(pixels,0,0);}
     if(layout==='postcard'&&rectangleDecoration){
       textureCtx.fillStyle='#e9e7d6';textureCtx.fillRect(0,0,tw,7);textureCtx.fillRect(0,th-25,tw,25);textureCtx.fillRect(0,0,7,th);textureCtx.fillRect(tw-7,0,7,th);
-      textureCtx.fillStyle='#234039';textureCtx.font='9px monospace';textureCtx.fillText(photo?'YOUR PICTURE / JEDI MINDTRICK':generated?'AN AI STILL / JEDI MINDTRICK':'A MOMENT / JEDI MINDTRICK',14,th-10);
+      textureCtx.fillStyle='#234039';textureCtx.font='9px monospace';textureCtx.fillText(photo?'YOUR PICTURE / GHOSTFRAME':generated?'AN AI STILL / GHOSTFRAME':'A MOMENT / GHOSTFRAME',14,th-10);
     }else if(layout==='cinema'&&!photo){
       textureCtx.fillStyle='#050b0be6';textureCtx.fillRect(0,0,tw,th*.09);textureCtx.fillRect(0,th*.91,tw,th*.09);
     }
@@ -423,7 +423,7 @@ function drawHandSurface(rect:FrameRect,displayPose:FramePose,sourceRevision:str
 }
 function drawFrame(rect:FrameRect,styled:boolean){
   const p=pixelRect(rect),layout=$<HTMLSelectElement>('#layout').value;ctx.save();ctx.strokeStyle=styled?'#e4ddb9':'#c8f5a4';ctx.lineWidth=2;
-  if(layout==='postcard'&&styled){ctx.fillStyle='#e9e7d6';ctx.fillRect(p.x-8,p.y-8,p.width+16,8);ctx.fillRect(p.x-8,p.y+p.height,p.width+16,27);ctx.fillRect(p.x-8,p.y,8,p.height);ctx.fillRect(p.x+p.width,p.y,8,p.height);ctx.fillStyle='#234039';ctx.font='10px monospace';ctx.fillText(generated?'AN AI STILL / JEDI MINDTRICK':'A MOMENT / JEDI MINDTRICK',p.x+5,p.y+p.height+17);}
+  if(layout==='postcard'&&styled){ctx.fillStyle='#e9e7d6';ctx.fillRect(p.x-8,p.y-8,p.width+16,8);ctx.fillRect(p.x-8,p.y+p.height,p.width+16,27);ctx.fillRect(p.x-8,p.y,8,p.height);ctx.fillRect(p.x+p.width,p.y,8,p.height);ctx.fillStyle='#234039';ctx.font='10px monospace';ctx.fillText(generated?'AN AI STILL / GHOSTFRAME':'A MOMENT / GHOSTFRAME',p.x+5,p.y+p.height+17);}
   else {ctx.strokeRect(p.x,p.y,p.width,p.height);if(layout==='cinema'&&styled){ctx.fillStyle='#050b0bd9';ctx.fillRect(p.x,p.y,p.width,p.height*.09);ctx.fillRect(p.x,p.y+p.height*.91,p.width,p.height*.09);}}
   const len=15;ctx.lineWidth=4;for(const [x,y,dx,dy] of [[p.x,p.y,1,1],[p.x+p.width,p.y,-1,1],[p.x,p.y+p.height,1,-1],[p.x+p.width,p.y+p.height,-1,-1]]){ctx.beginPath();ctx.moveTo(x+dx*len,y);ctx.lineTo(x,y);ctx.lineTo(x,y+dy*len);ctx.stroke();}ctx.restore();
 }

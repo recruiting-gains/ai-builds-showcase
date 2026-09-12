@@ -154,7 +154,7 @@ export class CanvasRecorder {
     if (!bytes || !extension) { this.fail(!bytes ? 'No video was captured. Record for a little longer and try again.' : 'The browser returned an unsupported video format. Please try another browser.'); return; }
     try {
       const blob = new Blob(chunks, { type: baseType });
-      const file = this.deps.createFile(blob, `jedi-mindtrick-${new Date().toISOString().replace(/[:.]/g, '-')}.${extension}`);
+      const file = this.deps.createFile(blob, `ghostframe-${new Date().toISOString().replace(/[:.]/g, '-')}.${extension}`);
       const url = this.deps.createURL(blob);
       this.clip = { blob, url, file, durationMs: this.elapsedMs };
       this.phase = 'ready'; this.message = reason || 'Your clip is ready. Save or share it before recording again.'; this.emit();

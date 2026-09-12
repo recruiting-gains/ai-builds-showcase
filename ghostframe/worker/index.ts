@@ -68,7 +68,7 @@ export class RenderLedger extends DurableObject<Env> {
 export default {
   async fetch(request:Request,env:Env):Promise<Response>{
     const url=new URL(request.url);
-    if(url.pathname==='/api/health')return Response.json({ok:true,app:'Jedi mindtrick',version:'0.1.0'},{headers});
+    if(url.pathname==='/api/health')return Response.json({ok:true,app:'GhostFrame',version:'0.1.0'},{headers});
     if(url.pathname==='/api/config')return Response.json({aiEnabled:env.AI_RENDER_ENABLED==='true',provider:'Cloudflare Workers AI',model:MODEL,dailyLimit:20,localProcessing:true},{headers});
     if(url.pathname==='/api/render'){
       if(request.method!=='POST')return error('Use POST.',405);

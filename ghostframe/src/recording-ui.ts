@@ -3,9 +3,9 @@ import { CanvasRecorder } from './recording';
 /** One local clip at a time. Sharing is always invoked by a fresh button tap. */
 export function installRecording(canvas: HTMLCanvasElement, dock: HTMLElement, isLive: () => boolean) {
   dock.classList.add('recording-ui');
-  dock.innerHTML = `<div class="recording-row"><button id="record-video" class="record-button" disabled><span aria-hidden="true">●</span> Record</button><span id="record-timer" aria-label="Recording duration" hidden>0:00 / 1:00</span><span class="record-label">Keep your mindtrick</span></div>
+  dock.innerHTML = `<div class="recording-row"><button id="record-video" class="record-button" disabled><span aria-hidden="true">●</span> Record</button><span id="record-timer" aria-label="Recording duration" hidden>0:00 / 1:00</span><span class="record-label">Keep your creation</span></div>
     <p id="record-status" role="status">Start your camera to record your effects. Up to 1 minute · no sound.</p>
-    <div id="record-result" hidden><video id="record-preview" controls playsinline preload="metadata" aria-label="Your recorded mindtrick"></video><div class="recording-row"><button id="save-video" class="save-button">Save video</button><a id="download-video">Download</a><button id="discard-video">Discard clip</button></div><p class="record-hint">On iPhone, tap Save video, then choose Save Video in the share menu. If it is unavailable, use Download to save to Files. Save before closing this page.</p></div>`;
+    <div id="record-result" hidden><video id="record-preview" controls playsinline preload="metadata" aria-label="Your GhostFrame recording"></video><div class="recording-row"><button id="save-video" class="save-button">Save video</button><a id="download-video">Download</a><button id="discard-video">Discard clip</button></div><p class="record-hint">On iPhone, tap Save video, then choose Save Video in the share menu. If it is unavailable, use Download to save to Files. Save before closing this page.</p></div>`;
   const button = dock.querySelector<HTMLButtonElement>('#record-video')!;
   const timer = dock.querySelector<HTMLElement>('#record-timer')!;
   const status = dock.querySelector<HTMLElement>('#record-status')!;
@@ -65,7 +65,7 @@ export function installRecording(canvas: HTMLCanvasElement, dock: HTMLElement, i
     status.textContent = 'Choose Save Video or another destination in your phone’s share menu.';
     try {
       // No await before this call: iPhone sharing needs this button's activation.
-      await navigator.share({ files: [clip.file], title: 'My Jedi mindtrick' });
+      await navigator.share({ files: [clip.file], title: 'My GhostFrame' });
       status.textContent = 'Share menu closed. Check the destination you chose; your clip is still here.';
     } catch (error) {
       status.textContent = error instanceof DOMException && error.name === 'AbortError'
