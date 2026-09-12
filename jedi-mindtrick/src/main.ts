@@ -9,6 +9,7 @@ import { CameraPipeline } from './vision/camera';
 import { handsForCameraDisplay } from './vision/camera-transform';
 import { PhotoSlots, photoFit } from './photos';
 import { photoHandPose } from './handframe/photo-pose';
+import { PhotoReveal } from './handframe/photo-reveal';
 import { installStudioDepth } from './studio-depth';
 import { drawDemo, demoMask } from './demo';
 import { PerspectiveTracker, projectFrame, type FramePose } from './handframe/perspective';
@@ -67,15 +68,15 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
         <div class="source-choices" role="group" aria-label="Frame content"><button data-source="filters" class="active" aria-pressed="true">Color worlds</button><button data-source="photos" aria-pressed="false">My pictures</button></div>
         <div class="photo-slots">${[0,1].map(index=>`<article class="photo-card" data-photo-card="${index}"><button class="photo-select" data-photo-select="${index}" aria-label="Use picture ${index+1}" aria-pressed="false" disabled><span class="photo-number">0${index+1}</span><img id="photo-preview-${index}" alt="Picture ${index+1} preview" hidden><span class="photo-placeholder" aria-hidden="true"><i></i><b>Picture ${index+1}</b></span><span class="photo-current" hidden>In your hands</span></button><div class="photo-card-actions"><button data-photo-load="${index}">Add picture ${index+1}</button><button data-photo-clear="${index}" aria-label="Remove picture ${index+1}" hidden>✕</button></div><input id="photo-file-${index}" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif" hidden></article>`).join('')}</div>
         <p id="photo-status" class="hint" role="status">Add one or two pictures. Open your hands to reveal one; bring your palms together and reopen to switch.</p>
-        <div class="photo-options"><button id="next-photo" class="secondary" disabled>Next picture ↗</button><label for="photo-fit">Picture movement<select id="photo-fit"><option value="stretch">Stretch with hands</option><option value="contain">Fit inside frame</option></select></label></div><p class="hint photo-privacy">Pictures stay in this tab. Add them again after a refresh. Choose them before starting your camera.</p>
+        <div class="photo-options"><button id="next-photo" class="secondary" disabled>Next picture ↗</button><label for="photo-fit">Picture movement<select id="photo-fit"><option value="reveal">Open to full view</option><option value="contain">Fit between hands</option><option value="stretch">Stretch with hands</option></select></label></div><p id="photo-view-help" class="hint">Open your hands to enlarge the whole picture. Original proportions, with no cinema bars.</p><label id="one-hand-option" class="switch-row" hidden><span>One-hand full picture<small>Back camera · open your palm to reveal; close it to hide.</small></span><input id="one-hand-photo" type="checkbox"></label><p class="hint photo-privacy">Pictures stay in this tab. Add them again after a refresh. Choose them before starting your camera.</p>
         </section>
         <section class="world-controls" aria-label="Choose your world"><div class="section-label"><span>02 / COLOR WORLDS</span><span>LOCAL FILTER</span></div>
         <p class="hint wide-view-hint">Whole camera view · Keep both hands inside the picture. Full screen opens an even larger view without cropping the sides.</p><div class="styles" role="group" aria-label="Visual style">${WORLDS.map(world=>`<button data-style="${world.id}" class="${world.id==='dream'?'active':''}" aria-pressed="${world.id==='dream'}"><i class="swatch ${world.id}" aria-hidden="true"></i>${world.name}</button>`).join('')}</div>
-        </section><section class="hand-design-controls" aria-label="Shape with your hands"><div class="section-label"><span>03 / SHAPE IT WITH YOUR HANDS</span><span>AUTOMATIC</span></div>
-        <label class="switch-row"><span>Follow my hands<small>Your thumbs and index fingers draw the outline—even with one L upside down.</small></span><input id="follow-hands" type="checkbox" checked></label>
+        </section><section class="hand-design-controls" aria-label="Shape with your hands"><div class="section-label"><span id="hand-control-heading">03 / SHAPE IT WITH YOUR HANDS</span><span>AUTOMATIC</span></div>
+        <label class="switch-row"><span>Follow my hands<small id="follow-hands-help">Your thumbs and index fingers draw the outline—even with one L upside down.</small></span><input id="follow-hands" type="checkbox" checked></label>
         <p class="hint" id="hand-shape-state" role="status">Start your camera to form a shape with both hands.</p>
         <p class="hint" id="world-cycle-state">Open both hands to start. Bring your palms together, then reopen for the next color.</p>
-        <p class="hint">Shape the opening with your thumbs and index fingers. Both L shapes can point up, or turn one upside down to connect opposite corners. To change colors, bring your palms together until the cue appears, then reopen. Keep both hands in view; touching fingertips alone keeps your current world.</p>
+        <p class="hint" id="hand-design-hint">Shape the opening with your thumbs and index fingers. Both L shapes can point up, or turn one upside down to connect opposite corners. To change colors, bring your palms together until the cue appears, then reopen. Keep both hands in view; touching fingertips alone keeps your current world.</p>
         <details id="manual-shapes"><summary>Saved shapes & drawing</summary><div class="section-label"><span>OPTIONAL FIXED OUTLINE</span><span id="shape-name">RECTANGLE</span></div>
         <div class="shape-choices" role="group" aria-label="Frame shape">${SHAPES.map(s=>`<button data-shape="${s.id}" aria-pressed="${s.id==='rectangle'}" class="${s.id==='rectangle'?'active':''}"><span aria-hidden="true">${s.icon}</span>${s.name}</button>`).join('')}</div>
         <button id="custom-shape" class="secondary full" aria-expanded="false" aria-controls="shape-editor">Draw a custom shape <span aria-hidden="true">✎</span></button>
@@ -111,6 +112,8 @@ const texture=document.createElement('canvas');texture.width=384;texture.height=
 const textureCtx=texture.getContext('2d',{willReadFrequently:true})!;
 let textureSource:ImageBitmap|HTMLCanvasElement|null=null,textureKey='';
 const photos=new PhotoSlots();
+const photoReveal=new PhotoReveal();
+let photoRevealAmount:number|null=null;
 let contentMode:'filters'|'photos'='filters';
 let cameraFacing:'user'|'environment'='user';
 const photoLoads=[0,0];
@@ -135,6 +138,8 @@ const status=(message:string)=>{$('#status').textContent=message;};
 const pipeline=new CameraPipeline(result=>{
   hands=handsForCameraDisplay(result.hands,pipeline.mirrored);lastVision=result.timestamp;inferenceMs=result.inferenceMs;handBackend=result.handBackend??'';
   const automatic=automaticShaping();
+  photoRevealAmount=automatic&&wholePhotoView()&&!cameraOnly?photoReveal.update(hands,result.timestamp,oneHandPhotoEnabled()?'one':'two'):null;
+  if(!automatic||!wholePhotoView()||cameraOnly)photoReveal.reset();
   if(automatic){const formed=handShape.update(hands,result.timestamp);frame=formed?.rect??null;handOutline=formed?.outline??null;}
   else{handOutline=null;frame=deriveFrame(hands,frame);}
   pose=mode==='handframe'?perspective.update(hands,frame,result.timestamp,automatic):null;
@@ -149,7 +154,7 @@ const pipeline=new CameraPipeline(result=>{
   }
   if(mode==='invisible')mask=personMask?addTrackedHands(personMask,W,H,hands):null;
   if(mode==='invisible'&&!portal&&!calibration){const amount=palm.update(hands,result.timestamp);if(amount!==null)setFade(amount*100);}
-  if(automatic&&!cameraOnly){if(worldCycle.update(hands,result.timestamp)){nextContent();worldNoticeUntil=performance.now()+1400;}}else worldCycle.reset();
+  if(automatic&&!cameraOnly&&!oneHandPhotoEnabled()){if(worldCycle.update(hands,result.timestamp)){nextContent();worldNoticeUntil=performance.now()+1400;}}else worldCycle.reset();
   syncWorldCue();
   if(mode==='handframe'&&!handFollowing){
     const action=pinch.update(hands,result.timestamp);
@@ -172,10 +177,14 @@ const pipeline=new CameraPipeline(result=>{
   syncManualControls();
 });
 
+function oneHandPhotoEnabled(){return handFollowing&&mode==='handframe'&&contentMode==='photos'&&cameraFacing==='environment'&&$<HTMLInputElement>('#one-hand-photo').checked;}
+function wholePhotoView(){return handFollowing&&contentMode==='photos'&&(oneHandPhotoEnabled()||$<HTMLSelectElement>('#photo-fit').value==='reveal');}
+function resetPhotoReveal(){photoReveal.reset();photoRevealAmount=null;}
 function automaticShaping(){return mode==='handframe'&&handFollowing&&live&&!manual;}
 function resetWorldCycle(){worldCycle.reset();worldNoticeUntil=0;syncWorldCue();}
-function resetPerspective(){resetWorldCycle();pose=null;frame=null;lastGoodFrame=null;perspective.reset();handShape.reset();handOutline=null;}
+function resetPerspective(){resetPhotoReveal();resetWorldCycle();pose=null;frame=null;lastGoodFrame=null;perspective.reset();handShape.reset();handOutline=null;}
 function syncWorldCue(now=performance.now()){
+  if(oneHandPhotoEnabled()){const message=!live?'Start the back camera. Open one palm to reveal your full picture.':manual?'Turn off mouse controls to reveal your picture with one palm.':cameraOnly?'Show effects to reveal your picture.':'Open one palm to reveal the whole picture. Close it to hide. Use Next picture to switch.';$('#world-cycle-state').textContent=message;worldCue.hidden=true;return;}
   const active=automaticShaping()&&!cameraOnly,phase=worldCycle.status;
   const subject=contentMode==='photos'?'picture':'color';
   const message=!live?'Start your camera, then open both hands to begin.':!handFollowing||manual?'Turn on Follow my hands and turn off mouse controls to change colors with your palms.':cameraOnly?'Show effects to change colors with your palms.':phase==='waiting-open'?'Show both hands apart to begin. If tracking was lost, open to reset, then bring your palms together again.':phase==='open'?'Ready · palms together, then reopen for the next color.':phase==='reacquiring'?'Keep both hands in view as you bring your palms together.':phase==='closing'?'Bring your palms together briefly…':phase==='closed'?'Hands together · reopen for the next color.':'Reopen both hands now for the next color.';
@@ -186,8 +195,8 @@ function syncWorldCue(now=performance.now()){
   worldCue.hidden=!active||!notice;
   if(worldCue.textContent!==notice)worldCue.textContent=notice;
 }
-function syncGestureHelp(){$('#gesture-help').textContent=mode==='invisible'?'Open palm: visible. Slowly close your hand to disappear. Open it again to return.':handFollowing?'Form an opening with both L-shaped hands—even with one upside down. Open to design. Bring both hands together, then reopen for the next world.':'Push one hand forward, pull the other back. Lift to tilt. Quick pinch: style. Hold 0.6s: prepare a still.';if(mode==='handframe'&&contentMode==='photos')$('#gesture-help').textContent='Open the space between your thumbs and index fingers to reveal your picture. Palms together, then reopen to switch pictures.';}
-function setHandFollowing(value:boolean){handFollowing=value;$<HTMLInputElement>('#follow-hands').checked=value;resetPerspective();pinch.reset();if(value&&live){manual=false;$<HTMLInputElement>('#manual').checked=false;}syncManualControls();syncGestureHelp();}
+function syncGestureHelp(){$('#gesture-help').textContent=mode==='invisible'?'Open palm: visible. Slowly close your hand to disappear. Open it again to return.':handFollowing?'Form an opening with both L-shaped hands—even with one upside down. Open to design. Bring both hands together, then reopen for the next world.':'Push one hand forward, pull the other back. Lift to tilt. Quick pinch: style. Hold 0.6s: prepare a still.';if(mode==='handframe'&&contentMode==='photos')$('#gesture-help').textContent=oneHandPhotoEnabled()?'Open one palm to reveal the full picture. Close it to hide. Tap Next picture to switch.':wholePhotoView()?'Open both hands apart to reveal the whole picture. Palms together, then reopen to switch pictures.':'Open the space between your thumbs and index fingers to shape your picture. Palms together, then reopen to switch pictures.';}
+function setHandFollowing(value:boolean){handFollowing=value;$<HTMLInputElement>('#follow-hands').checked=value;resetPerspective();pinch.reset();if(value&&live){manual=false;$<HTMLInputElement>('#manual').checked=false;}syncManualControls();syncPhotos();}
 function setShape(value:FrameShape){setHandFollowing(false);shape=value;outline=shapePoints(value,customOutline);$('#shape-name').textContent=value==='custom'?'CUSTOM':SHAPES.find(s=>s.id===value)!.name.toUpperCase();document.querySelectorAll<HTMLButtonElement>('[data-shape]').forEach(b=>{b.classList.toggle('active',b.dataset.shape===value);b.setAttribute('aria-pressed',String(b.dataset.shape===value));});$('#custom-shape').classList.toggle('active',value==='custom');}
 function syncManualControls(){const disabled=live&&!manual;for(const id of ['#frame-depth','#frame-roll','#frame-size'])$<HTMLInputElement>(id).disabled=disabled;$('#perspective-manual-hint').textContent=disabled?'Your hands control depth and tilt. Enable mouse controls to use these sliders.':'Try the depth and tilt sliders, or use both hands with the camera.';}
 function centerDepth(){perspective.recenter();pose=null;manualDepth=manualRoll=0;$<HTMLInputElement>('#frame-depth').value='0';$<HTMLInputElement>('#frame-roll').value='0';$('#frame-depth-value').textContent='Centered';$('#frame-roll-value').textContent='0°';}
@@ -210,10 +219,20 @@ function syncPhotos(){
   document.querySelectorAll<HTMLButtonElement>('[data-source]').forEach(button=>{const selected=button.dataset.source===contentMode;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));});
   $('.photo-controls').classList.toggle('photo-mode',contentMode==='photos');
   if(mode==='handframe')$('#effect-caption').textContent=contentMode==='photos'?(photos.current?`Picture ${photos.selected+1} · In your hands.`:'Add a picture to open a new world.'):`${worldName(style)} · A world within reach.`;
-  if(mode==='handframe'&&contentMode==='photos')$('#gesture-help').textContent='Open the space between your thumbs and index fingers to reveal your picture. Palms together, then reopen to switch pictures.';
   $('.still-controls').hidden=contentMode==='photos';
+  $('#one-hand-option').hidden=cameraFacing!=='environment';
+  $<HTMLSelectElement>('#photo-fit').disabled=oneHandPhotoEnabled();
+  $('#photo-view-help').textContent=wholePhotoView()?'The whole picture grows into the camera view at its original proportions. No cropping or cinema bars.':$<HTMLSelectElement>('#photo-fit').value==='contain'?'Keep the whole picture inside your hand opening. Use Open to full view for a bigger picture.':'Stretch and tilt the picture with your fingers. Use Open to full view to keep its original proportions.';
+  const whole=wholePhotoView(),one=oneHandPhotoEnabled();
+  $('.depth-controls').hidden=whole;
+  $('#perspective-controls').hidden=mode!=='handframe'||whole;
+  $('#hand-control-heading').textContent=whole?'03 / CONTROL YOUR PICTURE':'03 / SHAPE IT WITH YOUR HANDS';
+  $('#follow-hands-help').textContent=whole?(one?'Your palm opens and closes the full picture.':'Your hands open and close the full picture.'):'Your thumbs and index fingers draw the outline—even with one L upside down.';
+  $('#hand-design-hint').textContent=whole?(one?'Face one open palm toward the back camera. Close it to hide the picture; reopen to reveal it. Next picture switches images.':'Open both hands apart to enlarge the whole picture. Bring your palms together until the cue appears, then reopen to switch. Select Fit between hands or Stretch with hands for a shaped window.'):'Shape the opening with your thumbs and index fingers. Both L shapes can point up, or turn one upside down to connect opposite corners. To change worlds, bring your palms together until the cue appears, then reopen. Keep both hands in view; touching fingertips alone keeps your current world.';
+  syncGestureHelp();
 }
-function setContent(value:'filters'|'photos'){const changed=contentMode!==value;contentMode=value;resetWorldCycle();if(changed)clearStill();syncGestureHelp();syncPhotos();}
+function photoReadyMessage(){return (photos.count===2?'Both pictures ready. ':'Picture ready. ')+(oneHandPhotoEnabled()?'Open one palm to reveal. Use Next picture to switch.':photos.count===2?'Open your hands, bring your palms together, then reopen to switch.':'Add a second picture to switch between them with your hands.');}
+function setContent(value:'filters'|'photos'){const changed=contentMode!==value;contentMode=value;resetWorldCycle();if(changed)resetPhotoReveal();if(changed)clearStill();syncGestureHelp();syncPhotos();}
 function setStyle(value:LocalStyle){style=value;if(mode==='handframe')$('#effect-caption').textContent=`${worldName(style)} · A world within reach.`;document.querySelectorAll<HTMLButtonElement>('[data-style]').forEach(b=>{b.classList.toggle('active',b.dataset.style===value);b.setAttribute('aria-pressed',String(b.dataset.style===value));});$('#style-note').textContent=WORLDS.find(world=>world.id===value)!.note+(generated&&value!==generatedStyle?' Applied locally to your AI still.':'');if(contentMode==='photos')syncPhotos();}
 function setMode(value:Mode){mode=value;
   document.body.classList.toggle('handframe-mode',value==='handframe');
@@ -261,7 +280,7 @@ recording=installRecording(scene,$('#recording-dock'),()=>live);
 $('#camera-only').addEventListener('click',()=>{cameraOnly=!cameraOnly;resetWorldCycle();$('#camera-only').setAttribute('aria-pressed',String(cameraOnly));$('#camera-only').textContent=cameraOnly?'Show effects':'Just camera';});
 $('#start-camera').addEventListener('click',()=>{stopCamera('Starting camera…');$('#stop-camera').hidden=false;void pipeline.start(cameraFacing);});
 $('#stop-camera').addEventListener('click',()=>stopCamera());
-$<HTMLSelectElement>('#camera-facing').addEventListener('change',()=>{const wasLive=live;cameraFacing=$<HTMLSelectElement>('#camera-facing').value as 'user'|'environment';stopCamera(wasLive?'Switching camera…':`${cameraFacing==='user'?'Front':'Back'} camera selected. Tap Start your camera.`);if(wasLive)void pipeline.start(cameraFacing);});
+$<HTMLSelectElement>('#camera-facing').addEventListener('change',()=>{const wasLive=live;cameraFacing=$<HTMLSelectElement>('#camera-facing').value as 'user'|'environment';stopCamera(wasLive?'Switching camera…':`${cameraFacing==='user'?'Front':'Back'} camera selected. Tap Start your camera.`);syncPhotos();if(wasLive)void pipeline.start(cameraFacing);});
 document.querySelectorAll<HTMLButtonElement>('[data-source]').forEach(button=>button.addEventListener('click',()=>setContent(button.dataset.source as 'filters'|'photos')));
 for(let index=0;index<2;index++){
   const input=$<HTMLInputElement>(`#photo-file-${index}`);
@@ -269,13 +288,15 @@ for(let index=0;index<2;index++){
   input.addEventListener('change',async()=>{
     const file=input.files?.[0];input.value='';if(!file)return;
     const revision=++photoLoads[index];$('#photo-status').textContent=`Opening picture ${index+1} on your device…`;
-    try{if(await photos.load(index,file)){setContent('photos');$('#photo-status').textContent=photos.count===2?'Both pictures ready. Open your hands, bring your palms together, then reopen to switch.':'Picture ready. Add a second picture to switch between them with your hands.';}}
+    try{if(await photos.load(index,file)){setContent('photos');$('#photo-status').textContent=photoReadyMessage();}}
     catch(error){if(revision===photoLoads[index])$('#photo-status').textContent=error instanceof Error?error.message:'The picture could not load. Try another one.';}
     syncPhotos();
   });
   $(`[data-photo-select="${index}"]`).addEventListener('click',()=>{photos.select(index);setContent('photos');});
   $(`[data-photo-clear="${index}"]`).addEventListener('click',()=>{++photoLoads[index];photos.remove(index);resetWorldCycle();syncPhotos();$('#photo-status').textContent='Picture removed from this tab. Add another whenever you like.';});
 }
+$<HTMLSelectElement>('#photo-fit').addEventListener('change',()=>{resetPhotoReveal();syncPhotos();});
+$<HTMLInputElement>('#one-hand-photo').addEventListener('change',()=>{resetPerspective();if($<HTMLInputElement>('#one-hand-photo').checked){setContent('photos');setHandFollowing(true);}syncPhotos();if(photos.count)$('#photo-status').textContent=photoReadyMessage();});
 $('#next-photo').addEventListener('click',()=>{contentMode='photos';photos.next();resetWorldCycle();syncPhotos();});
 installStudioDepth(document.querySelectorAll<HTMLElement>('.photo-card'));
 
@@ -338,6 +359,9 @@ function render(now:number){
     const currentMask=portal?(r?portalMask(W,H,r):null):live?(now-lastMaskAt<800?mask:null):simulatedMask;
     if(bg&&currentMask&&fade>.001){const source=rawCtx.getImageData(0,0,W,H);ctx.putImageData(new ImageData(new Uint8ClampedArray(blendInvisible(source.data,bg.data,currentMask,fade)),W,H),0,0);}
     if(portal&&r)drawFrame(r,false);
+  }else if(wholePhotoView()&&photos.current){
+    const amount=manual||!live?1:photoRevealAmount??0;
+    if(amount>.01)drawWholePhoto(amount);
   }else if(r&&(contentMode!=='photos'||photos.current)){
     const displayPose=manual||!live?projectFrame(r,manualDepth,manualRoll):pose;
     const automatic=automaticShaping(),displayOutline=automatic?handOutline:outline;
@@ -348,12 +372,19 @@ function render(now:number){
         // remain the outer clip, so curved shapes do not paint over the hands.
         ctx.save();traceShape(ctx,displayOutline.map(p=>({x:(r.x+p.x*r.width)*W,y:(r.y+p.y*r.height)*H})));ctx.clip();
         drawHandSurface(r,photoPose,'local-photo',shapePoints('rectangle'),false);ctx.restore();
-      }else if(!(contentMode==='photos'&&automatic))drawHandSurface(r,displayPose,live?`camera:${pipeline.video.currentTime}`:`preview:${reducedMotion?0:now}`,displayOutline,!automatic&&shape==='rectangle');
+      }else drawHandSurface(r,displayPose,live?`camera:${pipeline.video.currentTime}`:`preview:${reducedMotion?0:now}`,displayOutline,!automatic&&shape==='rectangle');
     }
   }
-  if(now-lastMetric>400){lastMetric=now;$('#screen-camera-state').hidden=live;$('#hand-shape-state').textContent=!handFollowing?'Using your saved outline. Turn on Follow my hands to shape it directly.':!live?'Start your camera to form a shape with both hands.':manual?'Mouse controls are on. Turn them off to follow your hands.':handOutline?'Following your hand-shaped outline.':hands.length===2?'Open a clear space between your thumbs and index fingers.':'Show both hands to form an opening.';const depth=manual||!live?manualDepth:pose?.depth;
+  if(now-lastMetric>400){lastMetric=now;$('#screen-camera-state').hidden=live;$('#hand-shape-state').textContent=wholePhotoView()&&live&&!manual?(photoRevealAmount===null?(oneHandPhotoEnabled()?'Show one open palm to the back camera.':'Show both hands and open them apart.'):(photoRevealAmount<.05?'Picture hidden · open to reveal.':'Whole picture · '+Math.round(photoRevealAmount*100)+'% open')):!handFollowing?'Using your saved outline. Turn on Follow my hands to shape it directly.':!live?'Start your camera to form a shape with both hands.':manual?'Mouse controls are on. Turn them off to follow your hands.':handOutline?'Following your hand-shaped outline.':hands.length===2?'Open a clear space between your thumbs and index fingers.':'Show both hands to form an opening.';const depth=manual||!live?manualDepth:pose?.depth;
     $('#depth-state').textContent=depth===undefined?'SHOW BOTH HANDS':Math.abs(depth)<.08?'CENTERED':depth>0?'LEFT SIDE CLOSER':'RIGHT SIDE CLOSER';$('#source-tag').textContent=live?'LIVE CAMERA · ON-DEVICE TRACKING':'INTERACTIVE PREVIEW · SIMULATED SCENE';$('#frame-tag').textContent=live?`${hands.length} HAND${hands.length===1?'':'S'} TRACKED`:'NO CAMERA CONNECTED';$('#live-metric').textContent=live?(lastVision>0?`${Math.round(inferenceMs)} ms / inference${handBackend?` · ${handBackend}`:''}`:'Starting tracking…'):'YOUR CAMERA IS OFF';}
   requestAnimationFrame(render);
+}
+function drawWholePhoto(amount:number){
+  const photo=photos.current;if(!photo)return;
+  const fitted=photoFit(photo.image.width,photo.image.height,W,H),scale=Math.max(0,Math.min(1,amount));
+  const width=fitted.width*scale,height=fitted.height*scale;
+  ctx.save();ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+  ctx.drawImage(photo.image,(W-width)/2,(H-height)/2,width,height);ctx.restore();
 }
 function drawHandSurface(rect:FrameRect,displayPose:FramePose,sourceRevision:string,displayOutline:readonly Point[],rectangleDecoration:boolean){
   const p=pixelRect(rect),photo=contentMode==='photos'?photos.current:null,tw=photo?768:384,th=photo?512:256;
@@ -374,7 +405,7 @@ function drawHandSurface(rect:FrameRect,displayPose:FramePose,sourceRevision:str
     if(layout==='postcard'&&rectangleDecoration){
       textureCtx.fillStyle='#e9e7d6';textureCtx.fillRect(0,0,tw,7);textureCtx.fillRect(0,th-25,tw,25);textureCtx.fillRect(0,0,7,th);textureCtx.fillRect(tw-7,0,7,th);
       textureCtx.fillStyle='#234039';textureCtx.font='9px monospace';textureCtx.fillText(photo?'YOUR PICTURE / JEDI MINDTRICK':generated?'AN AI STILL / JEDI MINDTRICK':'A MOMENT / JEDI MINDTRICK',14,th-10);
-    }else if(layout==='cinema'){
+    }else if(layout==='cinema'&&!photo){
       textureCtx.fillStyle='#050b0be6';textureCtx.fillRect(0,0,tw,th*.09);textureCtx.fillRect(0,th*.91,tw,th*.09);
     }
     if(rectangleDecoration){
