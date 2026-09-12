@@ -31,7 +31,7 @@ self.onmessage = async ({ data }) => {
       hands = await createHands('CPU'); handBackend = 'CPU';
       detected = hands.detectForVideo(data.bitmap, data.timestamp);
     }
-    const result = { type: 'frame', id: data.id, timestamp: data.timestamp, hands: detected.landmarks.map((landmarks, i) => ({ landmarks, score: detected.handedness[i]?.[0]?.score ?? 0, handedness: detected.handedness[i]?.[0]?.categoryName ?? '' })), inferenceMs: 0, handBackend };
+    const result = { type: 'frame', id: data.id, timestamp: data.timestamp, aspectRatio: data.bitmap.width / data.bitmap.height, hands: detected.landmarks.map((landmarks, i) => ({ landmarks, score: detected.handedness[i]?.[0]?.score ?? 0, handedness: detected.handedness[i]?.[0]?.categoryName ?? '' })), inferenceMs: 0, handBackend };
     // Keep hands responsive while the heavier person mask runs at up to 20 Hz.
     if (data.segment && data.timestamp - lastMaskAt >= 50) {
       segmenter.segmentForVideo(data.bitmap, data.timestamp, output => {

@@ -8,7 +8,7 @@ import { PalmVisibility } from './vision/palm-visibility';
 import { CameraPipeline } from './vision/camera';
 import { handsForCameraDisplay } from './vision/camera-transform';
 import { PhotoSlots, photoFit } from './photos';
-import { photoHandPose } from './handframe/photo-pose';
+import { PhotoPoseTracker } from './handframe/photo-pose';
 import { PhotoReveal } from './handframe/photo-reveal';
 import { installStudioDepth } from './studio-depth';
 import { drawDemo, demoMask } from './demo';
@@ -113,6 +113,10 @@ const textureCtx=texture.getContext('2d',{willReadFrequently:true})!;
 let textureSource:ImageBitmap|HTMLCanvasElement|null=null,textureKey='';
 const photos=new PhotoSlots();
 const photoReveal=new PhotoReveal();
+const photoPoseTracker=new PhotoPoseTracker();
+let trackedPhotoPose:FramePose|null=null;
+let photoAperture:{frame:FrameRect;outline:Point[];pose:FramePose;measuredAt:number;aspect:number}|null=null;
+let photoMeasuredAt=0,holdingPhotoAperture=false;
 let photoRevealAmount:number|null=null;
 let contentMode:'filters'|'photos'='filters';
 let cameraFacing:'user'|'environment'='user';
@@ -137,15 +141,30 @@ let pose:FramePose|null=null,manualDepth=0,manualRoll=0;
 const status=(message:string)=>{$('#status').textContent=message;};
 const pipeline=new CameraPipeline(result=>{
   hands=handsForCameraDisplay(result.hands,pipeline.mirrored);lastVision=result.timestamp;inferenceMs=result.inferenceMs;handBackend=result.handBackend??'';
-  const automatic=automaticShaping();
-  photoRevealAmount=automatic&&wholePhotoView()&&!cameraOnly?photoReveal.update(hands,result.timestamp,oneHandPhotoEnabled()?'one':'two'):null;
+  const automatic=automaticShaping(),aspect=result.aspectRatio??W/H;
+  photoRevealAmount=automatic&&wholePhotoView()&&!cameraOnly?photoReveal.update(hands,result.timestamp,oneHandPhotoEnabled()?'one':'two',aspect):null;
+  if(photoRevealAmount!==null&&(hands.length===2||oneHandPhotoEnabled()))photoMeasuredAt=result.timestamp;
   if(!automatic||!wholePhotoView()||cameraOnly)photoReveal.reset();
-  if(automatic){const formed=handShape.update(hands,result.timestamp);frame=formed?.rect??null;handOutline=formed?.outline??null;}
+  if(automatic){const formed=handShape.update(hands,result.timestamp,aspect);frame=formed?.rect??null;handOutline=formed?.outline??null;}
   else{handOutline=null;frame=deriveFrame(hands,frame);}
-  pose=mode==='handframe'?perspective.update(hands,frame,result.timestamp,automatic):null;
+  pose=mode==='handframe'?perspective.update(hands,frame,result.timestamp,automatic,aspect):null;
   // The measured contour already includes the hands' screen-space tilt.
   // Apply only the stylized depth warp to avoid rotating that outline twice.
   if(automatic&&pose&&frame)pose=projectFrame(frame,pose.depth,0);
+  // Update filtered photo corners once per camera result, not every paint.
+  // Valid measured outlines remain required for the fitted-photo path.
+  holdingPhotoAperture=false;
+  if(automatic&&contentMode==='photos'&&!wholePhotoView()&&!cameraOnly){
+    if(photoAperture&&Math.abs(photoAperture.aspect-aspect)>.001){photoPoseTracker.reset();photoAperture=null;trackedPhotoPose=null;}
+    trackedPhotoPose=photoPoseTracker.update(hands,result.timestamp,pose?.depth??trackedPhotoPose?.depth??0);
+    if(frame&&handOutline&&pose&&trackedPhotoPose){
+      photoAperture={frame,outline:handOutline,pose,measuredAt:result.timestamp,aspect};
+    }else if(hands.length<2&&trackedPhotoPose&&photoAperture&&result.timestamp-photoAperture.measuredAt<=150){
+      // Hold only the last valid measured drawing through a short omission.
+      // Gesture cycling still receives the current, unheld detector results.
+      frame=photoAperture.frame;handOutline=photoAperture.outline;pose=photoAperture.pose;holdingPhotoAperture=true;
+    }else{photoAperture=null;photoPoseTracker.reset();trackedPhotoPose=null;}
+  }else{photoPoseTracker.reset();trackedPhotoPose=null;photoAperture=null;}
   if(frame){lastGoodFrame=frame;lastGoodAt=lastVision;}
   if(result.mask&&result.maskWidth&&result.maskHeight){
     const next=scaleMask(result.mask,result.maskWidth,result.maskHeight,W,H,pipeline.mirrored);
@@ -153,8 +172,8 @@ const pipeline=new CameraPipeline(result=>{
     personMask=next;lastMaskAt=result.timestamp;
   }
   if(mode==='invisible')mask=personMask?addTrackedHands(personMask,W,H,hands):null;
-  if(mode==='invisible'&&!portal&&!calibration){const amount=palm.update(hands,result.timestamp);if(amount!==null)setFade(amount*100);}
-  if(automatic&&!cameraOnly&&!oneHandPhotoEnabled()){if(worldCycle.update(hands,result.timestamp)){nextContent();worldNoticeUntil=performance.now()+1400;}}else worldCycle.reset();
+  if(mode==='invisible'&&!portal&&!calibration){const amount=palm.update(hands,result.timestamp,aspect);if(amount!==null)setFade(amount*100);}
+  if(automatic&&!cameraOnly&&!oneHandPhotoEnabled()){if(worldCycle.update(hands,result.timestamp,aspect)){nextContent();worldNoticeUntil=performance.now()+1400;}}else worldCycle.reset();
   syncWorldCue();
   if(mode==='handframe'&&!handFollowing){
     const action=pinch.update(hands,result.timestamp);
@@ -179,10 +198,10 @@ const pipeline=new CameraPipeline(result=>{
 
 function oneHandPhotoEnabled(){return handFollowing&&mode==='handframe'&&contentMode==='photos'&&cameraFacing==='environment'&&$<HTMLInputElement>('#one-hand-photo').checked;}
 function wholePhotoView(){return handFollowing&&contentMode==='photos'&&(oneHandPhotoEnabled()||$<HTMLSelectElement>('#photo-fit').value==='reveal');}
-function resetPhotoReveal(){photoReveal.reset();photoRevealAmount=null;}
+function resetPhotoReveal(){photoReveal.reset();photoRevealAmount=null;photoMeasuredAt=0;photoPoseTracker.reset();trackedPhotoPose=null;photoAperture=null;holdingPhotoAperture=false;}
 function automaticShaping(){return mode==='handframe'&&handFollowing&&live&&!manual;}
 function resetWorldCycle(){worldCycle.reset();worldNoticeUntil=0;syncWorldCue();}
-function resetPerspective(){resetPhotoReveal();resetWorldCycle();pose=null;frame=null;lastGoodFrame=null;perspective.reset();handShape.reset();handOutline=null;}
+function resetPerspective(){resetPhotoReveal();resetWorldCycle();photoPoseTracker.reset();trackedPhotoPose=null;pose=null;frame=null;lastGoodFrame=null;perspective.reset();handShape.reset();handOutline=null;}
 function syncWorldCue(now=performance.now()){
   if(oneHandPhotoEnabled()){const message=!live?'Start the back camera. Open one palm to reveal your full picture.':manual?'Turn off mouse controls to reveal your picture with one palm.':cameraOnly?'Show effects to reveal your picture.':'Open one palm to reveal the whole picture. Close it to hide. Use Next picture to switch.';$('#world-cycle-state').textContent=message;worldCue.hidden=true;return;}
   const active=automaticShaping()&&!cameraOnly,phase=worldCycle.status;
@@ -349,7 +368,7 @@ function render(now:number){
   if(live&&now-lastVision>1000){hands=[];frame=null;resetPerspective();palm.reset();pinch.reset();}
   syncWorldCue(now);
   ctx.drawImage(raw,0,0);
-  const r=activeFrame();
+  const r=holdingPhotoAperture&&photoAperture&&now-photoAperture.measuredAt>150?null:activeFrame();
   if(focusView?.active&&cameraOnly){/* Clean camera view keeps the selected effect ready to restore. */}
   else if(mode==='invisible'){
     fade=reducedMotion?targetFade:fade+(targetFade-fade)*.65;
@@ -360,19 +379,20 @@ function render(now:number){
     if(bg&&currentMask&&fade>.001){const source=rawCtx.getImageData(0,0,W,H);ctx.putImageData(new ImageData(new Uint8ClampedArray(blendInvisible(source.data,bg.data,currentMask,fade)),W,H),0,0);}
     if(portal&&r)drawFrame(r,false);
   }else if(wholePhotoView()&&photos.current){
-    const amount=manual||!live?1:photoRevealAmount??0;
+    const missingExpired=!oneHandPhotoEnabled()&&hands.length<2&&now-photoMeasuredAt>150;
+    const amount=manual||!live?1:missingExpired?0:photoRevealAmount??0;
     if(amount>.01)drawWholePhoto(amount);
   }else if(r&&(contentMode!=='photos'||photos.current)){
     const displayPose=manual||!live?projectFrame(r,manualDepth,manualRoll):pose;
     const automatic=automaticShaping(),displayOutline=automatic?handOutline:outline;
     if(displayPose&&displayOutline){
-      const photoPose=contentMode==='photos'&&automatic?photoHandPose(hands,displayPose.depth):null;
+      const photoPose=contentMode==='photos'&&automatic?trackedPhotoPose:null;
       if(photoPose){
         // A photo's own corners follow the fingertips. The measured finger chains
         // remain the outer clip, so curved shapes do not paint over the hands.
         ctx.save();traceShape(ctx,displayOutline.map(p=>({x:(r.x+p.x*r.width)*W,y:(r.y+p.y*r.height)*H})));ctx.clip();
         drawHandSurface(r,photoPose,'local-photo',shapePoints('rectangle'),false);ctx.restore();
-      }else drawHandSurface(r,displayPose,live?`camera:${pipeline.video.currentTime}`:`preview:${reducedMotion?0:now}`,displayOutline,!automatic&&shape==='rectangle');
+      }else if(contentMode!=='photos'||!automatic)drawHandSurface(r,displayPose,live?`camera:${pipeline.video.currentTime}`:`preview:${reducedMotion?0:now}`,displayOutline,!automatic&&shape==='rectangle');
     }
   }
   if(now-lastMetric>400){lastMetric=now;$('#screen-camera-state').hidden=live;$('#hand-shape-state').textContent=wholePhotoView()&&live&&!manual?(photoRevealAmount===null?(oneHandPhotoEnabled()?'Show one open palm to the back camera.':'Show both hands and open them apart.'):(photoRevealAmount<.05?'Picture hidden · open to reveal.':'Whole picture · '+Math.round(photoRevealAmount*100)+'% open')):!handFollowing?'Using your saved outline. Turn on Follow my hands to shape it directly.':!live?'Start your camera to form a shape with both hands.':manual?'Mouse controls are on. Turn them off to follow your hands.':handOutline?'Following your hand-shaped outline.':hands.length===2?'Open a clear space between your thumbs and index fingers.':'Show both hands to form an opening.';const depth=manual||!live?manualDepth:pose?.depth;

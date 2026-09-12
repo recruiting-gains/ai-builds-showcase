@@ -1,5 +1,11 @@
 # Verification record
 
+## Phone tracking repair — September 12, 2026
+
+The [phone tracking repair](PHONE-TRACKING-STABILITY.md) passes 242 application tests, 14 harness tests, the existing 31 phone checks and 14 new stability checks in each of Chromium and WebKit. Actual MediaPipe worker processing also passes in Chromium with generated portrait and landscape input. A separate actual-worker WebKit smoke test hit a camera-permission error before loading models; that path remains unverified, distinct from the passing WebKit compositor suite. Types, production build, model integrity, dependency audit and deployment dry run pass.
+
+The old build reproduced five mechanism failures: forced wide inference input, a one-result tracking omission hiding the photo, excessive size and corner jitter, and rejection of physically equivalent portrait hands. The repaired compositor reduces the repeated synthetic photo-size range from 64 to 32 pixels and position range from 6 to 1 pixel. Short omissions retain measured drawings for at most 150 ms; prolonged loss clears them and true closure remains immediate. Camera proportions now reach both detection and gesture metrics. This does not substitute for a physical iPhone camera trial.
+
 ## GhostFrame rename — September 11, 2026
 
 The project directory, package, app branding, recording labels and GitHub workflow are now **GhostFrame**. The existing Cloudflare Worker name and phone URL are retained. The old GitHub project landing page and verification link point to the new location.

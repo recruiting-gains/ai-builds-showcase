@@ -122,12 +122,20 @@ export class CameraPipeline {
     // Hands always use fresh camera frames; the worker budgets segmentation separately.
     this.segment = segment;
     const interval = 16;
-    if (!Number.isFinite(now) || now < 0 || !this.active || this.busy || now - this.lastSent < interval || this.video.readyState < 2 || this.video.currentTime === this.lastVideoTime) return;
+    if (!Number.isFinite(now) || now < 0 || !this.active || this.busy || now - this.lastSent < interval || this.video.readyState < 2 || this.video.currentTime === this.lastVideoTime || !this.video.videoWidth || !this.video.videoHeight) return;
     this.busy = true; this.sentAt = this.lastSent = now; this.lastVideoTime = this.video.currentTime;
     const generation = this.generation, id = ++this.id;
     let bitmap: ImageBitmap | null = null;
     try {
-      bitmap = await createImageBitmap(this.video, { resizeWidth: 512, resizeHeight: 288 });
+      // The model must see undistorted hands. Portrait phone cameras are not
+      // 16:9: forcing 512x288 makes a tall frame more than three times wider.
+      // Resize the complete image uniformly; normalized x/y still map onto
+      // the same complete camera image used by the compositor.
+      const scale = Math.min(1, 512 / Math.max(this.video.videoWidth, this.video.videoHeight));
+      bitmap = await createImageBitmap(this.video, {
+        resizeWidth: Math.max(1, Math.round(this.video.videoWidth * scale)),
+        resizeHeight: Math.max(1, Math.round(this.video.videoHeight * scale)),
+      });
       if (generation !== this.generation || !this.worker) { bitmap.close(); return; }
       this.worker.postMessage({ type: 'frame', id, timestamp: now, bitmap, segment }, [bitmap]);
       bitmap = null; // Ownership moved to the worker.

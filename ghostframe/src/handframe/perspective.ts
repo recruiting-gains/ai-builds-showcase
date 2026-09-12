@@ -7,7 +7,7 @@ const ASPECT = 16 / 9;
 const MAX_ROLL = 0.4;
 const MAX_GAP_MS = 1000;
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value));
-const distance = (a: Point, b: Point) => Math.hypot((a.x - b.x) * ASPECT, a.y - b.y);
+const metric = (aspect: number) => (a: Point, b: Point) => Math.hypot((a.x - b.x) * aspect, a.y - b.y);
 
 function validRect(rect: FrameRect): boolean {
   return [rect.x, rect.y, rect.width, rect.height].every(Number.isFinite) &&
@@ -53,7 +53,8 @@ export function projectFrame(rect: FrameRect, depth: number, roll: number): Fram
   return { quad, depth, roll };
 }
 
-function trackedPair(hands: Hand[], allowJoinedTips: boolean): Hand[] | null {
+function trackedPair(hands: Hand[], allowJoinedTips: boolean, aspect: number): Hand[] | null {
+  const distance = metric(aspect);
   if (hands.length !== 2 || !hands.every(hand => hand && Number.isFinite(hand.score) && hand.score >= 0.5 &&
     Array.isArray(hand.landmarks) && hand.landmarks.length === 21 && Array.from(hand.landmarks).every(point =>
       point && Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.x <= 1 &&
@@ -66,7 +67,8 @@ function trackedPair(hands: Hand[], allowJoinedTips: boolean): Hand[] | null {
   return left.landmarks[0].x - right.landmarks[0].x >= 0.07 && (allowJoinedTips || leftTips - rightTips >= 0.08) ? pair : null;
 }
 
-function palmScale(hand: Hand): number {
+function palmScale(hand: Hand, aspect: number): number {
+  const distance = metric(aspect);
   const points = hand.landmarks;
   // Palm-only spans keep finger articulation out of the distance estimate.
   const spans = [[0, 5], [0, 9], [0, 17], [5, 17]];
@@ -84,6 +86,7 @@ function follow(current: number, target: number, jitter: number, direct: number)
  * deliberately unused because its origin is local to each detected hand.
  */
 export class PerspectiveTracker {
+  private aspect = ASPECT;
   private baseline: { ratio: number; roll: number } | null = null;
   private lastTimestamp: number | null = null;
   private pose: FramePose | null = null;
@@ -98,9 +101,12 @@ export class PerspectiveTracker {
 
   recenter(): void { this.reset(); }
 
-  update(hands: Hand[], rect: FrameRect | null, timestamp: number, allowJoinedTips = false): FramePose | null {
+  update(hands: Hand[], rect: FrameRect | null, timestamp: number, allowJoinedTips = false, aspect = ASPECT): FramePose | null {
+    if (!Number.isFinite(aspect) || aspect <= 0) { this.reset(); return null; }
+    if (Math.abs(aspect - this.aspect) > .001) this.reset();
+    this.aspect = aspect;
     if (this.lastTimestamp !== null && this.joinedTips !== allowJoinedTips) this.reset();
-    const pair = trackedPair(hands, allowJoinedTips);
+    const pair = trackedPair(hands, allowJoinedTips, aspect);
     if (!pair || !rect || !validRect(rect) || !Number.isFinite(timestamp) || timestamp < 0) {
       this.reset();
       return null;
@@ -113,7 +119,7 @@ export class PerspectiveTracker {
       if (timestamp === this.lastTimestamp) return this.pose;
     }
     const [left, right] = pair;
-    const ratio = Math.log(palmScale(left) / palmScale(right));
+    const ratio = Math.log(palmScale(left, aspect) / palmScale(right, aspect));
     // Joined fingertips have almost coincident centers. Separated wrists provide
     // a stable roll reference for automatic contours instead of that tiny line.
     const tip = (hand: Hand) => allowJoinedTips ? { x: 1 - hand.landmarks[0].x, y: hand.landmarks[0].y } :

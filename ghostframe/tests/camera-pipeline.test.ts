@@ -29,7 +29,7 @@ function bitmap() { return { closed: 0, close() { this.closed++; } }; }
 
 function setup(t: TestContext) {
   const statuses: { message: string; active: boolean }[] = [], frames: VisionFrame[] = [];
-  const requests: MediaStreamConstraints[] = [], workers: FakeWorker[] = [], captures: number[] = [];
+  const requests: MediaStreamConstraints[] = [], workers: FakeWorker[] = [], captures: number[] = [], captureSizes: ImageBitmapOptions[] = [];
   const timers = new Map<number, () => void>();
   const restoreGlobals: (() => void)[] = [];
   let now = 100, timerId = 0;
@@ -74,13 +74,13 @@ function setup(t: TestContext) {
   global('clearInterval', (id: number) => timers.delete(id));
   global('createImageBitmap', (source: unknown, options: ImageBitmapOptions) => {
     assert.equal(source, video);
-    assert.deepEqual(options, { resizeWidth: 512, resizeHeight: 288 }, 'portrait frames keep the existing full-image stretch');
+    captureSizes.push(options);
     captures.push(video.currentTime); return makeBitmap();
   });
   const pipeline = new CameraPipeline(frame => frames.push(frame), (message, active) => statuses.push({ message, active }));
   t.after(() => { pipeline.stop(); restoreGlobals.reverse().forEach(restore => restore()); });
   return {
-    pipeline, video, statuses, frames, requests, workers, captures, timers, mediaDevices,
+    pipeline, video, statuses, frames, requests, workers, captures, captureSizes, timers, mediaDevices,
     setMedia: (next: typeof media) => { media = next; }, setBitmap: (next: typeof makeBitmap) => { makeBitmap = next; },
     setPlay: (next: typeof play) => { play = next; }, time: (value: number) => { now = value; },
     tick: () => { for (const callback of [...timers.values()]) callback(); },
@@ -269,4 +269,28 @@ test('worker failure, disconnected tracks and both watchdog deadlines stop track
     assert.equal(f.pipeline.active, false, reason); assert.equal(capture.track.stopped, 1, reason);
     assert.equal(capture.track.listeners.size, 0, reason); assert.equal(worker.terminated, 1, reason); assert.equal(f.timers.size, 0, reason);
   }
+});
+
+for (const [width, height, expectedWidth, expectedHeight] of [
+  [720, 1280, 288, 512], [1280, 720, 512, 288], [1080, 1440, 384, 512],
+  [1024, 1024, 512, 512], [320, 240, 320, 240],
+]) {
+  test(`inference preserves the full ${width}x${height} camera aspect without enlarging small frames`, async t => {
+    const f = setup(t); f.video.videoWidth = width; f.video.videoHeight = height;
+    await f.pipeline.start(); f.workers[0].emit({ type: 'ready' });
+    await f.pipeline.infer(100, false);
+    assert.deepEqual(f.captureSizes, [{ resizeWidth: expectedWidth, resizeHeight: expectedHeight }]);
+    assert.ok(Math.abs(expectedWidth / expectedHeight - width / height) < .002);
+  });
+}
+
+test('rotation uses current decoded dimensions and waits for usable metadata', async t => {
+  const f = setup(t); await f.pipeline.start(); const worker = f.workers[0]; worker.emit({ type: 'ready' });
+  f.video.videoWidth = 0;
+  await f.pipeline.infer(100, false); assert.equal(f.captures.length, 0);
+  f.video.videoWidth = 720;
+  await f.pipeline.infer(116, false); f.time(116); worker.reply(116, 1); await settle();
+  f.video.videoWidth = 1280; f.video.videoHeight = 720; f.video.currentTime++;
+  await f.pipeline.infer(148, false);
+  assert.deepEqual(f.captureSizes, [{ resizeWidth: 288, resizeHeight: 512 }, { resizeWidth: 512, resizeHeight: 288 }]);
 });

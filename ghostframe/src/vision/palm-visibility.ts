@@ -4,14 +4,15 @@ type Vector = { x: number; y: number; z: number };
 type Observation = { wrist: Point; palm: number; label: string; fade: number; open: boolean; score: number };
 const ASPECT = 16 / 9;
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
-const vector = (from: Point, to: Point): Vector => ({
-  x: (to.x - from.x) * ASPECT, y: to.y - from.y, z: ((to.z ?? 0) - (from.z ?? 0)) * ASPECT,
+const metricVector = (from: Point, to: Point, aspect: number): Vector => ({
+  x: (to.x - from.x) * aspect, y: to.y - from.y, z: ((to.z ?? 0) - (from.z ?? 0)) * aspect,
 });
 const length = (v: Vector) => Math.hypot(v.x, v.y, v.z);
 const dot = (a: Vector, b: Vector) => a.x * b.x + a.y * b.y + a.z * b.z;
-const wristDistance = (a: Point, b: Point) => Math.hypot((a.x - b.x) * ASPECT, a.y - b.y);
+const metricWristDistance = (a: Point, b: Point, aspect: number) => Math.hypot((a.x - b.x) * aspect, a.y - b.y);
 
-function observe(hand: Hand): Observation | null {
+function observe(hand: Hand, aspect: number): Observation | null {
+  const vector = (from: Point, to: Point) => metricVector(from, to, aspect);
   if (!hand || !Number.isFinite(hand.score) || hand.score < 0.6 || !Array.isArray(hand.landmarks) || hand.landmarks.length !== 21) return null;
   for (const point of hand.landmarks) {
     if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y) || point.x < 0 || point.x > 1 ||
@@ -60,14 +61,18 @@ export class PalmVisibility {
   private control: Observation | null = null;
   private lastTimestamp: number | null = null;
   private fade = 0;
+  private aspect: number | null = null;
 
-  reset(): void { this.control = null; this.lastTimestamp = null; this.fade = 0; }
+  reset(): void { this.control = null; this.lastTimestamp = null; this.fade = 0; this.aspect = null; }
 
-  update(hands: Hand[], timestamp: number): number | null {
-    if (!Array.isArray(hands) || hands.length < 1 || hands.length > 2 || !Number.isFinite(timestamp) || timestamp < 0) {
+  update(hands: Hand[], timestamp: number, aspect = ASPECT): number | null {
+    if (!Array.isArray(hands) || hands.length < 1 || hands.length > 2 || !Number.isFinite(timestamp) || timestamp < 0 ||
+      !Number.isFinite(aspect) || aspect <= 0) {
       this.reset(); return null;
     }
-    const observations = hands.map(observe).filter((hand): hand is Observation => hand !== null);
+    if (aspect !== this.aspect) { this.reset(); this.aspect = aspect; }
+    const wristDistance = (a: Point, b: Point) => metricWristDistance(a, b, aspect);
+    const observations = hands.map(hand => observe(hand, aspect)).filter((hand): hand is Observation => hand !== null);
     if (!observations.length) { this.reset(); return null; }
     if (this.lastTimestamp !== null) {
       if (timestamp < this.lastTimestamp || timestamp - this.lastTimestamp > 1000) { this.reset(); return null; }
