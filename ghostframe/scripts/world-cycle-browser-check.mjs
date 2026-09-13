@@ -123,7 +123,7 @@ try {
     await setFixture('none');
   }
   async function fresh() {
-    await page.locator('#reset').click(); await setFixture('none');
+    await page.locator('#reset').click();await page.locator('#panel-shape').selectOption('contour'); await setFixture('none');
     await expectStyle('dream');
   }
   async function closedAfterOpening() { await setFixture('open'); await setFixture('closed'); }
@@ -136,7 +136,10 @@ try {
   }
 
   const invisibleWidth = (await sceneBounds()).width;
-  await page.locator('[data-mode="handframe"]').click(); await paint();
+  await page.locator('[data-mode="handframe"]').click();
+  // Preserve the original joined-tip/contour fixture contracts. Straight-panel
+  // cycling and its convex fill are checked separately by test:panel.
+  await page.locator('#panel-shape').selectOption('contour');await paint();
   const wide = await sceneBounds();
   assert.ok(wide.width > invisibleWidth * 1.25, 'desktop HandFrame preview must materially widen at the same viewport size');
   report.measurements.desktop = { viewport: '1440x1050', invisibleWidth, handframe: wide };
@@ -232,7 +235,7 @@ try {
     if (control === 'manual') { await page.locator('#manual').check(); await page.locator('#manual').uncheck(); }
     if (control === 'follow') { await page.locator('#follow-hands').uncheck(); await page.locator('#follow-hands').check(); }
     if (control === 'mode') { await page.locator('[data-mode="invisible"]').click(); await page.locator('[data-mode="handframe"]').click(); }
-    if (control === 'reset') await page.locator('#reset').click();
+    if (control === 'reset') {await page.locator('#reset').click();await page.locator('#panel-shape').selectOption('contour');}
     const count = await changeCount(); await setFixture('open', 450);
     await expectStyle('dream'); assert.equal(await changeCount(), count, `${control} must cancel rather than complete the pending cycle`); await noCapture();
   }

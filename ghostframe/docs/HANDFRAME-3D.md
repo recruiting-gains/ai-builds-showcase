@@ -1,5 +1,7 @@
 # HandFrame perspective and response
 
+**Current Color worlds default:** [Straight panel](STRAIGHT-PANEL.md) uses four measured thumb/index corners directly, without the additional apparent-palm-size warp described below. The original contour behavior remains available under **Panel edges → Follow finger contour**; its historical response/depth evidence follows. Local-picture and saved-shape behavior are unchanged by that default.
+
 This iteration responds to continued slow hand following and a request to stretch the picture by moving one hand toward the camera and the other away.
 
 Current scheduling and automatic-outline behavior are described below. The 69-test deployment record near the end belongs to the earlier 3D release. The latest local palm/response update passes 118 application tests, 74 browser checks and eight print-flow scenarios. The [actual-model benchmark](HANDFRAME-RESPONSIVENESS.md) uses generated empty-camera input and does not measure physical-hand latency. The deployed HTML, JavaScript, CSS and vision worker match the tested build.

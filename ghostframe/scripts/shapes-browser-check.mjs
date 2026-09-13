@@ -15,6 +15,8 @@ const contains=(p,polygon)=>{let inside=false;for(let i=0,j=polygon.length-1;i<p
 const edgeDistance=(p,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);};
 try{
   const context=await browser.newContext({viewport:{width:1440,height:1050},reducedMotion:'reduce'});
+  await context.route('**/api/config',r=>r.fulfill({contentType:'application/json',body:'{"aiEnabled":true}'}));
+  await context.route('**/api/render',r=>r.abort('blockedbyclient'));
   const page=await context.newPage();
   page.on('pageerror',e=>report.pageErrors.push(e.message));page.on('request',r=>{if(r.method()==='POST')report.posts++;});
   await page.goto(base,{waitUntil:'networkidle'});

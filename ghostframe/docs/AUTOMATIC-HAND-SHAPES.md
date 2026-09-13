@@ -1,5 +1,7 @@
 # Automatic hand outlines
 
+For Color worlds, this contour feature is now selected explicitly with **Panel edges → Follow finger contour**. The default **Straight panel** keeps four straight edges and is documented in [Straight panel](STRAIGHT-PANEL.md). Local-photo shaping and saved/custom outlines retain their existing behavior.
+
 HandFrame follows the opening formed by both thumbs and index fingers. **Follow my hands** is on by default. The window comes from the detected finger joints, without selecting a preset or classifying the pose as a named shape.
 
 Automatic outlines work alongside continuous palm visibility, close/reopen world cycling and the wider HandFrame studio. The current palm-contact correction adds visible gesture cues and bounded recovery when one palm briefly hides the other. [Current behavior and verification](WORLD-CYCLE-WIDE-VIEW.md). The earlier [actual-model benchmark](HANDFRAME-RESPONSIVENESS.md) uses a generated empty camera stream; it does not establish physical-camera accuracy or hand latency.
