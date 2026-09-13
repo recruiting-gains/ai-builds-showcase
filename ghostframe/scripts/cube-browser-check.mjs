@@ -58,20 +58,51 @@ const interaction = async label => page.waitForFunction(label=>document.querySel
 const carryReplay = (bytes,mime,samples) => page.evaluate(async({data,mime,samples})=>{
   const v=document.createElement('video');v.muted=true;v.playsInline=true;
   const url=URL.createObjectURL(new Blob([Uint8Array.from(atob(data),c=>c.charCodeAt(0))],{type:mime}));
-  const event=(name,action)=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Saved carry clip '+name+' timed out')),5000);v.addEventListener(name,()=>{clearTimeout(timer);resolve();},{once:true});v.addEventListener('error',()=>{clearTimeout(timer);reject(new Error('Saved carry clip could not decode'));},{once:true});action();});
+  const limits={decodeMs:20000,maxFrames:360},observed=new Map(),selected=new Map();let decodedFrames=0,frameHandle=null;
+  const metrics=entry=>({code:entry.code,count:entry.count,firstMediaTime:entry.firstMediaTime,lastMediaTime:entry.lastMediaTime});
+  const diagnostics=()=>({decodedFrames,limits,observed:[...observed.values()].map(metrics),selected:[...selected.values()].map(({png,...frame})=>frame)});
   try {
-    await event('loadeddata',()=>{v.src=url;});
-    const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;const ctx=c.getContext('2d'),frames=[];
-    for(const sample of samples){
-      await event('seeked',()=>{v.currentTime=sample.time;});ctx.drawImage(v,0,0);
-      const d=ctx.getImageData(0,0,c.width,c.height).data;let blue=0,white=0,sumX=0,minX=c.width,maxX=-1;
-      for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){const i=(y*c.width+x)*4,r=d[i],g=d[i+1],b=d[i+2];if(b>100&&b-r>14&&b-g>3){blue++;sumX+=x;minX=Math.min(minX,x);maxX=Math.max(maxX,x);}if(r>205&&g>205&&b>205)white++;}
-      let warmCenter=0;const cx=Math.round(c.width*.38),cy=Math.round(c.height*.52);for(let y=cy-5;y<=cy+5;y++)for(let x=cx-12;x<=cx+12;x++){const i=(y*c.width+x)*4;if(d[i]-d[i+2]>35&&d[i]-d[i+1]>25)warmCenter++;}
-      frames.push({name:sample.name,time:sample.time,blue,white,warmCenter,center:blue?sumX/blue/c.width:null,width:blue?(maxX-minX)/c.width:0,corner:Array.from(d.slice(0,3)),png:c.toDataURL('image/png').split(',')[1]});
-    }
-    return {width:c.width,height:c.height,frames};
-  } finally {v.pause();v.removeAttribute('src');v.load();URL.revokeObjectURL(url);}
+    await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Saved carry clip load timed out')),5000);v.onloadeddata=()=>{clearTimeout(timer);resolve();};v.onerror=()=>{clearTimeout(timer);reject(new Error('Saved carry clip could not decode'));};v.src=url;});
+    if(typeof v.requestVideoFrameCallback!=='function')throw new Error('Saved carry proof needs decoded-frame callbacks in this test browser');
+    const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;const ctx=c.getContext('2d');
+    // Decode the saved file in presentation order. A camera-embedded stage marker,
+    // not MediaRecorder.start wall time, identifies the pixels being measured.
+    await new Promise((resolve,reject)=>{
+      let settled=false;const timer=setTimeout(()=>finish(new Error('Saved carry decode deadline exceeded')),limits.decodeMs);
+      const finish=error=>{if(settled)return;settled=true;clearTimeout(timer);if(frameHandle!==null)v.cancelVideoFrameCallback(frameHandle);v.pause();error?reject(error):resolve();};
+      const next=(_,metadata)=>{
+        if(settled)return;
+        try {
+          if(++decodedFrames>limits.maxFrames)throw new Error('Saved carry decoded-frame budget exceeded');
+          ctx.drawImage(v,0,0);const d=ctx.getImageData(0,0,c.width,c.height).data;
+          const code=window.__cubeProbe.readStageData(d,c.width,c.height);
+          if(code!==null&&code>0){
+            let entry=observed.get(code);if(!entry){entry={code,count:0,firstMediaTime:metadata.mediaTime,lastMediaTime:-1};observed.set(code,entry);}
+            if(metadata.mediaTime>entry.lastMediaTime){entry.count++;entry.lastMediaTime=metadata.mediaTime;}
+            // A fixed second distinct decoded frame avoids transition edges without
+            // selecting whichever geometry would make an assertion pass.
+            if(entry.count===2&&!selected.has(code)){
+              let blue=0,white=0,sumX=0,minX=c.width,maxX=-1;
+              for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){const i=(y*c.width+x)*4,r=d[i],g=d[i+1],b=d[i+2];if(b>100&&b-r>14&&b-g>3){blue++;sumX+=x;minX=Math.min(minX,x);maxX=Math.max(maxX,x);}if(r>205&&g>205&&b>205)white++;}
+              let warmCenter=0;const cx=Math.round(c.width*.38),cy=Math.round(c.height*.52);for(let y=cy-5;y<=cy+5;y++)for(let x=cx-12;x<=cx+12;x++){const i=(y*c.width+x)*4;if(d[i]-d[i+2]>35&&d[i]-d[i+1]>25)warmCenter++;}
+              selected.set(code,{code,name:samples.find(sample=>sample.code===code)?.name??'unknown',mediaTime:metadata.mediaTime,blue,white,warmCenter,center:blue?sumX/blue/c.width:null,width:blue?(maxX-minX)/c.width:0,corner:Array.from(d.slice(0,3)),png:c.toDataURL('image/png').split(',')[1]});
+            }
+          }
+          frameHandle=v.requestVideoFrameCallback(next);
+        } catch(error) {finish(error);}
+      };
+      v.onended=()=>finish();v.onerror=()=>finish(new Error('Saved carry playback failed'));
+      frameHandle=v.requestVideoFrameCallback(next);void v.play().catch(finish);
+    });
+    const missing=samples.filter(sample=>!selected.has(sample.code));
+    if(missing.length)throw new Error('Saved carry clip is missing two decoded frames for stages '+missing.map(sample=>sample.name).join(', '));
+    const frames=samples.map(sample=>selected.get(sample.code));
+    if(frames.some((frame,index)=>index>0&&frame.mediaTime<=frames[index-1].mediaTime))throw new Error('Saved carry stage order is incorrect');
+    return {width:c.width,height:c.height,frames,discovery:diagnostics()};
+  } catch(error) {throw new Error(error.message+'; stage diagnostics='+JSON.stringify(diagnostics()));}
+  finally {if(frameHandle!==null)v.cancelVideoFrameCallback(frameHandle);v.pause();v.removeAttribute('src');v.load();URL.revokeObjectURL(url);}
 },{data:bytes.toString('base64'),mime,samples});
+
 try {
   context = await browser.newContext({ viewport: { width: 1200, height: 920 }, acceptDownloads: true });
   context.setDefaultTimeout(8000);
@@ -80,20 +111,34 @@ try {
   await context.route('**/*', r => ['POST','PUT','PATCH','DELETE'].includes(r.request().method()) ? r.abort('blockedbyclient') : r.fallback());
   await context.addInitScript(() => {
     const state = window.__cubeProbe = { streams:[], sources:[], cameraRequests:[], captures:[], contexts:[], workers:[], segments:[], blobs:new Map() };
+    // Mirror-symmetric red/dark barcode. Neither color qualifies as blue or
+    // white in geometry measurements; the marker never covers background probes.
+    state.readStageData=(d,width,height)=>{
+      const cell=width/48,top=Math.round(height*.02),h=Math.max(10,Math.round(height*.035));
+      const bits=[];
+      for(let n=0;n<8;n++){const cx=Math.round(width/2+(n-3.5)*cell),cy=Math.round(top+h/2);let r=0,g=0,b=0;
+        for(let y=cy-1;y<=cy+1;y++)for(let x=cx-1;x<=cx+1;x++){const i=(y*width+x)*4;r+=d[i];g+=d[i+1];b+=d[i+2];}
+        r/=9;g/=9;b/=9;if(r>160&&r-g>90&&r-b>90)bits.push(1);else if(r<100&&g<100&&b<100)bits.push(0);else return null;
+      }
+      if(!bits[0]||!bits[7]||bits[1]!==bits[6]||bits[2]!==bits[5]||bits[3]!==bits[4])return null;
+      return bits[1]+bits[2]*2+bits[3]*4;
+    };
+    state.readStageCanvas=c=>state.readStageData(c.getContext('2d').getImageData(0,0,c.width,c.height).data,c.width,c.height);
     try {
     const nativePlay=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(...args){return nativePlay.apply(this,args).catch(error=>{state.playError={name:error.name,message:error.message};throw error;});};
     const getContext = HTMLCanvasElement.prototype.getContext;
     HTMLCanvasElement.prototype.getContext = function(...args) {const value=getContext.apply(this,args);if(value&&String(args[0]).startsWith('webgl')&&!state.contexts.some(x=>x.gl===value))state.contexts.push({canvas:this,gl:value});return value;};
     const capture = HTMLCanvasElement.prototype.captureStream;
     HTMLCanvasElement.prototype.captureStream = function(...args){const stream=capture.apply(this,args);if(this.id==='scene')state.captures.push(stream);return stream;};
-    const recorderStart=window.MediaRecorder?.prototype.start;
-    if(recorderStart)window.MediaRecorder.prototype.start=function(...args){state.recordingStartedAt=performance.now();return recorderStart.apply(this,args);};
     const OriginalWorker=window.Worker;
     window.Worker=class extends OriginalWorker { constructor(...args){super(...args);state.worker=this;state.workers.push({worker:this,terminated:false});this.addEventListener('message',({data})=>{if(data.type==='frame')state.segments.push(data.testSegment);});} terminate(){const item=state.workers.find(x=>x.worker===this);if(item)item.terminated=true;super.terminate();} };
     const create=URL.createObjectURL.bind(URL);URL.createObjectURL=blob=>{const url=create(blob);state.blobs.set(url,blob);return url;};
     navigator.mediaDevices.getUserMedia=async constraints=>{
       state.cameraRequests.push(constraints);const c=document.createElement('canvas');const portrait=state.portrait===true;c.width=portrait?432:768;c.height=portrait?768:432;
-      const x=c.getContext('2d');let tick=0;const paint=()=>{const bright=state.background==='bright';x.fillStyle=bright?'#b7bbc0':'#707070';x.fillRect(0,0,c.width,c.height);if(bright){x.fillStyle='#74b9ee';x.fillRect(c.width*.45,0,c.width*.2,c.height);x.fillStyle='#f28c55';x.fillRect(c.width*.25,c.height*.52-6,c.width*.5,12);x.strokeStyle='#46556b';x.lineWidth=5;x.strokeRect(c.width*.12,c.height*.18,c.width*.15,c.height*.16);}x.fillStyle='#d05428';x.fillRect(5,c.height-45,50,35);x.fillStyle='#505050';x.fillRect((tick++*7)%(c.width-40),c.height-25,32,15);};paint();
+      const x=c.getContext('2d');let tick=0;const paint=()=>{const bright=state.background==='bright';x.fillStyle=bright?'#b7bbc0':'#707070';x.fillRect(0,0,c.width,c.height);if(bright){x.fillStyle='#74b9ee';x.fillRect(c.width*.45,0,c.width*.2,c.height);x.fillStyle='#f28c55';x.fillRect(c.width*.25,c.height*.52-6,c.width*.5,12);x.strokeStyle='#46556b';x.lineWidth=5;x.strokeRect(c.width*.12,c.height*.18,c.width*.15,c.height*.16);}x.fillStyle='#d05428';x.fillRect(5,c.height-45,50,35);x.fillStyle='#505050';x.fillRect((tick++*7)%(c.width-40),c.height-25,32,15);
+        if(Number.isInteger(state.stageMarker)){const code=state.stageMarker,bits=[1,code&1,(code>>1)&1,(code>>2)&1,(code>>2)&1,(code>>1)&1,code&1,1],cell=c.width/48;
+          bits.forEach((bit,n)=>{x.fillStyle=bit?'rgb(220,65,45)':'rgb(45,45,45)';x.fillRect(c.width/2+(n-4)*cell,Math.round(c.height*.02),cell+1,Math.max(10,Math.round(c.height*.035)));});}
+      };paint();
       const stream=capture.call(c,30),timer=setInterval(paint,33),track=stream.getVideoTracks()[0],stop=track.stop.bind(track);track.stop=()=>{clearInterval(timer);stop();};
       track.getSettings=()=>({facingMode:constraints.video.facingMode.exact||constraints.video.facingMode.ideal||'user'});state.streams.push(stream);state.sources.push(c);return stream;
     };
@@ -150,19 +195,33 @@ try {
     item.samples=[];
     try {
       await page.locator('#record-video').click();await page.waitForFunction(()=>document.querySelector('#recording-dock').dataset.phase==='recording');
-      const stage=async(name,options,label)=>{await fixture(options);await interaction(label);await page.waitForTimeout(550);const time=await page.evaluate(()=>(performance.now()-window.__cubeProbe.recordingStartedAt)/1000-.15);item.samples.push({name,time,...await pixels()});await page.locator('#scene').screenshot({path:path.join(output,'carry-live-'+name+'.png')});};
+      const stage=async(name,options,label,background='gray')=>{
+        // Clear the prior code in the composed camera BEFORE changing its pose.
+        // Only settled footage gets a nonzero marker, including on slow CI hosts.
+        await page.evaluate(()=>{window.__cubeProbe.stageMarker=0;});
+        await page.waitForFunction(()=>window.__cubeProbe.readStageCanvas(document.querySelector('#scene'))===0);
+        await page.evaluate(background=>{window.__cubeProbe.background=background;},background);
+        await fixture(options);await interaction(label);await page.waitForTimeout(550);
+        const code=item.samples.length+1;await page.evaluate(code=>{window.__cubeProbe.stageMarker=code;},code);
+        await page.waitForFunction(code=>window.__cubeProbe.readStageCanvas(document.querySelector('#scene'))===code,code);
+        await page.waitForTimeout(450);item.samples.push({name,code,...await pixels()});
+        await page.locator('#scene').screenshot({path:path.join(output,'carry-live-'+name+'.png')});
+      };
       await stage('spreading',{center:.5,gap:.14},'Sizing with both hands');
       await stage('sizing',{center:.5,gap:.24},'Sizing with both hands');
       await stage('holding',{center:.5,gap:.24,only:'Right'},'Holding with one hand');
       await stage('moved',{center:.62,gap:.24,only:'Right'},'Holding with one hand');
       await stage('resizing',{center:.62,gap:.38},'Sizing with both hands');
-      await page.evaluate(()=>{window.__cubeProbe.background='bright';});
-      await stage('bright-background',{center:.62,gap:.38},'Sizing with both hands');
+      await stage('bright-background',{center:.62,gap:.38},'Sizing with both hands','bright');
       await page.locator('#record-video').click();await page.waitForFunction(()=>document.querySelector('#record-preview').readyState>=2&&document.querySelector('#record-preview').src.startsWith('blob:'));
       const pending=page.waitForEvent('download');await page.locator('#save-video').click();const download=await pending;
       const filename=path.join(output,'saved-carry-'+download.suggestedFilename());await download.saveAs(filename);assert.equal(await download.failure(),null);const bytes=await readFile(filename);assert.ok(bytes.length>1500);item.file=filename;item.bytes=bytes.length;
-      item.replay=await carryReplay(bytes,filename.endsWith('.mp4')?'video/mp4':'video/webm',item.samples.map(({name,time})=>({name,time})));
-      for(const frame of item.replay.frames){const screenshot=path.join(output,'carry-replay-'+frame.name+'.png');await writeFile(screenshot,Buffer.from(frame.png,'base64'));delete frame.png;frame.screenshot=screenshot;assert.ok(frame.blue>100,JSON.stringify(frame));assert.ok(frame.white>20,JSON.stringify(frame));const expected=frame.name==='bright-background'?[183,187,192]:[112,112,112];assert.ok(frame.corner.every((v,i)=>Math.abs(v-expected[i])<20),JSON.stringify(frame));}
+      item.replay=await carryReplay(bytes,filename.endsWith('.mp4')?'video/mp4':'video/webm',item.samples.map(({name,code})=>({name,code})));
+      // Strip every encoded PNG before any assertion can serialize a failed report.
+      const images=item.replay.frames.map(frame=>{const screenshot=path.join(output,'carry-replay-'+frame.name+'.png');const png=frame.png;delete frame.png;frame.screenshot=screenshot;return{png,screenshot};});
+      for(const image of images)await writeFile(image.screenshot,Buffer.from(image.png,'base64'));
+      console.log('CARRY STAGES: '+JSON.stringify(item.replay.frames));
+      for(const frame of item.replay.frames){assert.ok(frame.blue>100,JSON.stringify(frame));assert.ok(frame.white>20,JSON.stringify(frame));const expected=frame.name==='bright-background'?[183,187,192]:[112,112,112];assert.ok(frame.corner.every((v,i)=>Math.abs(v-expected[i])<20),JSON.stringify(frame));}
       const [spreading,sizing,holding,moved,resizing,bright]=item.replay.frames;
       assert.ok(sizing.width>spreading.width*1.2,'Saved clip must show spreading two hands to choose a size');
       assert.ok(bright.warmCenter>30,'The orange camera stripe must remain visible through the translucent center');assert.ok(bright.white>20,'Bright backdrop must retain visible white/cyan outline pixels');
@@ -170,7 +229,7 @@ try {
       assert.ok(holding.center-moved.center>.07&&holding.center-moved.center<.17,'Saved clip must show one-hand movement');assert.ok(Math.abs(moved.width/holding.width-1)<.20,'Saved carried cube size stays held during movement');assert.ok(resizing.width>moved.width*1.15,'Saved returning pair must resume resizing');
       assert.equal(await page.evaluate(()=>window.__cubeProbe.captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))),true);
     } finally {
-      await page.evaluate(()=>{window.__cubeProbe.background='gray';});
+      await page.evaluate(()=>{window.__cubeProbe.background='gray';window.__cubeProbe.stageMarker=null;});
       const phase=await page.locator('#recording-dock').getAttribute('data-phase');
       if(phase==='recording'){await page.locator('#record-video').click();await page.waitForFunction(()=>document.querySelector('#recording-dock').dataset.phase==='ready');}
       if(await page.locator('#discard-video').isVisible())await page.locator('#discard-video').click();
