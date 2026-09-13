@@ -2,12 +2,15 @@ import type { Hand } from '../contracts';
 import type { FramePose } from './perspective';
 import { surfaceMap } from './surface';
 
+const ASPECT = 16 / 9;
+
 /** Pin the complete photo to the thumb/index corners, including an inverted L.
  * Input uses the same canonical coordinates as HandOutlineTracker. The caller
  * still requires a valid measured aperture; missing/crossed hands never invent one.
  */
-export function photoHandPose(hands: Hand[], depth = 0): FramePose | null {
-  if (hands.length !== 2 || !Number.isFinite(depth) || hands.some(hand => !hand || hand.score < .5 || !Number.isFinite(hand.score))) return null;
+export function photoHandPose(hands: Hand[], depth = 0, aspect = ASPECT): FramePose | null {
+  if (hands.length !== 2 || !Number.isFinite(depth) || !Number.isFinite(aspect) || aspect <= 0 ||
+    hands.some(hand => !hand || hand.score < .5 || !Number.isFinite(hand.score))) return null;
   const pairs = hands.map(hand => [hand.landmarks?.[4], hand.landmarks?.[8]]);
   if (pairs.flat().some(point => !point || !Number.isFinite(point.x) || !Number.isFinite(point.y) || point.x < 0 || point.x > 1 || point.y < 0 || point.y > 1)) return null;
   const sides = pairs.map(pair => pair.map(point => ({ x: 1 - point.x, y: point.y })).sort((a,b) => a.y - b.y))
@@ -19,7 +22,7 @@ export function photoHandPose(hands: Hand[], depth = 0): FramePose | null {
   try { surfaceMap(quad); } catch { return null; }
   const lx=(left[0].x+left[1].x)/2,ly=(left[0].y+left[1].y)/2;
   const rx=(right[0].x+right[1].x)/2,ry=(right[0].y+right[1].y)/2;
-  return { quad, depth, roll: Math.atan2(ry-ly,(rx-lx)*16/9) };
+  return { quad, depth, roll: Math.atan2(ry-ly,(rx-lx)*aspect) };
 }
 
 const DETECTION_GRACE_MS = 150;
@@ -38,18 +41,22 @@ export class PhotoPoseTracker {
   private pose: FramePose | null = null;
   private lastTimestamp: number | null = null;
   private lastMeasuredAt: number | null = null;
+  private aspect: number | null = null;
 
-  reset(): void { this.pose = null; this.lastTimestamp = null; this.lastMeasuredAt = null; }
+  reset(): void { this.pose = null; this.lastTimestamp = null; this.lastMeasuredAt = null; this.aspect = null; }
 
-  update(hands: Hand[], timestamp: number, depth = 0): FramePose | null {
-    if (!Array.isArray(hands) || !Number.isFinite(timestamp) || timestamp < 0 || !Number.isFinite(depth)) {
+  update(hands: Hand[], timestamp: number, depth = 0, aspect = ASPECT): FramePose | null {
+    if (!Array.isArray(hands) || !Number.isFinite(timestamp) || timestamp < 0 || !Number.isFinite(depth) ||
+      !Number.isFinite(aspect) || aspect <= 0) {
       this.reset(); return null;
     }
+    if (this.aspect !== null && Math.abs(aspect - this.aspect) > .001) this.reset();
+    this.aspect = aspect;
     if (this.lastTimestamp !== null) {
       if (timestamp < this.lastTimestamp || timestamp - this.lastTimestamp > 1000) { this.reset(); return null; }
       if (timestamp === this.lastTimestamp) return this.pose ? copyPose(this.pose) : null;
     }
-    const target = photoHandPose(hands, depth);
+    const target = photoHandPose(hands, depth, aspect);
     if (!target) {
       if (plausibleMissingPair(hands) && this.pose && this.lastMeasuredAt !== null &&
         timestamp - this.lastMeasuredAt <= DETECTION_GRACE_MS) {
@@ -72,7 +79,7 @@ export class PhotoPoseTracker {
       try { surfaceMap(quad); } catch { this.reset(); return null; }
       const left = { x: (quad[0].x + quad[3].x) / 2, y: (quad[0].y + quad[3].y) / 2 };
       const right = { x: (quad[1].x + quad[2].x) / 2, y: (quad[1].y + quad[2].y) / 2 };
-      this.pose = { quad, depth, roll: Math.atan2(right.y - left.y, (right.x - left.x) * 16 / 9) };
+      this.pose = { quad, depth, roll: Math.atan2(right.y - left.y, (right.x - left.x) * aspect) };
     } else this.pose = target;
     this.lastTimestamp = timestamp; this.lastMeasuredAt = timestamp;
     return copyPose(this.pose);

@@ -19,9 +19,10 @@ function validRect(rect: FrameRect): boolean {
  * A bounded perspective projection, not a reconstruction of metric 3D position.
  * Positive depth brings the displayed left edge nearer. Uniform fitting keeps
  * every corner visible without clipping individual vertices or moving the center.
+ * Rotation uses the actual image width/height; the default preserves legacy callers.
  */
-export function projectFrame(rect: FrameRect, depth: number, roll: number): FramePose {
-  if (!validRect(rect) || !Number.isFinite(depth) || !Number.isFinite(roll)) {
+export function projectFrame(rect: FrameRect, depth: number, roll: number, aspect = ASPECT): FramePose {
+  if (!validRect(rect) || !Number.isFinite(depth) || !Number.isFinite(roll) || !Number.isFinite(aspect) || aspect <= 0) {
     throw new RangeError('Perspective requires a finite, nondegenerate frame inside the image.');
   }
   depth = clamp(depth, -1, 1);
@@ -36,8 +37,8 @@ export function projectFrame(rect: FrameRect, depth: number, roll: number): Fram
   const offsetX = projected.reduce((sum, point) => sum + point.x, 0) / 4;
   const cos = Math.cos(roll), sin = Math.sin(roll);
   const rotated = projected.map(point => {
-    const x = (point.x - offsetX) * ASPECT;
-    return { x: (x * cos - point.y * sin) / ASPECT, y: x * sin + point.y * cos };
+    const x = (point.x - offsetX) * aspect;
+    return { x: (x * cos - point.y * sin) / aspect, y: x * sin + point.y * cos };
   });
   let fit = 1;
   for (const point of rotated) {
@@ -125,19 +126,19 @@ export class PerspectiveTracker {
     const tip = (hand: Hand) => allowJoinedTips ? { x: 1 - hand.landmarks[0].x, y: hand.landmarks[0].y } :
       { x: 1 - (hand.landmarks[4].x + hand.landmarks[8].x) / 2, y: (hand.landmarks[4].y + hand.landmarks[8].y) / 2 };
     const leftTip = tip(left), rightTip = tip(right);
-    const tipRoll = Math.atan2(rightTip.y - leftTip.y, (rightTip.x - leftTip.x) * ASPECT);
+    const tipRoll = Math.atan2(rightTip.y - leftTip.y, (rightTip.x - leftTip.x) * aspect);
     this.lastTimestamp = timestamp;
     this.joinedTips = allowJoinedTips;
     if (!this.baseline) {
       this.baseline = { ratio, roll: tipRoll };
-      this.pose = projectFrame(rect, 0, 0);
+      this.pose = projectFrame(rect, 0, 0, aspect);
       return this.pose;
     }
     const depth = clamp((ratio - this.baseline.ratio) * 2, -1, 1);
     const roll = clamp(tipRoll - this.baseline.roll, -MAX_ROLL, MAX_ROLL);
     this.pose = projectFrame(rect,
       follow(this.pose?.depth ?? 0, depth, 0.012, 0.12),
-      follow(this.pose?.roll ?? 0, roll, 0.004, 0.05));
+      follow(this.pose?.roll ?? 0, roll, 0.004, 0.05), aspect);
     return this.pose;
   }
 }

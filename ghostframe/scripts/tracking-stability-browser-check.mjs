@@ -17,18 +17,27 @@ const fixtures = { open: worldCyclePair(3.2), closed: worldCyclePrayer(), partia
   rectangle: handOutlineFixture('rectangle', { tipGap: .2 }), inverted: opposingLFixture('right'),
   poseLow: handOutlineFixture('rectangle', { tipGap: .2, dx: -.004 }),
   poseHigh: handOutlineFixture('rectangle', { tipGap: .2, dx: .004 }) };
-// Equivalent physical palms in portrait-normalized coordinates. x and z are
-// width-normalized; y is height-normalized. Keep smaller hands in the crop.
-const portrait = hands => hands.map(hand => ({ ...hand, landmarks: hand.landmarks.map(p => ({
-  ...p, x: .5 + (p.x - .5) * (16 / 9) / (9 / 16), z: (p.z || 0) * (16 / 9) / (9 / 16),
+// All worker results describe the actual 9:16 source. Preserve physical hand
+// proportions by converting width-normalized x/z and shrinking all physical
+// axes equally; the 0.35 scale keeps every articulated hand inside the crop.
+const portraitScale = .35;
+const portraitXScale = (16 / 9) / (9 / 16) * portraitScale;
+const portrait = (hands, scale = portraitScale) => hands.map(hand => ({ ...hand, landmarks: hand.landmarks.map(p => ({
+  ...p, x: .5 + (p.x - .5) * (16 / 9) / (9 / 16) * scale,
+  y: .5 + (p.y - .5) * scale, z: (p.z || 0) * (16 / 9) / (9 / 16) * scale,
 })) }));
-fixtures.nativeOpen = portrait(worldCyclePair(3.2, { scale: .35 }));
-fixtures.nativeClosed = portrait(worldCyclePrayer(.04, .35));
+for (const name of Object.keys(fixtures)) fixtures[name] = portrait(fixtures[name]);
+// Also retain the independently smaller native-portrait pair from the original
+// regression, at a different physical size than the main fixtures above.
+fixtures.nativeOpen = portrait(worldCyclePair(3.2, { scale: .35 }), 1);
+fixtures.nativeClosed = portrait(worldCyclePrayer(.04, .35), 1);
+for (const [name, hands] of Object.entries(fixtures)) for (const hand of hands)
+  assert.ok(hand.landmarks.every(p => p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1), `Fixture ${name} must fit the portrait source`);
 const worker = `const fixtures=${JSON.stringify(fixtures)};let mode='none',index=0;self.onmessage=({data})=>{
   if(data.type==='fixture'){mode=data.name;index=0;self.postMessage({type:'fixture-ready',name:mode});return;}
   if(data.type==='init'){self.postMessage({type:'ready'});return;}
   if(data.type==='frame'){const name=mode==='jitter'?(index++%2?'high':'low'):mode==='poseJitter'?(index++%2?'poseHigh':'poseLow'):mode;
-    const size=[data.bitmap.width,data.bitmap.height];data.bitmap.close();self.postMessage({type:'frame',id:data.id,timestamp:data.timestamp,hands:fixtures[name],aspectRatio:name.startsWith('native')?9/16:16/9,inferenceMs:1,testInput:name,testBitmap:size});}
+    const size=[data.bitmap.width,data.bitmap.height];data.bitmap.close();self.postMessage({type:'frame',id:data.id,timestamp:data.timestamp,hands:fixtures[name],aspectRatio:9/16,inferenceMs:1,testInput:name,testBitmap:size});}
 };`;
 const browser = engine === 'webkit' ? await webkit.launch({ headless: true }) : await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || 'chrome', headless: true });
 const deadline = setTimeout(() => void browser.close(), 150000);
@@ -72,6 +81,9 @@ try {
     for (let x = 0; x < c.width; x++) { const i = x * 4; if (Math.abs(data[i] - 238) < 8 && Math.abs(data[i + 1] - 34) < 8 && Math.abs(data[i + 2] - 68) < 8) { left = Math.min(left, x); right = x; } }
     return { width: Math.max(0, right - left + 1), center: (left + right) / 2, canvasWidth: c.width, canvasHeight: c.height };
   });
+  const fullPhotoWidth = e => Math.min(e.canvasWidth, e.canvasHeight * 1.5);
+  const completePhoto = e => e.width > fullPhotoWidth(e) * (600 / 648);
+  const fittedPhoto = (e, legacyPixels = 250) => e.width > e.canvasWidth * legacyPixels / 768;
   const observeOmission = async () => {
     await fixture('none');
     await page.waitForFunction(() => window.__trackingTest.frames.at(-1)?.input === 'none');
@@ -89,16 +101,17 @@ try {
   await check('Portrait camera inference preserves source aspect at a maximum 512-pixel edge', async () => {
     const sizes = await page.evaluate(() => window.__trackingTest.frames.map(f => f.bitmap));
     assert.ok(sizes.length > 0); assert.ok(sizes.every(([w, h]) => w === 288 && h === 512), JSON.stringify(sizes.slice(-3)));
+    const canvas = await extent(); assert.equal(canvas.canvasWidth, 432); assert.equal(canvas.canvasHeight, 768);
   });
-  await check('Opening two hands reveals the complete local photo', async () => { assert.ok((await extent()).width > 600); });
+  await check('Opening two hands reveals the complete local photo', async () => { assert.ok(completePhoto(await extent())); });
   await check('A short missing-hand result does not flash the photo away', async () => {
-    report.shortLossAgeMs = await observeOmission(); const rendered = await extent(); report.shortLossWidth = rendered.width; assert.ok(rendered.width > 600, JSON.stringify(rendered));
+    report.shortLossAgeMs = await observeOmission(); const rendered = await extent(); report.shortLossWidth = rendered.width; assert.ok(completePhoto(rendered), JSON.stringify(rendered));
   });
   await check('Sustained missing hands hide the picture within the bounded grace', async () => { await page.waitForTimeout(210); assert.equal((await extent()).width, 0); });
   await check('Reacquisition restores the same photo and true hands-together closes promptly', async () => {
-    await fixture('open'); await page.waitForTimeout(150); assert.ok((await extent()).width > 600); assert.equal(await page.locator('[data-photo-select="0"]').getAttribute('aria-pressed'), 'true');
+    await fixture('open'); await page.waitForTimeout(150); assert.ok(completePhoto(await extent())); assert.equal(await page.locator('[data-photo-select="0"]').getAttribute('aria-pressed'), 'true');
     await fixture('closed'); await page.waitForTimeout(90); assert.equal((await extent()).width, 0);
-    await fixture('open'); await page.waitForTimeout(150); assert.ok((await extent()).width > 600);
+    await fixture('open'); await page.waitForTimeout(150); assert.ok(completePhoto(await extent()));
   });
   await fixture('partial'); await page.waitForTimeout(200); await fixture('jitter'); await page.waitForTimeout(350);
   const samples = [];
@@ -109,29 +122,29 @@ try {
   const widths = samples.map(s => s.width), renderedRange = Math.max(...widths) - Math.min(...widths);
   report.revealJitter = { separationRange: [2.02, 2.18], rawWidthRange: rawRange, renderedWidthRange: renderedRange, widthSamples: widths };
   await check('Partial photo reveal damps repeated tremor without disappearing', async () => {
-    assert.ok(widths.every(width => width > 100), JSON.stringify(widths)); assert.ok(renderedRange < rawRange * .45, JSON.stringify(report.revealJitter));
+    assert.ok(widths.every(width => width > photoFullWidth * (100 / 648)), JSON.stringify(widths)); assert.ok(renderedRange < rawRange * .45, JSON.stringify(report.revealJitter));
   });
   await page.locator('#photo-fit').selectOption('stretch'); await fixture('rectangle'); await page.waitForTimeout(220);
-  await check('Finger-pinned photo still renders after switching out of whole-picture reveal', async () => { assert.ok((await extent()).width > 250); });
+  await check('Finger-pinned photo still renders after switching out of whole-picture reveal', async () => { assert.ok(fittedPhoto(await extent())); });
   await check('Finger-pinned photo retains its last measured outline through a short omission', async () => {
-    report.fittedLossAgeMs = await observeOmission(); assert.ok((await extent()).width > 250);
+    report.fittedLossAgeMs = await observeOmission(); assert.ok(fittedPhoto(await extent()));
   });
   await check('Finger-pinned omission expires and valid hands reacquire the photo', async () => {
     await page.waitForTimeout(210); assert.equal((await extent()).width, 0);
-    await fixture('rectangle'); await page.waitForTimeout(150); assert.ok((await extent()).width > 250);
+    await fixture('rectangle'); await page.waitForTimeout(150); assert.ok(fittedPhoto(await extent()));
   });
   await fixture('poseJitter'); await page.waitForTimeout(200);
   const poseSamples = [];
   for (let i = 0; i < 18; i++) { poseSamples.push(await extent()); await page.waitForTimeout(34); }
-  report.poseJitter = { rawTranslationSpan: .008 * samples[0].canvasWidth, centerSpan: Math.max(...poseSamples.map(s => s.center)) - Math.min(...poseSamples.map(s => s.center)), minWidth: Math.min(...poseSamples.map(s => s.width)) };
+  report.poseJitter = { rawTranslationSpan: .008 * portraitXScale * samples[0].canvasWidth, fixtureXScale: portraitXScale, centerSpan: Math.max(...poseSamples.map(s => s.center)) - Math.min(...poseSamples.map(s => s.center)), minWidth: Math.min(...poseSamples.map(s => s.width)) };
   await check('Finger-pinned photo damps small corner movement without disappearing', async () => {
-    assert.ok(poseSamples.every(s => s.width > 250), JSON.stringify(poseSamples));
+    assert.ok(poseSamples.every(s => fittedPhoto(s)), JSON.stringify(poseSamples));
     assert.ok(report.poseJitter.centerSpan < report.poseJitter.rawTranslationSpan * .75, JSON.stringify(report.poseJitter));
   });
   await fixture('inverted'); await page.waitForTimeout(200);
-  await check('One inverted L keeps the photo connected', async () => { assert.ok((await extent()).width > 200); });
+  await check('One inverted L keeps the photo connected', async () => { assert.ok(fittedPhoto(await extent(), 200)); });
   await page.locator('#photo-fit').selectOption('reveal'); await fixture('nativeOpen'); await page.waitForTimeout(220);
-  await check('Native portrait hand geometry opens the complete photo with aspect-correct metrics', async () => { assert.ok((await extent()).width > 600, JSON.stringify(await extent())); });
+  await check('Native portrait hand geometry opens the complete photo with aspect-correct metrics', async () => { assert.ok(completePhoto(await extent()), JSON.stringify(await extent())); });
   await fixture('nativeClosed'); await page.waitForTimeout(90);
   await check('Native portrait hands-together closes the photo', async () => { assert.equal((await extent()).width, 0); });
   await page.locator('#stop-camera').click();
