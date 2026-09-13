@@ -124,7 +124,7 @@ const scene=$<HTMLCanvasElement>('#scene'),ctx=scene.getContext('2d')!;
 const raw=document.createElement('canvas');raw.width=scene.width;raw.height=scene.height;
 const rawCtx=raw.getContext('2d',{willReadFrequently:true})!;
 const bgCanvas=document.createElement('canvas');bgCanvas.width=scene.width;bgCanvas.height=scene.height;
-const W=scene.width,H=scene.height;
+let W=scene.width,H=scene.height,cameraInputAfter=0;
 const texture=document.createElement('canvas');texture.width=384;texture.height=256;
 const textureCtx=texture.getContext('2d',{willReadFrequently:true})!;
 let textureSource:ImageBitmap|HTMLCanvasElement|null=null,textureKey='';
@@ -170,17 +170,29 @@ function ensureCubeGraphics(){
   }).catch(()=>{if(ticket===cubeGeneration&&mode==='cube')cubeUnavailable('Cube graphics could not load.');}).finally(()=>{cubeLoad=null;});
 }
 function nextCubePreset(){cubePreset=1-cubePreset;syncCubeControls();}
-// The recorder owns this exact canvas. Finish an active clip before changing its dimensions.
-function sizeCubeCanvas(){
-  const aspect=mode==='cube'&&live&&pipeline.video.videoWidth&&pipeline.video.videoHeight?pipeline.video.videoWidth/pipeline.video.videoHeight:W/H;
-  const width=mode==='cube'?Math.round(768*Math.min(1,aspect)):W;
-  const height=mode==='cube'?Math.round(768/Math.max(1,aspect)):H;
-  if(scene.width===width&&scene.height===height)return;
-  if(recording?.recording){recording.stop('View changed. Your clip is ready to save.');return;}
-  scene.width=width;scene.height=height;
+// All effects and the recorder use the same undistorted camera image. Freeze
+// its last composed frame while a clip finishes, including the stopping phase.
+function sizeCameraCanvas():boolean{
+  const aspect=live&&pipeline.video.videoWidth&&pipeline.video.videoHeight?pipeline.video.videoWidth/pipeline.video.videoHeight:16/9;
+  const width=Math.max(1,Math.round(768*Math.min(1,aspect)));
+  const height=Math.max(1,Math.round(768/Math.max(1,aspect)));
+  if(W===width&&H===height)return true;
+  if(recording?.recording){recording.stop('Camera orientation changed. Your clip is ready to save.');return false;}
+  const roomWasSaved=!!background||!!calibration;
+  W=width;H=height;
+  for(const canvas of [scene,raw,bgCanvas]){canvas.width=W;canvas.height=H;}
   scene.style.aspectRatio=`${width} / ${height}`;
   scene.style.setProperty('--scene-aspect',String(width/height));
-  resetCubeInput();
+  // Swapped dimensions can have the same pixel count. Discard the old room,
+  // masks and delayed tracking results instead of blending across orientations.
+  cameraInputAfter=performance.now();
+  background=null;mask=null;personMask=null;lastMaskAt=lastVision=0;hands=[];
+  resetCalibration();resetPerspective();resetCubeInput();palm.reset();pinch.reset();
+  targetFade=fade=0;setFade(0);
+  textureSource=null;textureKey='';simulatedMask=demoMask(W,H);
+  $('#background-state').textContent=live?'NOT CAPTURED':'PREVIEW READY';
+  if(live&&roomWasSaved)status('Camera orientation changed. Capture the empty room again to disappear.');
+  return true;
 }
 
 let frame:FrameRect|null=null,lastGoodFrame:FrameRect|null=null,lastGoodAt=0;
@@ -195,8 +207,10 @@ let pose:FramePose|null=null,manualDepth=0,manualRoll=0;
 let panelMeasuredAt=0,panelInputAfter=0;
 const status=(message:string)=>{$('#status').textContent=message;};
 const pipeline=new CameraPipeline(result=>{
-  hands=handsForCameraDisplay(result.hands,pipeline.mirrored);lastVision=result.timestamp;inferenceMs=result.inferenceMs;handBackend=result.handBackend??'';
   const aspect=result.aspectRatio??W/H;
+  const cameraAspect=pipeline.video.videoWidth/pipeline.video.videoHeight;
+  if(!live||result.timestamp<=cameraInputAfter||Math.abs(aspect/(W/H)-1)>.01||Math.abs(aspect/cameraAspect-1)>.01)return;
+  hands=handsForCameraDisplay(result.hands,pipeline.mirrored);lastVision=result.timestamp;inferenceMs=result.inferenceMs;handBackend=result.handBackend??'';
   if(mode==='cube'){
     // Cube consumes raw camera coordinates, never legacy HandFrame-converted hands.
     // A result captured before a mode/manual/camera boundary cannot arm a gesture.
@@ -224,14 +238,14 @@ const pipeline=new CameraPipeline(result=>{
     pose=mode==='handframe'?perspective.update(hands,frame,result.timestamp,automatic,aspect):null;
     // The measured contour already includes screen-space tilt. Its optional
     // stylized depth warp is retained only for the original contour path.
-    if(automatic&&pose&&frame)pose=projectFrame(frame,pose.depth,0);
+    if(automatic&&pose&&frame)pose=projectFrame(frame,pose.depth,0,aspect);
   }
   // Update filtered photo corners once per camera result, not every paint.
   // Valid measured outlines remain required for the fitted-photo path.
   holdingPhotoAperture=false;
   if(automatic&&contentMode==='photos'&&!wholePhotoView()&&!cameraOnly){
     if(photoAperture&&Math.abs(photoAperture.aspect-aspect)>.001){photoPoseTracker.reset();photoAperture=null;trackedPhotoPose=null;}
-    trackedPhotoPose=photoPoseTracker.update(hands,result.timestamp,pose?.depth??trackedPhotoPose?.depth??0);
+    trackedPhotoPose=photoPoseTracker.update(hands,result.timestamp,pose?.depth??trackedPhotoPose?.depth??0,aspect);
     if(frame&&handOutline&&pose&&trackedPhotoPose){
       photoAperture={frame,outline:handOutline,pose,measuredAt:result.timestamp,aspect};
     }else if(hands.length<2&&trackedPhotoPose&&photoAperture&&result.timestamp-photoAperture.measuredAt<=150){
@@ -464,8 +478,9 @@ document.addEventListener('visibilitychange',()=>{
 });window.addEventListener('pagehide',()=>{clearTimeout(hiddenTimer);stopCamera();});
 
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
-const simulatedMask=demoMask(W,H);let lastPaint=0,lastMetric=0;
+let simulatedMask=demoMask(W,H),lastPaint=0,lastMetric=0;
 function render(now:number){
+  if(!sizeCameraCanvas()){requestAnimationFrame(render);return;}
   // Capture scheduling must not wait behind painting; the pipeline handles cadence and backpressure.
   if(live)void pipeline.infer(now,mode==='invisible');
   if(now-lastPaint<(mode==='invisible'?32:16)){requestAnimationFrame(render);return;}lastPaint=now;
@@ -474,7 +489,6 @@ function render(now:number){
   else drawDemo(rawCtx,reducedMotion?0:now);
   if(live&&now-lastVision>1000){hands=[];frame=null;resetPerspective();palm.reset();pinch.reset();}
   syncWorldCue(now);
-  sizeCubeCanvas();
   if(mode==='cube'&&live&&pipeline.video.readyState>=2){
     ctx.save();if(pipeline.mirrored){ctx.translate(scene.width,0);ctx.scale(-1,1);}
     ctx.drawImage(pipeline.video,0,0,scene.width,scene.height);ctx.restore();
@@ -513,7 +527,7 @@ function render(now:number){
     const amount=manual||!live?1:missingExpired?0:photoRevealAmount??0;
     if(amount>.01)drawWholePhoto(amount);
   }else if(r&&(contentMode!=='photos'||photos.current)){
-    const displayPose=manual||!live?projectFrame(r,manualDepth,manualRoll):pose;
+    const displayPose=manual||!live?projectFrame(r,manualDepth,manualRoll,W/H):pose;
     const automatic=automaticShaping(),displayOutline=automatic?handOutline:outline;
     if(displayPose&&displayOutline){
       const photoPose=contentMode==='photos'&&automatic?trackedPhotoPose:null;

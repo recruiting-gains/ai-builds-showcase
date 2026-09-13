@@ -225,3 +225,63 @@ test('missing palm landmarks cancel safely and valid hands reacquire at neutral'
     near(tracker.update(handOutlineFixture('heart'), rect, 99, true)!.depth, 0);
   }
 });
+
+test('explicit portrait and landscape projections preserve physical edge angles and lengths', () => {
+  const frame = { x: .35, y: .35, width: .3, height: .3 }, original = { ...frame };
+  for (const aspect of [9 / 16, 3 / 4, 1, 4 / 3, 16 / 9]) {
+    const pose = projectFrame(frame, 0, .25, aspect);
+    validQuad(pose, frame);
+    const [topLeft, topRight, bottomRight, bottomLeft] = pose.quad;
+    const length = (a: Point, b: Point) => Math.hypot((b.x - a.x) * aspect, b.y - a.y);
+    near(Math.atan2(topRight.y - topLeft.y, (topRight.x - topLeft.x) * aspect), .25);
+    near(length(topLeft, topRight), frame.width * aspect);
+    near(length(topLeft, bottomLeft), frame.height);
+    near(length(topLeft, topRight), length(bottomLeft, bottomRight));
+    near(length(topLeft, bottomLeft), length(topRight, bottomRight));
+  }
+  assert.deepEqual(frame, original);
+});
+
+test('actual aspect keeps projected boundary cases convex and retains legacy defaults', () => {
+  for (const aspect of [9 / 16, 3 / 4, 4 / 3, 16 / 9]) {
+    for (const depth of [-1, 0, 1]) for (const roll of [-.4, 0, .4]) {
+      const frame = { x: .02, y: .05, width: .93, height: .9 };
+      validQuad(projectFrame(frame, depth, roll, aspect), frame);
+    }
+  }
+  assert.deepEqual(projectFrame(rect, .7, .3), projectFrame(rect, .7, .3, 16 / 9));
+  for (const aspect of [0, -1, NaN, Infinity]) assert.throws(() => projectFrame(rect, 0, .2, aspect), RangeError);
+});
+
+test('tracker uses actual portrait aspect for measured roll and projection without mutating hands', () => {
+  for (const aspect of [9 / 16, 16 / 9]) {
+    const tracker = new PerspectiveTracker(), base = pair(), baseSnapshot = structuredClone(base);
+    tracker.update(base, rect, 0, false, aspect);
+    const moved = pair();
+    for (const index of [4, 8]) moved[1].landmarks[index].y += .08;
+    const movedSnapshot = structuredClone(moved);
+    const pose = tracker.update(moved, rect, 33, false, aspect)!;
+    const expected = Math.atan2(.08, .41 * aspect);
+    near(pose.roll, expected);
+    near(Math.atan2(pose.quad[1].y - pose.quad[0].y, (pose.quad[1].x - pose.quad[0].x) * aspect), expected);
+    assert.deepEqual(base, baseSnapshot); assert.deepEqual(moved, movedSnapshot);
+    const otherAspect = aspect === 9 / 16 ? 16 / 9 : 9 / 16;
+    const changed = tracker.update(moved, rect, 66, false, otherAspect)!;
+    near(changed.roll, 0); near(changed.depth, 0);
+    assert.deepEqual(changed, projectFrame(rect, 0, 0, otherAspect));
+  }
+});
+
+test('joined-tip wrist roll also uses the actual image aspect', () => {
+  for (const aspect of [9 / 16, 16 / 9]) {
+    const tracker = new PerspectiveTracker(), hands = handOutlineFixture('rounded');
+    tracker.update(hands, rect, 0, true, aspect);
+    const moved = structuredClone(hands);
+    // Shift the complete right hand vertically so palm scale stays unchanged.
+    moved[1].landmarks.forEach(point => { point.y += .08; });
+    const sourceLeft = moved[0].landmarks[0], sourceRight = moved[1].landmarks[0];
+    const expected = Math.atan2(sourceRight.y - sourceLeft.y, (sourceLeft.x - sourceRight.x) * aspect);
+    const pose = tracker.update(moved, rect, 33, true, aspect)!;
+    near(pose.roll, Math.min(.4, expected));
+  }
+});

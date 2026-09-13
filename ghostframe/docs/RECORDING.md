@@ -6,7 +6,7 @@ On iPhone, the save button opens the native share menu when file sharing is supp
 
 ## What gets recorded
 
-The already-composited camera canvas: your camera view, Invisible or HandFrame, selected color effects and any displayed still. Controls, status labels and green page borders are not recorded. Just camera records the clean camera canvas. The recording keeps the whole 768 × 432 canvas; fullscreen and Fill view change display size/cropping, not the encoded frame. No microphone audio is requested or recorded.
+The already-composited camera canvas: your camera view, Invisible, HandFrame or Cube, selected color effects and any displayed still. Controls, status labels and green page borders are not recorded. Just camera records the clean camera canvas. The recording keeps the whole camera image at its native aspect ratio, with a maximum edge of 768 pixels (for example, 432 × 768 portrait or 768 × 432 landscape). Fullscreen and Fill view change display size/cropping, not the encoded frame. An orientation change finishes the current clip at its original dimensions before resizing for the next take. No microphone audio is requested or recorded.
 
 MP4/H.264 is preferred when the browser reports support. WebM is a fallback, with the file extension taken from the recorder’s actual output type. Browser support and device load affect frame rate. The recorder requests 30 fps; this is not a guaranteed encoded frame rate.
 

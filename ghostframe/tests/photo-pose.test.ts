@@ -76,3 +76,37 @@ test('duplicate timestamps and returned-object mutation never advance or corrupt
  const value=tracker.update(pair(),33)!;value.quad[0].x=.9;
  assert.deepEqual(tracker.update(pair(),33),initial);
 });
+
+test('photo corners stay pinned while roll reflects the actual portrait or landscape image aspect',()=>{
+ const hands=pair(),snapshot=structuredClone(hands),legacy=photoHandPose(hands,.2)!;
+ for(const aspect of [9/16,3/4,4/3,16/9]){
+  const pose=photoHandPose(hands,.2,aspect)!;
+  assert.deepEqual(pose.quad,legacy.quad,'image aspect cannot move the measured photo corners');
+  assert.equal(pose.depth,.2);
+  assert.ok(Math.abs(pose.roll-Math.atan2(.325-.5,(.75-.175)*aspect))<1e-10);
+ }
+ assert.deepEqual(photoHandPose(hands,.2,16/9),legacy);
+ assert.deepEqual(hands,snapshot);
+ for(const aspect of [0,-1,NaN,Infinity])assert.equal(photoHandPose(hands,0,aspect),null);
+});
+
+test('photo tracker uses actual aspect during acquisition and smoothing, resetting on orientation change',()=>{
+ for(const aspect of [9/16,16/9]){
+  const tracker=new PhotoPoseTracker(),hands=pair(),snapshot=structuredClone(hands);
+  const initial=tracker.update(hands,0,.2,aspect)!;
+  assert.deepEqual(initial,photoHandPose(hands,.2,aspect));
+  const input=translated(.001),inputSnapshot=structuredClone(input);
+  const smooth=tracker.update(input,33,.2,aspect)!;
+  const left={x:(smooth.quad[0].x+smooth.quad[3].x)/2,y:(smooth.quad[0].y+smooth.quad[3].y)/2};
+  const right={x:(smooth.quad[1].x+smooth.quad[2].x)/2,y:(smooth.quad[1].y+smooth.quad[2].y)/2};
+  assert.ok(Math.abs(smooth.roll-Math.atan2(right.y-left.y,(right.x-left.x)*aspect))<1e-10);
+  assert.deepEqual(hands,snapshot);assert.deepEqual(input,inputSnapshot);
+  const otherAspect=aspect===9/16?16/9:9/16;
+  assert.equal(tracker.update([],66,.2,otherAspect),null,'old orientation cannot survive missing-hand grace');
+  assert.deepEqual(tracker.update(hands,99,.2,otherAspect),photoHandPose(hands,.2,otherAspect));
+  assert.equal(tracker.update(hands,132,.2,0),null);
+ }
+ const legacy=new PhotoPoseTracker(),explicit=new PhotoPoseTracker();
+ assert.deepEqual(legacy.update(pair(),0),explicit.update(pair(),0,0,16/9));
+ assert.deepEqual(legacy.update(translated(.001),33),explicit.update(translated(.001),33,0,16/9));
+});
