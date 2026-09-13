@@ -34,4 +34,7 @@ jobs:
       - run: npm run test:phone
         env:
           PLAYWRIGHT_CHANNEL: chromium
+      - run: npm run test:cube
+        env:
+          PLAYWRIGHT_CHANNEL: chromium
       - run: npm run check:deploy

@@ -20,6 +20,8 @@ import { HandOutlineTracker } from './handframe/hand-outline';
 import { WorldCycle } from './handframe/world-cycle';
 import { installFullscreen } from './fullscreen';
 import { installRecording } from './recording-ui';
+import { CubeController, type CubePose } from './cube/controller';
+import type { CubeRenderer } from './cube/renderer';
 
 const WORLDS: {id:LocalStyle;name:string;note:string}[] = [
   {id:'dream',name:'Daydream',note:'Soft pastel colors with a painted finish.'},
@@ -44,10 +46,10 @@ const SHAPES: {id:FrameShape;name:string;icon:string}[] = [
 document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
 <header class="topbar"><a class="brand" href="/" aria-label="GhostFrame home"><span class="brand-mark">⌑</span> GHOSTFRAME<span class="edition">YOUR HANDS. NEW DIMENSIONS.</span></a><a class="about-link" href="#how-it-works">How it works <span>↗</span></a></header>
 <main>
-  <section class="intro"><div><p class="eyebrow"><span></span> A SMALL EXPERIMENT IN THE IMPOSSIBLE</p><h1>Now you see me.<br><em>Now, imagine.</em></h1></div><p class="intro-note">Disappear into the room.<br> Hold another world in your hands.<br><span>Two camera effects. One playful studio.</span></p></section>
+  <section class="intro"><div><p class="eyebrow"><span></span> A SMALL EXPERIMENT IN THE IMPOSSIBLE</p><h1>Now you see me.<br><em>Now, imagine.</em></h1></div><p class="intro-note">Disappear into the room.<br> Hold another world in your hands.<br><span>Three camera effects. One playful studio.</span></p></section>
   <section class="playground" aria-label="Camera playground">
     <div class="studio"><div class="studio-heading"><div><span class="eyebrow">YOUR POCKET STUDIO</span><h2>Make room for <em>imagination.</em></h2></div><span class="orbital-mark" aria-hidden="true"><i></i><i></i><i></i></span></div>
-      <div class="studio-bar"><div class="mode-tabs" role="group" aria-label="Choose an effect"><button class="active" data-mode="invisible" aria-pressed="true"><span>01</span> Invisible</button><button data-mode="handframe" aria-pressed="false"><span>02</span> HandFrame</button></div><div class="studio-actions" id="studio-actions"><button id="full-screen" class="screen-open" aria-expanded="false" aria-controls="camera-view">Full screen <span aria-hidden="true">⛶</span></button></div></div><div id="studio-status"></div>
+      <div class="studio-bar"><div class="mode-tabs" role="group" aria-label="Choose an effect"><button class="active" data-mode="invisible" aria-pressed="true"><span>01</span> Invisible</button><button data-mode="handframe" aria-pressed="false"><span>02</span> HandFrame</button><button data-mode="cube" aria-pressed="false"><span>03</span> Cube</button></div><div class="studio-actions" id="studio-actions"><button id="full-screen" class="screen-open" aria-expanded="false" aria-controls="camera-view">Full screen <span aria-hidden="true">⛶</span></button></div></div><div id="studio-status"></div>
       <div class="viewport" id="camera-view"><canvas id="scene" width="768" height="432" aria-label="Interactive simulated preview of the Invisible effect"></canvas><div class="viewport-top"><span id="source-tag">INTERACTIVE PREVIEW · SIMULATED SCENE</span><span id="frame-tag">NO CAMERA CONNECTED</span></div><div class="viewport-bottom"><div><span class="record-dot"></span><span id="effect-caption">A little less here.</span></div><span id="live-metric">YOUR CAMERA IS OFF</span></div><div id="countdown" hidden></div><div class="screen-actions" role="group" aria-label="Full screen controls"><span id="screen-notice" role="status">Esc to return</span><button id="camera-only" aria-pressed="false">Just camera</button><button id="fill-screen" aria-pressed="false">Fill view</button><button id="exit-screen">Exit full screen <span aria-hidden="true">✕</span></button></div><span id="screen-camera-state">Simulated preview · Camera off</span></div>
       <div id="recording-home"><section id="recording-dock" aria-label="Record your GhostFrame"></section></div>
       <div class="studio-footer"><span id="gesture-help">Open palm: visible. Slowly close your hand to disappear. Open it again to return.</span><button id="reset" class="text-button">Reset effect ↺</button></div>
@@ -92,6 +94,19 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
         <button id="capture-still" class="secondary full">Prepare a still <span>⌑</span></button><p class="hint">Use this button to prepare a crop while shaping with your hands. Sending it to Cloudflare AI is a separate step.</p>
         <div id="still-panel" hidden><img id="still-preview" alt="Your selected frozen crop"><p id="still-status" class="hint" role="status">Only this selected crop will be sent.</p><button class="primary full" id="send-still" disabled>Send still to AI ↗</button><button id="clear-still" class="text-button">Clear still</button></div></section>
       </div>
+      <section id="cube-controls" aria-label="Cube controls" hidden>
+        <div class="section-label"><span>03 / HOLD A NEW DIMENSION</span><span>ON YOUR DEVICE</span></div>
+        <p class="cube-intro">A blue cube, a white outline, and your hands.</p>
+        <p class="hint">Show two open hands. Move them together to position the cube; spread them apart to grow it. Pinch your thumb and index finger briefly, then release to change its appearance.</p>
+        <p id="cube-status" class="hint" role="status">Explore the cube preview, or start your camera.</p>
+        <label class="switch-row"><span>Move it myself<small>Drag the cube or use arrow keys and the sliders.</small></span><input id="cube-manual" type="checkbox" checked></label>
+        <label class="select-row" for="cube-size">Cube size</label><input id="cube-size" type="range" min="15" max="65" value="38">
+        <label class="select-row" for="cube-x">Left / right</label><input id="cube-x" type="range" min="10" max="90" value="50">
+        <label class="select-row" for="cube-y">Up / down</label><input id="cube-y" type="range" min="10" max="90" value="50">
+        <button id="cube-preset" class="secondary full">Appearance: Blue ↗</button>
+        <button id="cube-retry" class="secondary full" hidden>Retry cube graphics once ↻</button>
+        <p class="hint">Keep both hands in view. If tracking drops, open both hands to start again. Cube gestures only change the cube. Record a silent clip, then save it when you choose.</p>
+      </section>
       <div class="manual-controls"><label class="switch-row"><span>Mouse & keyboard controls<small>Drag the frame. Use the slider to resize.</small></span><input id="manual" type="checkbox" checked></label><label class="sr-only" for="frame-size">Frame size</label><input id="frame-size" type="range" min="22" max="70" value="44"><div id="perspective-controls" hidden>
         <label class="select-row" for="frame-depth">3D stretch <output id="frame-depth-value">Centered</output></label><input id="frame-depth" type="range" min="-100" max="100" value="0"><div class="range-ends"><span>Right closer</span><span>Left closer</span></div>
         <label class="select-row" for="frame-roll">Tilt <output id="frame-roll-value">0°</output></label><input id="frame-roll" type="range" min="-22" max="22" value="0">
@@ -129,6 +144,43 @@ let focusView:ReturnType<typeof installFullscreen>|null=null;
 let recording:ReturnType<typeof installRecording>|null=null;
 let background:ImageData|null=null,mask:Float32Array|null=null,hands:Hand[]=[],lastVision=0,inferenceMs=0;
 let handBackend='';
+const cube=new CubeController();
+let cubeRenderer:CubeRenderer|null=null,cubeManual=true,cubePreset=0,cubeEnabled=false;
+let cubeFailed=false,cubeRetryUsed=false,cubeInputAfter=0,cubeGeneration=0;
+let cubeLoad:Promise<void>|null=null,CubeGraphics:typeof import('./cube/renderer').CubeRenderer|null=null;
+const manualCube:CubePose={x:.5,y:.5,size:.38};
+function resetCubeInput(){cube.reset();cubeInputAfter=performance.now();}
+function disposeCube(){cubeGeneration++;cubeRenderer?.dispose();cubeRenderer=null;resetCubeInput();}
+function cubeUnavailable(message:string){cubeFailed=true;$('#cube-status').textContent=message+' Other effects remain available.';$('#cube-retry').hidden=cubeRetryUsed;}
+function syncCubeControls(){
+  $<HTMLInputElement>('#cube-manual').checked=cubeManual;
+  for(const id of ['#cube-size','#cube-x','#cube-y'])$<HTMLInputElement>(id).disabled=live&&!cubeManual;
+  $('#cube-preset').textContent=`Appearance: ${cubePreset===0?'Blue':'Violet'} ↗`;
+  if(mode==='cube')$('#effect-caption').textContent=`${cubePreset===0?'Blue':'Violet'} cube · A new dimension.`;
+}
+function ensureCubeGraphics(){
+  if(cubeRenderer||cubeLoad||!cubeEnabled||cubeFailed||mode!=='cube'||document.hidden)return;
+  if(CubeGraphics){try{cubeRenderer=new CubeGraphics(cubeUnavailable);}catch{cubeUnavailable('Cube graphics could not start.');}return;}
+  const ticket=cubeGeneration;
+  cubeLoad=import('./cube/renderer').then(module=>{
+    CubeGraphics=module.CubeRenderer;
+    if(ticket===cubeGeneration&&cubeEnabled&&mode==='cube'&&!document.hidden&&!cubeFailed)cubeRenderer=new CubeGraphics(cubeUnavailable);
+  }).catch(()=>{if(ticket===cubeGeneration&&mode==='cube')cubeUnavailable('Cube graphics could not load.');}).finally(()=>{cubeLoad=null;});
+}
+function nextCubePreset(){cubePreset=1-cubePreset;syncCubeControls();}
+// The recorder owns this exact canvas. Finish an active clip before changing its dimensions.
+function sizeCubeCanvas(){
+  const aspect=mode==='cube'&&live&&pipeline.video.videoWidth&&pipeline.video.videoHeight?pipeline.video.videoWidth/pipeline.video.videoHeight:W/H;
+  const width=mode==='cube'?Math.round(768*Math.min(1,aspect)):W;
+  const height=mode==='cube'?Math.round(768/Math.max(1,aspect)):H;
+  if(scene.width===width&&scene.height===height)return;
+  if(recording?.recording){recording.stop('View changed. Your clip is ready to save.');return;}
+  scene.width=width;scene.height=height;
+  scene.style.aspectRatio=`${width} / ${height}`;
+  scene.style.setProperty('--scene-aspect',String(width/height));
+  resetCubeInput();
+}
+
 let frame:FrameRect|null=null,lastGoodFrame:FrameRect|null=null,lastGoodAt=0;
 let manualFrame:FrameRect={x:.28,y:.23,width:.44,height:.54};
 let calibration:ReturnType<typeof setInterval>|null=null;
@@ -141,7 +193,16 @@ let pose:FramePose|null=null,manualDepth=0,manualRoll=0;
 const status=(message:string)=>{$('#status').textContent=message;};
 const pipeline=new CameraPipeline(result=>{
   hands=handsForCameraDisplay(result.hands,pipeline.mirrored);lastVision=result.timestamp;inferenceMs=result.inferenceMs;handBackend=result.handBackend??'';
-  const automatic=automaticShaping(),aspect=result.aspectRatio??W/H;
+  const aspect=result.aspectRatio??W/H;
+  if(mode==='cube'){
+    // Cube consumes raw camera coordinates, never legacy HandFrame-converted hands.
+    // A result captured before a mode/manual/camera boundary cannot arm a gesture.
+    if(cubeEnabled&&!cubeManual&&!cameraOnly&&result.timestamp>cubeInputAfter){
+      if(cube.update(result.hands,result.timestamp,aspect,pipeline.mirrored).changed)nextCubePreset();
+    }else cube.reset();
+    return;
+  }
+  const automatic=automaticShaping();
   photoRevealAmount=automatic&&wholePhotoView()&&!cameraOnly?photoReveal.update(hands,result.timestamp,oneHandPhotoEnabled()?'one':'two',aspect):null;
   if(photoRevealAmount!==null&&(hands.length===2||oneHandPhotoEnabled()))photoMeasuredAt=result.timestamp;
   if(!automatic||!wholePhotoView()||cameraOnly)photoReveal.reset();
@@ -181,7 +242,10 @@ const pipeline=new CameraPipeline(result=>{
     if(action==='capture'&&lastGoodFrame&&lastVision-lastGoodAt<1000)captureStill(lastGoodFrame);
   }else if(mode==='handframe')pinch.reset();
 },(message,active)=>{
-  live=active;status(message);
+  live=active;status(message);resetCubeInput();
+  if(active){cubeEnabled=mode==='cube';cubeManual=false;}
+  else{cubeEnabled=false;disposeCube();}
+  syncCubeControls();
   if(!active)recording?.stop('Camera paused. Your clip is ready to save.');
   recording?.refresh();
   const pending=message.includes('Loading')||message.includes('Waiting');
@@ -214,14 +278,14 @@ function syncWorldCue(now=performance.now()){
   worldCue.hidden=!active||!notice;
   if(worldCue.textContent!==notice)worldCue.textContent=notice;
 }
-function syncGestureHelp(){$('#gesture-help').textContent=mode==='invisible'?'Open palm: visible. Slowly close your hand to disappear. Open it again to return.':handFollowing?'Form an opening with both L-shaped hands—even with one upside down. Open to design. Bring both hands together, then reopen for the next world.':'Push one hand forward, pull the other back. Lift to tilt. Quick pinch: style. Hold 0.6s: prepare a still.';if(mode==='handframe'&&contentMode==='photos')$('#gesture-help').textContent=oneHandPhotoEnabled()?'Open one palm to reveal the full picture. Close it to hide. Tap Next picture to switch.':wholePhotoView()?'Open both hands apart to reveal the whole picture. Palms together, then reopen to switch pictures.':'Open the space between your thumbs and index fingers to shape your picture. Palms together, then reopen to switch pictures.';}
+function syncGestureHelp(){$('#gesture-help').textContent=mode==='cube'?'Two open hands: move and resize. Pinch briefly, then release once to change appearance.':mode==='invisible'?'Open palm: visible. Slowly close your hand to disappear. Open it again to return.':handFollowing?'Form an opening with both L-shaped hands—even with one upside down. Open to design. Bring both hands together, then reopen for the next world.':'Push one hand forward, pull the other back. Lift to tilt. Quick pinch: style. Hold 0.6s: prepare a still.';if(mode==='handframe'&&contentMode==='photos')$('#gesture-help').textContent=oneHandPhotoEnabled()?'Open one palm to reveal the full picture. Close it to hide. Tap Next picture to switch.':wholePhotoView()?'Open both hands apart to reveal the whole picture. Palms together, then reopen to switch pictures.':'Open the space between your thumbs and index fingers to shape your picture. Palms together, then reopen to switch pictures.';}
 function setHandFollowing(value:boolean){handFollowing=value;$<HTMLInputElement>('#follow-hands').checked=value;resetPerspective();pinch.reset();if(value&&live){manual=false;$<HTMLInputElement>('#manual').checked=false;}syncManualControls();syncPhotos();}
 function setShape(value:FrameShape){setHandFollowing(false);shape=value;outline=shapePoints(value,customOutline);$('#shape-name').textContent=value==='custom'?'CUSTOM':SHAPES.find(s=>s.id===value)!.name.toUpperCase();document.querySelectorAll<HTMLButtonElement>('[data-shape]').forEach(b=>{b.classList.toggle('active',b.dataset.shape===value);b.setAttribute('aria-pressed',String(b.dataset.shape===value));});$('#custom-shape').classList.toggle('active',value==='custom');}
 function syncManualControls(){const disabled=live&&!manual;for(const id of ['#frame-depth','#frame-roll','#frame-size'])$<HTMLInputElement>(id).disabled=disabled;$('#perspective-manual-hint').textContent=disabled?'Your hands control depth and tilt. Enable mouse controls to use these sliders.':'Try the depth and tilt sliders, or use both hands with the camera.';}
 function centerDepth(){perspective.recenter();pose=null;manualDepth=manualRoll=0;$<HTMLInputElement>('#frame-depth').value='0';$<HTMLInputElement>('#frame-roll').value='0';$('#frame-depth-value').textContent='Centered';$('#frame-roll-value').textContent='0°';}
 function resetCalibration(){if(calibration)clearInterval(calibration);calibration=null;$('#countdown').hidden=true;}
 function clearStill(){renderGeneration++;renderAbort?.abort();renderAbort=null;prepared=null;generated?.close();generated=null;generatedStyle=null;textureSource=null;textureKey='';if(generatedURL)URL.revokeObjectURL(generatedURL);generatedURL=null;$('#still-panel').hidden=true;$<HTMLImageElement>('#still-preview').removeAttribute('src');setStyle(style);}
-function stopCamera(message='Camera off. The simulated preview is ready.'){recording?.stop();if(focusView?.active)void focusView.exit();pipeline.stop();resetPerspective();live=false;recording?.refresh();hands=[];mask=null;personMask=null;lastMaskAt=0;background=null;frame=null;lastGoodFrame=null;lastVision=0;targetFade=fade=0;manual=true;$<HTMLInputElement>('#manual').checked=true;resetCalibration();clearStill();palm.reset();pinch.reset();$('#stop-camera').hidden=true;$<HTMLButtonElement>('#start-camera').disabled=false;$<HTMLSelectElement>('#camera-facing').disabled=false;$<HTMLButtonElement>('#capture-background').disabled=false;$<HTMLButtonElement>('#capture-still').disabled=false;$('#background-state').textContent='PREVIEW READY';setFade(0);syncManualControls();status(message);}
+function stopCamera(message='Camera off. The simulated preview is ready.'){cubeEnabled=false;cubeManual=true;disposeCube();syncCubeControls();recording?.stop();if(focusView?.active)void focusView.exit();pipeline.stop();resetPerspective();live=false;recording?.refresh();hands=[];mask=null;personMask=null;lastMaskAt=0;background=null;frame=null;lastGoodFrame=null;lastVision=0;targetFade=fade=0;manual=true;$<HTMLInputElement>('#manual').checked=true;resetCalibration();clearStill();palm.reset();pinch.reset();$('#stop-camera').hidden=true;$<HTMLButtonElement>('#start-camera').disabled=false;$<HTMLSelectElement>('#camera-facing').disabled=false;$<HTMLButtonElement>('#capture-background').disabled=false;$<HTMLButtonElement>('#capture-still').disabled=false;$('#background-state').textContent='PREVIEW READY';setFade(0);syncManualControls();status(message);}
 function setFade(value:number){if(live&&!background&&value>0){status('Capture the empty background before disappearing.');return;}targetFade=value/100;$<HTMLInputElement>('#fade').value=String(value);$('#fade-value').textContent=`${Math.round(value)}%`;document.querySelectorAll<HTMLButtonElement>('[data-fade]').forEach(b=>{b.classList.toggle('active',Number(b.dataset.fade)===value);b.setAttribute('aria-pressed',String(Number(b.dataset.fade)===value));});}
 function nextWorld(){const list=WORLDS.map(world=>world.id);setStyle(list[(list.indexOf(style)+1)%list.length]);}
 function nextContent(){if(contentMode==='photos'){photos.next();syncPhotos();}else nextWorld();}
@@ -253,15 +317,21 @@ function syncPhotos(){
 function photoReadyMessage(){return (photos.count===2?'Both pictures ready. ':'Picture ready. ')+(oneHandPhotoEnabled()?'Open one palm to reveal. Use Next picture to switch.':photos.count===2?'Open your hands, bring your palms together, then reopen to switch.':'Add a second picture to switch between them with your hands.');}
 function setContent(value:'filters'|'photos'){const changed=contentMode!==value;contentMode=value;resetWorldCycle();if(changed)resetPhotoReveal();if(changed)clearStill();syncGestureHelp();syncPhotos();}
 function setStyle(value:LocalStyle){style=value;if(mode==='handframe')$('#effect-caption').textContent=`${worldName(style)} · A world within reach.`;document.querySelectorAll<HTMLButtonElement>('[data-style]').forEach(b=>{b.classList.toggle('active',b.dataset.style===value);b.setAttribute('aria-pressed',String(b.dataset.style===value));});$('#style-note').textContent=WORLDS.find(world=>world.id===value)!.note+(generated&&value!==generatedStyle?' Applied locally to your AI still.':'');if(contentMode==='photos')syncPhotos();}
-function setMode(value:Mode){mode=value;
-  document.body.classList.toggle('handframe-mode',value==='handframe');
-  if(value==='handframe'){$('#studio-actions').prepend($('.camera-actions'));$('#studio-status').append($('#status'));}
+function setMode(value:Mode){
+  if(value===mode)return;
+  disposeCube();resetCalibration();mode=value;
+  cubeEnabled=value==='cube';cubeManual=!live;resetCubeInput();syncCubeControls();
+  document.body.classList.toggle('cube-mode',value==='cube');
+  $('#cube-controls').hidden=value!=='cube';$('.manual-controls').hidden=value==='cube';
+  document.body.classList.toggle('handframe-mode',value!=='invisible');
+  if(value!=='invisible'){$('#studio-actions').prepend($('.camera-actions'));$('#studio-status').append($('#status'));}
   else{$('#camera-dock').append($('.camera-actions'));$('#status-dock').append($('#status'));}
-palm.reset();pinch.reset();frame=null;resetPerspective();if(live)void pipeline.infer(performance.now(),mode==='invisible');document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(b=>{b.classList.toggle('active',b.dataset.mode===value);b.setAttribute('aria-pressed',String(b.dataset.mode===value));});$('#invisible-controls').hidden=value!=='invisible';$('#handframe-controls').hidden=value!=='handframe';$('#perspective-controls').hidden=value!=='handframe';syncGestureHelp();$('#effect-caption').textContent=value==='invisible'?'A little less here.':`${worldName(style)} · A world within reach.`;scene.setAttribute('aria-label',`${live?'Live camera':'Simulated'} ${value} effect. Use the adjacent controls to interact.`);syncPhotos();}
+palm.reset();pinch.reset();frame=null;resetPerspective();if(live)void pipeline.infer(performance.now(),mode==='invisible');document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(b=>{b.classList.toggle('active',b.dataset.mode===value);b.setAttribute('aria-pressed',String(b.dataset.mode===value));});$('#invisible-controls').hidden=value!=='invisible';$('#handframe-controls').hidden=value!=='handframe';$('#perspective-controls').hidden=value!=='handframe';syncGestureHelp();$('#effect-caption').textContent=value==='cube'?`${cubePreset===0?'Blue':'Violet'} cube · A new dimension.`:value==='invisible'?'A little less here.':`${worldName(style)} · A world within reach.`;scene.setAttribute('aria-label',`${live?'Live camera':'Simulated'} ${value} effect. Use the adjacent controls to interact.`);syncPhotos();}
 function activeFrame(){return manual||!live?manualFrame:frame;}
 function pixelRect(rect:FrameRect){return {x:Math.max(0,Math.round(rect.x*W)),y:Math.max(0,Math.round(rect.y*H)),width:Math.max(1,Math.min(Math.round(rect.width*W),W-Math.round(rect.x*W))),height:Math.max(1,Math.min(Math.round(rect.height*H),H-Math.round(rect.y*H)))};}
 
 function captureStill(rect=activeFrame()){
+  if(mode!=='handframe')return;
   if(contentMode==='photos'){status('Switch to Color worlds to prepare a camera still. Your pictures stay local.');return;}
   if(!rect){status('Make a frame with both hands, or enable mouse controls first.');return;}
   clearStill();const r=pixelRect(rect),crop=document.createElement('canvas');const size=448;
@@ -273,7 +343,7 @@ function captureStill(rect=activeFrame()){
   const button=$<HTMLButtonElement>('#send-still');button.disabled=!aiEnabled;button.textContent='Send still to AI ↗';
 }
 async function sendStill(){
-  if(!prepared||!aiEnabled||renderAbort)return;
+  if(mode!=='handframe'||!prepared||!aiEnabled||renderAbort)return;
   // Capture age can exceed server request age. A newly explicit submission establishes request time.
   prepared.createdAt=Date.now();const submission={...prepared};const generation=++renderGeneration;
   renderAbort=new AbortController();const abort=renderAbort;
@@ -296,7 +366,7 @@ document.querySelectorAll<HTMLButtonElement>('[data-shape]').forEach(b=>b.addEve
 $('#custom-shape').addEventListener('click',()=>shapeEditor.open(customOutline,$('#custom-shape')));
 focusView=installFullscreen($('#camera-view'),$<HTMLButtonElement>('#full-screen'),active=>{const dock=$('#recording-dock');(active?$('#camera-view'):$('#recording-home')).append(dock);try{dock.inert=false;}catch{/* Fullscreen fallback also supports hosts without inert. */}dock.removeAttribute('aria-hidden');if(!active){cameraOnly=false;$('#camera-only').setAttribute('aria-pressed','false');$('#camera-only').textContent='Just camera';}});
 recording=installRecording(scene,$('#recording-dock'),()=>live);
-$('#camera-only').addEventListener('click',()=>{cameraOnly=!cameraOnly;resetWorldCycle();$('#camera-only').setAttribute('aria-pressed',String(cameraOnly));$('#camera-only').textContent=cameraOnly?'Show effects':'Just camera';});
+$('#camera-only').addEventListener('click',()=>{cameraOnly=!cameraOnly;resetWorldCycle();resetCubeInput();$('#camera-only').setAttribute('aria-pressed',String(cameraOnly));$('#camera-only').textContent=cameraOnly?'Show effects':'Just camera';});
 $('#start-camera').addEventListener('click',()=>{stopCamera('Starting camera…');$('#stop-camera').hidden=false;void pipeline.start(cameraFacing);});
 $('#stop-camera').addEventListener('click',()=>stopCamera());
 $<HTMLSelectElement>('#camera-facing').addEventListener('change',()=>{const wasLive=live;cameraFacing=$<HTMLSelectElement>('#camera-facing').value as 'user'|'environment';stopCamera(wasLive?'Switching camera…':`${cameraFacing==='user'?'Front':'Back'} camera selected. Tap Start your camera.`);syncPhotos();if(wasLive)void pipeline.start(cameraFacing);});
@@ -329,7 +399,22 @@ $<HTMLInputElement>('#frame-size').addEventListener('input',e=>{const width=Numb
 $('#center-depth').addEventListener('click',()=>{centerDepth();status(live&&!manual?'Hold both hands at the same distance, palms facing the camera. The next tracked pair sets your neutral depth.':'Depth and tilt centered. Try the sliders below.');});
 $<HTMLInputElement>('#frame-depth').addEventListener('input',e=>{manualDepth=Number((e.target as HTMLInputElement).value)/100;$('#frame-depth-value').textContent=manualDepth===0?'Centered':`${manualDepth>0?'Left':'Right'} closer ${Math.round(Math.abs(manualDepth)*100)}%`;});
 $<HTMLInputElement>('#frame-roll').addEventListener('input',e=>{const degrees=Number((e.target as HTMLInputElement).value);manualRoll=degrees*Math.PI/180;$('#frame-roll-value').textContent=`${degrees}°`;});
-$('#reset').addEventListener('click',()=>{setFade(0);setStyle('dream');setShape('rectangle');setHandFollowing(true);shapeEditor.close();frame=null;resetPerspective();centerDepth();manualFrame={x:.28,y:.23,width:.44,height:.54};$<HTMLInputElement>('#frame-size').value='44';palm.reset();pinch.reset();clearStill();});
+$('#cube-manual').addEventListener('change',()=>{cubeManual=$<HTMLInputElement>('#cube-manual').checked;resetCubeInput();syncCubeControls();});
+for(const [id,key] of [['#cube-size','size'],['#cube-x','x'],['#cube-y','y']] as const){
+  $(id).addEventListener('input',()=>{manualCube[key]=Number($<HTMLInputElement>(id).value)/100;});
+}
+$('#cube-preset').addEventListener('click',nextCubePreset);
+$('#cube-retry').addEventListener('click',()=>{
+  if(mode!=='cube'||!cubeFailed||cubeRetryUsed)return;
+  cubeRetryUsed=true;disposeCube();cubeFailed=false;cubeEnabled=true;$('#cube-retry').hidden=true;
+});
+$('#reset').addEventListener('click',()=>{
+  if(mode==='cube'){
+    resetCubeInput();cubePreset=0;Object.assign(manualCube,{x:.5,y:.5,size:.38});
+    for(const [id,value] of [['#cube-size','38'],['#cube-x','50'],['#cube-y','50']])$<HTMLInputElement>(id).value=value;
+    cubeEnabled=true;syncCubeControls();return;
+  }
+setFade(0);setStyle('dream');setShape('rectangle');setHandFollowing(true);shapeEditor.close();frame=null;resetPerspective();centerDepth();manualFrame={x:.28,y:.23,width:.44,height:.54};$<HTMLInputElement>('#frame-size').value='44';palm.reset();pinch.reset();clearStill();});
 $('#capture-still').addEventListener('click',()=>captureStill());$('#send-still').addEventListener('click',()=>void sendStill());$('#clear-still').addEventListener('click',clearStill);
 $('#capture-background').addEventListener('click',()=>{
   resetCalibration();
@@ -343,14 +428,18 @@ $('#capture-background').addEventListener('click',()=>{
   },1000);
 });
 let dragging=false;
-scene.addEventListener('pointerdown',e=>{if(!manual&&live)return;dragging=true;scene.setPointerCapture(e.pointerId);moveFrame(e);});
+scene.addEventListener('pointerdown',e=>{if(live&&(mode==='cube'?!cubeManual:!manual))return;dragging=true;scene.setPointerCapture(e.pointerId);moveFrame(e);});
 scene.addEventListener('pointermove',e=>{if(dragging)moveFrame(e);});scene.addEventListener('pointerup',()=>dragging=false);scene.addEventListener('pointercancel',()=>dragging=false);
-function moveFrame(e:PointerEvent){const r=scene.getBoundingClientRect();manualFrame.x=Math.max(.01,Math.min(.99-manualFrame.width,(e.clientX-r.left)/r.width-manualFrame.width/2));manualFrame.y=Math.max(.01,Math.min(.99-manualFrame.height,(e.clientY-r.top)/r.height-manualFrame.height/2));}
-scene.tabIndex=0;scene.addEventListener('keydown',e=>{if(!manual&&live)return;const amount=e.shiftKey?.05:.02;const d:Record<string,[number,number]>={ArrowLeft:[-amount,0],ArrowRight:[amount,0],ArrowUp:[0,-amount],ArrowDown:[0,amount]};if(d[e.key]){e.preventDefault();manualFrame.x=Math.max(.01,Math.min(.99-manualFrame.width,manualFrame.x+d[e.key][0]));manualFrame.y=Math.max(.01,Math.min(.99-manualFrame.height,manualFrame.y+d[e.key][1]));}});
+function moveFrame(e:PointerEvent){const r=scene.getBoundingClientRect();
+  if(mode==='cube'){manualCube.x=Math.max(.1,Math.min(.9,(e.clientX-r.left)/r.width));manualCube.y=Math.max(.1,Math.min(.9,(e.clientY-r.top)/r.height));
+    $<HTMLInputElement>('#cube-x').value=String(manualCube.x*100);$<HTMLInputElement>('#cube-y').value=String(manualCube.y*100);return;}
+manualFrame.x=Math.max(.01,Math.min(.99-manualFrame.width,(e.clientX-r.left)/r.width-manualFrame.width/2));manualFrame.y=Math.max(.01,Math.min(.99-manualFrame.height,(e.clientY-r.top)/r.height-manualFrame.height/2));}
+scene.tabIndex=0;scene.addEventListener('keydown',e=>{if(live&&(mode==='cube'?!cubeManual:!manual))return;const amount=e.shiftKey?.05:.02;const d:Record<string,[number,number]>={ArrowLeft:[-amount,0],ArrowRight:[amount,0],ArrowUp:[0,-amount],ArrowDown:[0,amount]};if(d[e.key]){e.preventDefault();if(mode==='cube'){manualCube.x=Math.max(.1,Math.min(.9,manualCube.x+d[e.key][0]));manualCube.y=Math.max(.1,Math.min(.9,manualCube.y+d[e.key][1]));$<HTMLInputElement>('#cube-x').value=String(manualCube.x*100);$<HTMLInputElement>('#cube-y').value=String(manualCube.y*100);return;}manualFrame.x=Math.max(.01,Math.min(.99-manualFrame.width,manualFrame.x+d[e.key][0]));manualFrame.y=Math.max(.01,Math.min(.99-manualFrame.height,manualFrame.y+d[e.key][1]));}});
 let hiddenTimer:ReturnType<typeof setTimeout>|undefined;
 document.addEventListener('visibilitychange',()=>{
   clearTimeout(hiddenTimer);
   if(!document.hidden)return;
+  resetCubeInput();
   // Some embedded hosts briefly mark the document hidden while expanding it.
   // A genuinely hidden tab still releases its camera after this bounded grace.
   if(focusView?.active)hiddenTimer=setTimeout(()=>{if(document.hidden)stopCamera('Camera paused while this tab was hidden. Start it again when ready.');},150);
@@ -362,14 +451,35 @@ const simulatedMask=demoMask(W,H);let lastPaint=0,lastMetric=0;
 function render(now:number){
   // Capture scheduling must not wait behind painting; the pipeline handles cadence and backpressure.
   if(live)void pipeline.infer(now,mode==='invisible');
-  if(now-lastPaint<(mode==='handframe'?16:32)){requestAnimationFrame(render);return;}lastPaint=now;
-  if(live&&pipeline.video.readyState>=2){rawCtx.save();if(pipeline.mirrored){rawCtx.translate(W,0);rawCtx.scale(-1,1);}rawCtx.drawImage(pipeline.video,0,0,W,H);rawCtx.restore();}
+  if(now-lastPaint<(mode==='invisible'?32:16)){requestAnimationFrame(render);return;}lastPaint=now;
+  if(mode==='cube'&&live&&pipeline.video.readyState>=2){/* Draw original video once below, at its native aspect. */}
+  else if(live&&pipeline.video.readyState>=2){rawCtx.save();if(pipeline.mirrored){rawCtx.translate(W,0);rawCtx.scale(-1,1);}rawCtx.drawImage(pipeline.video,0,0,W,H);rawCtx.restore();}
   else drawDemo(rawCtx,reducedMotion?0:now);
   if(live&&now-lastVision>1000){hands=[];frame=null;resetPerspective();palm.reset();pinch.reset();}
   syncWorldCue(now);
-  ctx.drawImage(raw,0,0);
+  sizeCubeCanvas();
+  if(mode==='cube'&&live&&pipeline.video.readyState>=2){
+    ctx.save();if(pipeline.mirrored){ctx.translate(scene.width,0);ctx.scale(-1,1);}
+    ctx.drawImage(pipeline.video,0,0,scene.width,scene.height);ctx.restore();
+  }else ctx.drawImage(raw,0,0,scene.width,scene.height);
   const r=holdingPhotoAperture&&photoAperture&&now-photoAperture.measuredAt>150?null:activeFrame();
   if(focusView?.active&&cameraOnly){/* Clean camera view keeps the selected effect ready to restore. */}
+  else if(mode==='cube'){
+    const cubePose=cubeManual||!live?manualCube:cube.poseAt(now);
+    if(cubeEnabled&&!cubeFailed&&!document.hidden){
+      ensureCubeGraphics();
+      if(cubePose&&cubeRenderer)cubeRenderer.draw(ctx,cubePose,cubePreset,now,reducedMotion);
+    }
+    if(!cubeFailed){
+      const message=cubeLoad?'Loading cube graphics…':!cubeEnabled?'Cube paused. Start your camera or reset the effect.':!live?'Simulated cube preview. Start your camera to use your hands and record.':cubeManual?'Manual cube · drag, use arrow keys or the sliders.':cubePose?'Following both hands · pinch briefly, then release to change appearance.':'Show two open hands to bring the cube back.';
+      if($('#cube-status').textContent!==message)$('#cube-status').textContent=message;
+    }
+    worldCue.hidden=!focusView?.active||(!cubeFailed&&!cubeLoad&&!!cubePose&&cubeEnabled);
+    if(!worldCue.hidden){
+      const notice=cubeFailed?'Cube graphics are unavailable. Exit full screen to retry or choose another effect.':$('#cube-status').textContent;
+      if(worldCue.textContent!==notice)worldCue.textContent=notice;
+    }
+  }
   else if(mode==='invisible'){
     fade=reducedMotion?targetFade:fade+(targetFade-fade)*.65;
     if(Math.abs(fade-targetFade)<.004)fade=targetFade;
@@ -450,6 +560,6 @@ function drawFrame(rect:FrameRect,styled:boolean){
 void fetch('/api/config').then(r=>r.ok?r.json():null).then(config=>{aiEnabled=typeof config==='object'&&config!==null&&'aiEnabled' in config&&config.aiEnabled===true;}).catch(()=>{aiEnabled=false;});
 requestAnimationFrame(render);
 
-// Begin in the phone-friendly hand studio; both effects remain available.
+// Begin in the phone-friendly hand studio; all three effects remain available.
 if(matchMedia('(max-width: 760px)').matches)setMode('handframe');
 syncPhotos();

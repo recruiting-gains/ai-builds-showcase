@@ -13,3 +13,9 @@ For this iteration, the feature engineer owned `src/handframe/index.ts`, `src/ha
 ## Phone studio iteration
 
 The camera engineer owned `src/vision/camera.ts`, its orientation helper and their tests. The coordinator owned local photos, finger-corner projection, dashboard UI, integration, browser tests, workflow/CI updates and publication. The independent reviewer inspected the reference and implementation read-only, with private synthetic probes. Checkpoints tracked stage/elapsed/retry budgets. Acceptance and supported runtime boundaries are documented in [Phone studio](PHONE-STUDIO.md).
+
+## Cube mode iteration
+
+The coordinator owns `src/main.ts`, shared contracts, styling, dependency manifests, documentation and release. The Cube controller specialist owns `src/cube/controller.ts` and `tests/cube.test.ts`; the renderer specialist owns `src/cube/renderer.ts`. The independent reviewer owns `scripts/cube-browser-check.mjs` and `docs/CUBE-REVIEW.md`, with read-only access to implementation. Each resource has one writer until handoff. All browser media fixtures are synthetic; physical iPhone acceptance remains pending until observed.
+
+Acceptance: final-canvas blue fill and white wireframe in an encoded and replayed saved clip; raw landmark midpoint/separation with exactly one camera mirror; one completed deliberate pinch/release changes Cube appearance; no HandFrame/photo/still/upload side effects; bounded loss recovery, mode/camera/orientation transitions, graphics failure and cleanup. The private build checkpoint tracks finite elapsed/action/correction budgets; no new agent runtime is embedded in the app.
