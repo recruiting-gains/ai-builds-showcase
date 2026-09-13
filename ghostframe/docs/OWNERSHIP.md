@@ -19,3 +19,10 @@ The camera engineer owned `src/vision/camera.ts`, its orientation helper and the
 The coordinator owns `src/main.ts`, shared contracts, styling, dependency manifests, documentation and release. The Cube controller specialist owns `src/cube/controller.ts` and `tests/cube.test.ts`; the renderer specialist owns `src/cube/renderer.ts`. The independent reviewer owns `scripts/cube-browser-check.mjs` and `docs/CUBE-REVIEW.md`, with read-only access to implementation. Each resource has one writer until handoff. All browser media fixtures are synthetic; physical iPhone acceptance remains pending until observed.
 
 Acceptance: final-canvas blue fill and white wireframe in an encoded and replayed saved clip; raw landmark midpoint/separation with exactly one camera mirror; one completed deliberate pinch/release changes Cube appearance; no HandFrame/photo/still/upload side effects; bounded loss recovery, mode/camera/orientation transitions, graphics failure and cleanup. The private build checkpoint tracks finite elapsed/action/correction budgets; no new agent runtime is embedded in the app.
+
+
+## Cube appearance and carry correction
+
+For this correction, the controller specialist owned `src/cube/controller.ts` and `tests/cube.test.ts`; the renderer specialist owned `src/cube/renderer.ts`; the browser specialist authored the additional checks in `scripts/cube-browser-check.mjs` without operating a browser. After explicit handoff, the coordinator owned those files, integration/help text, documentation, all browser execution, source publication and the existing Cloudflare release. The independent critic reviewed source and preview/decoded recording images read-only.
+
+Acceptance: readable translucent core and separated cages on dark and bright backgrounds; two-hand sizing, either-hand carry at fixed size with no transition jump, return to sizing; fresh acquisition after loss/reset; no false appearance or photo/still action across those transitions; actual saved and decoded gesture clip; existing mirror/aspect/lifecycle checks. Physical iPhone observation remains distinct from simulated checks.

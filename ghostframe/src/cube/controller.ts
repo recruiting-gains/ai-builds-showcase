@@ -1,7 +1,7 @@
 import type { Hand, Point } from '../contracts';
 
 /** Position is normalized display space; size is relative to the shorter canvas side. */
-export interface CubePose { x: number; y: number; size: number }
+export interface CubePose { x: number; y: number; size: number; interaction?: 'sizing' | 'holding' }
 
 const HOLD_MS = 150;
 const PINCH_MS = 120;
@@ -21,7 +21,9 @@ export class CubeController {
   private paintTimestamp = -Infinity;
   private aspect: number | null = null;
   private mirrored: boolean | null = null;
-  private previous: [Sample, Sample] | null = null;
+  private previous: Sample[] | null = null;
+  private pairOrder: number | null = null;
+  private holdingOffset: Point | null = null;
   private armed = false;
   private pinching: { id: string; since: number } | null = null;
 
@@ -53,59 +55,92 @@ export class CubeController {
     this.mirrored = mirrored;
     if (gap > HOLD_MS) this.clearTracking();
 
-    const pair = this.readPair(hands, aspect);
-    if (!pair) {
-      this.cancelGesture();
-      this.previous = null;
+    const samples = this.readHands(hands, aspect);
+    if (!samples) {
+      this.breakContinuity();
       if (timestamp - this.validAt > HOLD_MS) this.pose = null;
       return unchanged;
     }
-    const [a, b] = pair;
     const shortSide = Math.min(1, aspect);
     const distance = (p: Point, q: Point) => Math.hypot(aspect * (p.x - q.x), p.y - q.y) / shortSide;
-    const separation = distance(a.center, b.center);
-    if (separation < 0.10 || this.discontinuous(pair, distance)) {
+    if (this.discontinuous(samples, distance)) {
       this.clearTracking();
       return unchanged;
     }
 
-    const midpoint = (a.center.x + b.center.x) / 2;
-    const target: CubePose = {
-      x: clamp(mirrored ? 1 - midpoint : midpoint, 0, 1),
-      y: clamp((a.center.y + b.center.y) / 2, 0, 1),
-      size: clamp(separation * 0.75, 0.15, 0.65),
-    };
+    const transitioning = this.previous?.length !== samples.length;
+    let target: CubePose;
+    if (samples.length === 2) {
+      const [a, b] = samples;
+      const separation = distance(a.center, b.center);
+      const dx = a.center.x - b.center.x;
+      // Preserve pair ordering while one hand carries, so an ambiguous crossing cannot resize/release.
+      if (separation < 0.10 || (this.pairOrder !== null && this.pairOrder * dx < 0 && Math.abs(dx) > 0.02)) {
+        this.clearTracking();
+        return unchanged;
+      }
+      const midpoint = (a.center.x + b.center.x) / 2;
+      target = {
+        x: clamp(mirrored ? 1 - midpoint : midpoint, 0, 1),
+        y: clamp((a.center.y + b.center.y) / 2, 0, 1),
+        size: clamp(separation * 0.75, 0.15, 0.65),
+        interaction: 'sizing',
+      };
+      if (Math.abs(dx) > 0.02) this.pairOrder = dx;
+      this.holdingOffset = null;
+    } else {
+      // A single hand can carry only an already acquired cube with continuous identity.
+      // Missing/invalid input breaks that acquisition even during the short visual hold.
+      if (!this.pose || !this.previous?.some(hand => hand.id === samples[0].id)) {
+        this.breakContinuity();
+        if (timestamp - this.validAt > HOLD_MS) this.pose = null;
+        return unchanged;
+      }
+      const center = samples[0].center;
+      const x = mirrored ? 1 - center.x : center.x;
+      if (transitioning || !this.holdingOffset) {
+        this.holdingOffset = { x: this.pose.x - x, y: this.pose.y - center.y };
+      }
+      target = {
+        x: clamp(x + this.holdingOffset.x, 0, 1),
+        y: clamp(center.y + this.holdingOffset.y, 0, 1),
+        size: this.pose.size,
+        interaction: 'holding',
+      };
+    }
+    if (transitioning) this.cancelGesture();
     // Time-based smoothing avoids a frame-rate-dependent lag or overshoot.
     const blend = this.pose ? 1 - Math.exp(-Math.max(1, timestamp - this.validAt) / 45) : 1;
     this.pose = this.pose ? {
       x: this.pose.x + (target.x - this.pose.x) * blend,
       y: this.pose.y + (target.y - this.pose.y) * blend,
       size: this.pose.size + (target.size - this.pose.size) * blend,
+      interaction: target.interaction,
     } : target;
     this.validAt = timestamp;
-    this.previous = pair;
+    this.previous = samples;
 
-    const bothOpen = pair.every(hand => hand.ratio >= OPEN_RATIO);
+    const allOpen = samples.every(hand => hand.ratio >= OPEN_RATIO);
     if (this.pinching) {
-      const active = pair.find(hand => hand.id === this.pinching!.id)!;
+      const active = samples.find(hand => hand.id === this.pinching!.id)!;
       // Overlapping pinches are ambiguous, including a handoff observed only on the release frame.
-      if (pair.some(hand => hand.id !== active.id && hand.ratio <= CLOSE_RATIO)) {
+      if (samples.some(hand => hand.id !== active.id && hand.ratio <= CLOSE_RATIO)) {
         this.cancelGesture();
         return unchanged;
       }
       if (active.ratio >= OPEN_RATIO) {
         const changed = timestamp - this.pinching.since >= PINCH_MS;
         this.pinching = null;
-        this.armed = bothOpen;
+        this.armed = allOpen;
         return { changed };
       }
       return unchanged;
     }
     if (!this.armed) {
-      this.armed = bothOpen;
+      this.armed = allOpen;
       return unchanged;
     }
-    const closed = pair.filter(hand => hand.ratio <= CLOSE_RATIO);
+    const closed = samples.filter(hand => hand.ratio <= CLOSE_RATIO);
     if (closed.length === 1) {
       this.pinching = { id: closed[0].id, since: timestamp };
       this.armed = false;
@@ -133,12 +168,18 @@ export class CubeController {
   private clearTracking(): void {
     this.pose = null;
     this.validAt = -Infinity;
+    this.breakContinuity();
+  }
+
+  private breakContinuity(): void {
     this.previous = null;
+    this.pairOrder = null;
+    this.holdingOffset = null;
     this.cancelGesture();
   }
 
-  private readPair(hands: readonly Hand[], aspect: number): [Sample, Sample] | null {
-    if (hands.length !== 2) return null;
+  private readHands(hands: readonly Hand[], aspect: number): Sample[] | null {
+    if (hands.length !== 1 && hands.length !== 2) return null;
     const result: Sample[] = [];
     for (const hand of hands) {
       // MediaPipe's score is handedness confidence, not positional accuracy.
@@ -158,18 +199,18 @@ export class CubeController {
       if (palm / Math.min(1, aspect) < 0.025 || center.x < 0 || center.x > 1 || center.y < 0 || center.y > 1) return null;
       result.push({ id, center, ratio: distance(hand.landmarks[4], hand.landmarks[8]) / palm });
     }
-    if (result[0].id === result[1].id) return null;
+    if (result.length === 2 && result[0].id === result[1].id) return null;
     result.sort((a, b) => a.id.localeCompare(b.id));
-    return result as [Sample, Sample];
+    return result;
   }
 
-  private discontinuous(pair: [Sample, Sample], distance: (a: Point, b: Point) => number): boolean {
+  private discontinuous(samples: Sample[], distance: (a: Point, b: Point) => number): boolean {
     if (!this.previous) return false;
-    const [a, b] = pair, [oldA, oldB] = this.previous;
-    if (a.id !== oldA.id || b.id !== oldB.id) return true;
-    if (distance(a.center, oldA.center) > 0.30 || distance(b.center, oldB.center) > 0.30) return true;
-    // An order reversal could be crossed hands or a handedness-label swap. Neither may release a pinch.
-    const oldDx = oldA.center.x - oldB.center.x, dx = a.center.x - b.center.x;
-    return oldDx * dx < 0 && Math.abs(oldDx) > 0.02 && Math.abs(dx) > 0.02;
+    // The returning hand may be elsewhere, but every continuously visible hand must remain identifiable.
+    if (samples.length === 1 && !this.previous.some(hand => hand.id === samples[0].id)) return true;
+    return samples.some(hand => {
+      const previous = this.previous!.find(old => old.id === hand.id);
+      return previous !== undefined && distance(hand.center, previous.center) > 0.30;
+    });
   }
 }
