@@ -59,6 +59,17 @@ const carryReplay = (bytes,mime,samples) => page.evaluate(async({data,mime,sampl
   const v=document.createElement('video');v.muted=true;v.playsInline=true;
   const url=URL.createObjectURL(new Blob([Uint8Array.from(atob(data),c=>c.charCodeAt(0))],{type:mime}));
   const limits={decodeMs:20000,maxFrames:360},observed=new Map(),selected=new Map();let decodedFrames=0,frameHandle=null;
+  // The central 98% x span measures the bulk blue signal. Trim at most 1%
+  // of matching pixels per horizontal tail, including complete boundary columns.
+  // Sparse decoded chroma outliers must not define the entire object's width.
+  // No band or expected cube-position crop is applied; raw bounds remain reported.
+  const centralBlueSpan=(histogram,total)=>{
+    if(!total)return{width:0,retainedBlue:0,trimmedLeft:0,trimmedRight:0};
+    const tailBudget=Math.floor(total*.01);let left=0,right=histogram.length-1,trimmedLeft=0,trimmedRight=0;
+    while(left<right&&trimmedLeft+histogram[left]<=tailBudget){trimmedLeft+=histogram[left];left++;}
+    while(right>left&&trimmedRight+histogram[right]<=tailBudget){trimmedRight+=histogram[right];right--;}
+    return{width:(right-left)/histogram.length,retainedBlue:total-trimmedLeft-trimmedRight,trimmedLeft,trimmedRight};
+  };
   const metrics=entry=>({code:entry.code,count:entry.count,firstMediaTime:entry.firstMediaTime,lastMediaTime:entry.lastMediaTime});
   const diagnostics=()=>({decodedFrames,limits,observed:[...observed.values()].map(metrics),selected:[...selected.values()].map(({png,...frame})=>frame)});
   try {
@@ -82,10 +93,11 @@ const carryReplay = (bytes,mime,samples) => page.evaluate(async({data,mime,sampl
             // A fixed second distinct decoded frame avoids transition edges without
             // selecting whichever geometry would make an assertion pass.
             if(entry.count===2&&!selected.has(code)){
-              let blue=0,white=0,sumX=0,minX=c.width,maxX=-1;
-              for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){const i=(y*c.width+x)*4,r=d[i],g=d[i+1],b=d[i+2];if(b>100&&b-r>14&&b-g>3){blue++;sumX+=x;minX=Math.min(minX,x);maxX=Math.max(maxX,x);}if(r>205&&g>205&&b>205)white++;}
+              let blue=0,white=0,sumX=0,minX=c.width,maxX=-1;const blueX=new Uint32Array(c.width);
+              for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){const i=(y*c.width+x)*4,r=d[i],g=d[i+1],b=d[i+2];if(b>100&&b-r>14&&b-g>3){blue++;blueX[x]++;sumX+=x;minX=Math.min(minX,x);maxX=Math.max(maxX,x);}if(r>205&&g>205&&b>205)white++;}
+              const span=centralBlueSpan(blueX,blue);
               let warmCenter=0;const cx=Math.round(c.width*.38),cy=Math.round(c.height*.52);for(let y=cy-5;y<=cy+5;y++)for(let x=cx-12;x<=cx+12;x++){const i=(y*c.width+x)*4;if(d[i]-d[i+2]>35&&d[i]-d[i+1]>25)warmCenter++;}
-              selected.set(code,{code,name:samples.find(sample=>sample.code===code)?.name??'unknown',mediaTime:metadata.mediaTime,blue,white,warmCenter,center:blue?sumX/blue/c.width:null,width:blue?(maxX-minX)/c.width:0,corner:Array.from(d.slice(0,3)),png:c.toDataURL('image/png').split(',')[1]});
+              selected.set(code,{code,name:samples.find(sample=>sample.code===code)?.name??'unknown',mediaTime:metadata.mediaTime,blue,white,warmCenter,center:blue?sumX/blue/c.width:null,...span,spanMetric:'central-98-percent-blue-x',rawWidth:blue?(maxX-minX)/c.width:0,corner:Array.from(d.slice(0,3)),png:c.toDataURL('image/png').split(',')[1]});
             }
           }
           frameHandle=v.requestVideoFrameCallback(next);
@@ -221,7 +233,7 @@ try {
       const images=item.replay.frames.map(frame=>{const screenshot=path.join(output,'carry-replay-'+frame.name+'.png');const png=frame.png;delete frame.png;frame.screenshot=screenshot;return{png,screenshot};});
       for(const image of images)await writeFile(image.screenshot,Buffer.from(image.png,'base64'));
       console.log('CARRY STAGES: '+JSON.stringify(item.replay.frames));
-      for(const frame of item.replay.frames){assert.ok(frame.blue>100,JSON.stringify(frame));assert.ok(frame.white>20,JSON.stringify(frame));const expected=frame.name==='bright-background'?[183,187,192]:[112,112,112];assert.ok(frame.corner.every((v,i)=>Math.abs(v-expected[i])<20),JSON.stringify(frame));}
+      for(const frame of item.replay.frames){assert.ok(frame.blue>100,JSON.stringify(frame));assert.ok(frame.retainedBlue>=100&&frame.retainedBlue>=frame.blue*.98,'Robust span must retain at least 98% and 100 blue pixels: '+JSON.stringify(frame));assert.ok(frame.white>20,JSON.stringify(frame));const expected=frame.name==='bright-background'?[183,187,192]:[112,112,112];assert.ok(frame.corner.every((v,i)=>Math.abs(v-expected[i])<20),JSON.stringify(frame));}
       const [spreading,sizing,holding,moved,resizing,bright]=item.replay.frames;
       assert.ok(sizing.width>spreading.width*1.2,'Saved clip must show spreading two hands to choose a size');
       assert.ok(bright.warmCenter>30,'The orange camera stripe must remain visible through the translucent center');assert.ok(bright.white>20,'Bright backdrop must retain visible white/cyan outline pixels');
