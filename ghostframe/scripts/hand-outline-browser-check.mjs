@@ -70,9 +70,12 @@ try {
   const page = await context.newPage();
   page.on('pageerror', error => report.pageErrors.push(error.message));
   page.on('request', request => { if (request.method() === 'POST') report.submissions++; });
+  await page.route('**/api/config', route => route.fulfill({ contentType: 'application/json', body: '{"aiEnabled":true}' }));
   await page.route('**/vision-worker.js', route => route.fulfill({ status: 200, contentType: 'text/javascript', body: worker }));
   await page.goto(base, { waitUntil: 'networkidle' });
   await page.locator('[data-mode="handframe"]').click();
+  // This regression intentionally verifies the retained finger-contour effect.
+  await page.locator('#panel-shape').selectOption('contour');
   assert.equal(await page.locator('#follow-hands').isChecked(), true);
   assert.equal(await page.locator('#manual-shapes').getAttribute('open'), null);
   await page.locator('[data-style="cyanotype"]').click();

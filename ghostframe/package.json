@@ -15,7 +15,8 @@
     "harness": "node harness/cli.mjs",
     "test:harness": "node --test harness/*.test.mjs",
     "test:phone": "node scripts/verify-phone-studio.mjs",
-    "test:cube": "node scripts/verify-cube.mjs"
+    "test:cube": "node scripts/verify-cube.mjs",
+    "test:panel": "node scripts/verify-panel.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",

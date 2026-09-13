@@ -37,4 +37,7 @@ jobs:
       - run: npm run test:cube
         env:
           PLAYWRIGHT_CHANNEL: chromium
+      - run: npm run test:panel
+        env:
+          PLAYWRIGHT_CHANNEL: chromium
       - run: npm run check:deploy

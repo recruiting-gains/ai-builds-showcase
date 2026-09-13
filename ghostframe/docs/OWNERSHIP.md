@@ -26,3 +26,9 @@ Acceptance: final-canvas blue fill and white wireframe in an encoded and replaye
 For this correction, the controller specialist owned `src/cube/controller.ts` and `tests/cube.test.ts`; the renderer specialist owned `src/cube/renderer.ts`; the browser specialist authored the additional checks in `scripts/cube-browser-check.mjs` without operating a browser. After explicit handoff, the coordinator owned those files, integration/help text, documentation, all browser execution, source publication and the existing Cloudflare release. The independent critic reviewed source and preview/decoded recording images read-only.
 
 Acceptance: readable translucent core and separated cages on dark and bright backgrounds; two-hand sizing, either-hand carry at fixed size with no transition jump, return to sizing; fresh acquisition after loss/reset; no false appearance or photo/still action across those transitions; actual saved and decoded gesture clip; existing mirror/aspect/lifecycle checks. Physical iPhone observation remains distinct from simulated checks.
+
+## Straight-panel repair
+
+The coordinator owns main integration, controls/help, documentation, CI, all browser execution and release. The geometry specialist owned only the new panel tracker and its unit tests until handoff; the browser specialist authored only the new panel acceptance script, without operating a browser. The independent critic reviews implementation/evidence read-only. Personal footage and recovered landmarks remain private local inputs, outside source and CI.
+
+Acceptance: four straight convex edges with bent knuckles, measured corner tilt/movement, bounded tracking loss and fresh boundaries, color-cycle and recorded-file proof; original contour available explicitly; photo/custom-shape/Invisible/Cube behavior preserved. The repair checkpoint records finite time/action/correction bounds.
