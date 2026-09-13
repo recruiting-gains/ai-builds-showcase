@@ -14,16 +14,19 @@
     "types": "wrangler types --include-runtime=false",
     "harness": "node harness/cli.mjs",
     "test:harness": "node --test harness/*.test.mjs",
-    "test:phone": "node scripts/verify-phone-studio.mjs"
+    "test:phone": "node scripts/verify-phone-studio.mjs",
+    "test:cube": "node scripts/verify-cube.mjs"
   },
   "dependencies": {
-    "@mediapipe/tasks-vision": "^1.0.1"
+    "@mediapipe/tasks-vision": "^1.0.1",
+    "three": "^0.186.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@cloudflare/workers-types": "latest",
     "@playwright/test": "^1.63.0",
     "@types/node": "latest",
+    "@types/three": "^0.186.0",
     "esbuild": "0.28.2",
     "tsx": "latest",
     "typescript": "latest",
