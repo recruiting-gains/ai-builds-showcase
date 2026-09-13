@@ -28,6 +28,16 @@ Run against a production preview with `node scripts/cube-browser-check.mjs http:
 
 The first development-server run proved rendering and saving but later gates were invalidated by a concurrent application reload. It was not counted as a full passing suite. The stable production run supplied the complete result above.
 
+## Deployed-browser verification
+
+The same 16 acceptance checks subsequently passed against [the existing GhostFrame URL](https://jedi-mindtrick.recruiting-gains.workers.dev/) on September 13, 2026 at 04:46 UTC (September 12 locally), with zero recorded page errors or mutation requests. The corrected live run downloaded a **115,319-byte MP4**, decoded it at 768 × 432, and observed 44,443/44,617 blue pixels and 656/754 white edge pixels in frames at 0.1/0.8 seconds. Both retained the gray camera background and had different frame hashes. The orientation gate also passed: canvas width changed from 768 to 432 only after the recorder reached `ready`, while the completed clip retained its original 768 × 432 dimensions.
+
+The first live run was **14 passed, 2 failed**, and was not counted as a passing release check. Its replay fixture assigned downloaded bytes to a `data:` video URL, which the unchanged production `media-src 'self' blob:` Content Security Policy disallows. The application's own blob preview had loaded and the browser had downloaded 117,579 bytes. Because the fixture failed before discarding that clip, the later orientation test correctly encountered a disabled Record button; that second failure was a cascade from the fixture failure.
+
+The coordinator corrected only the test: it now constructs a `Blob` from the actual downloaded bytes, replays through an allowed blob URL, and releases the video source and object URL in `finally`. The reviewer checked this correction and independently confirmed the live CSP response. The subsequent 16/16 report is `test-results/cube-live-verified/report.json`. No production application code or policy was relaxed to make the fixture pass.
+
+The release coordinator separately verified that deployed asset SHA256 values match the built assets. That deployment identity check and the browser result establish the tested public delivery; neither establishes physical-phone acceptance. The follow-up source correction contains the replay fixture and review documentation, leaving the tested production application assets unchanged.
+
 ## Independent source checks
 
 - Cube consumes raw worker landmarks and applies exactly one display mirror. Legacy transformed HandFrame coordinates are not reused as Cube coordinates.
@@ -44,4 +54,4 @@ Desktop WebKit **rendered the manual Cube preview**, but its attempted camera fi
 
 Physical iPhone acceptance remains **pending**: actual MediaPipe hand accuracy, ten real pinch/release attempts, front/back camera behavior, rotation, a 60-second Cube-versus-HandFrame comparison, thermal behavior, native share/save and replay in the intended phone app have not been observed in this review. The fixture checks do not establish a phone frame-rate or visual-latency claim.
 
-No release-blocking defect remained in the reviewed scope after the overlap correction and final 16-check pass. This review supports the tested local Cube implementation within those boundaries. GitHub merge, Cloudflare deployment and the public URL must be verified separately by the release coordinator; this report alone does not claim a live release.
+No release-blocking defect remained in the reviewed scope after the overlap correction and the final local and deployed 16-check passes. Public browser delivery is verified within the synthetic-test boundaries described above. GitHub merge and deployment bookkeeping remain separately recorded by the release coordinator; physical iPhone acceptance remains pending.
