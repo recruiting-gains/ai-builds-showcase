@@ -183,3 +183,156 @@ test('continuous position and size smooth monotonically with safe bounds', () =>
   controller.update([hand(0.4, 0.5, 'Left'), hand(0.51, 0.5, 'Right')], 0, 1, false);
   assert.equal(controller.poseAt(0)!.size, 0.15);
 });
+
+test('either hand carries the acquired cube without a transition jump in every camera orientation', () => {
+  for (const aspect of [9 / 16, 16 / 9]) for (const mirrored of [false, true]) for (const survivor of [0, 1]) {
+    const controller = new CubeController(), input = pair(0.9, aspect);
+    controller.update(input, 0, aspect, mirrored);
+    const sized = controller.poseAt(0)!;
+    assert.equal(sized.interaction, 'sizing');
+    assert.equal(controller.update([input[survivor]], 40, aspect, mirrored).changed, false);
+    const carried = controller.poseAt(40)!;
+    assert.equal(carried.interaction, 'holding');
+    near(carried.x, sized.x); near(carried.y, sized.y); near(carried.size, sized.size);
+
+    const moved = structuredClone(input[survivor]);
+    moved.landmarks.forEach(point => { point.x += 0.06; point.y += 0.03; });
+    const destinationX = sized.x + (mirrored ? -0.06 : 0.06);
+    controller.update([moved], 80, aspect, mirrored);
+    const following = controller.poseAt(80)!;
+    assert.ok(Math.abs(following.x - destinationX) < Math.abs(sized.x - destinationX));
+    assert.ok(Math.abs(following.x - destinationX) > 0, 'movement is smoothed');
+    assert.ok(following.y > sized.y && following.y < sized.y + 0.03);
+    for (let now = 120; now <= 800; now += 40) {
+      assert.equal(controller.update([moved], now, aspect, mirrored).changed, false);
+      near(controller.poseAt(now)!.size, sized.size);
+    }
+    near(controller.poseAt(800)!.x, destinationX, 1e-8);
+    near(controller.poseAt(800)!.y, sized.y + 0.03, 1e-8);
+  }
+});
+
+test('spread hands to resize, keep that size with one hand, and resume smooth sizing on pair return', () => {
+  const controller = new CubeController();
+  controller.update(pair(), 0, 1, false);
+  const initial = controller.poseAt(0)!;
+  const spread = [hand(0.2, 0.45, 'Left'), hand(0.75, 0.55, 'Right')];
+  for (let now = 40; now <= 240; now += 40) controller.update(spread, now, 1, false);
+  const enlarged = controller.poseAt(240)!;
+  assert.ok(enlarged.size > initial.size);
+  controller.update([spread[0]], 280, 1, false);
+  const held = controller.poseAt(280)!;
+  near(held.size, enlarged.size); near(held.x, enlarged.x); near(held.y, enlarged.y);
+  controller.update([hand(0.22, 0.48, 'Left')], 320, 1, false);
+  near(controller.poseAt(320)!.size, enlarged.size);
+  const wider = [hand(0.22, 0.48, 'Left'), hand(0.85, 0.58, 'Right')];
+  assert.equal(controller.update(wider, 360, 1, false).changed, false);
+  const returned = controller.poseAt(360)!;
+  assert.equal(returned.interaction, 'sizing');
+  assert.ok(returned.size > held.size && returned.size < Math.hypot(0.63, 0.1) * 0.75);
+});
+
+test('one hand alone cannot create a cube before a pair or after reset', () => {
+  for (const survivor of [0, 1]) {
+    const controller = new CubeController(), input = pair();
+    for (let now = 0; now <= 200; now += 40) {
+      assert.equal(controller.update([input[survivor]], now, 1, false).changed, false);
+      assert.equal(controller.poseAt(now), null);
+    }
+    controller.update(input, 240, 1, false);
+    controller.update([input[survivor]], 280, 1, false);
+    assert.equal(controller.poseAt(280)!.interaction, 'holding');
+    controller.reset();
+    controller.update([input[survivor]], 320, 1, false);
+    assert.equal(controller.poseAt(320), null);
+  }
+});
+
+test('losing a carried cube breaks single-hand acquisition without extending the 150 ms visual hold', () => {
+  const controller = new CubeController(), input = pair();
+  controller.update(input, 0, 1, false);
+  controller.update([input[0]], 40, 1, false);
+  controller.update([], 80, 1, false);
+  controller.update([input[0]], 120, 1, false);
+  assert.ok(controller.poseAt(190));
+  assert.equal(controller.poseAt(191), null);
+  assert.equal(controller.update([input[0]], 200, 1, false).changed, false);
+  assert.equal(controller.poseAt(200), null);
+  controller.update(input, 240, 1, false);
+  assert.equal(controller.poseAt(240)!.interaction, 'sizing');
+  controller.update([input[0]], 280, 1, false);
+  assert.equal(controller.poseAt(280)!.interaction, 'holding');
+});
+
+test('pair/single transitions cancel unfinished pinches and each stable mode can rearm', () => {
+  const controller = new CubeController();
+  controller.update(pair(), 0, 1, false);
+  controller.update(pair(0.1), 40, 1, false);
+  controller.update(pair(0.1), 120, 1, false);
+  assert.equal(controller.update([pair(0.1)[0]], 160, 1, false).changed, false);
+  assert.equal(controller.update([pair()[0]], 200, 1, false).changed, false, 'single-hand release cannot finish a pair gesture');
+  controller.update([pair(0.1)[0]], 240, 1, false);
+  controller.update([pair(0.1)[0]], 320, 1, false);
+  assert.equal(controller.update(pair(0.1), 360, 1, false).changed, false);
+  assert.equal(controller.update(pair(), 400, 1, false).changed, false, 'pair release cannot finish a carry gesture');
+  controller.update(pair(0.1), 440, 1, false);
+  controller.update(pair(0.1), 520, 1, false);
+  assert.equal(controller.update(pair(), 560, 1, false).changed, true);
+  controller.update([pair()[0]], 600, 1, false);
+  controller.update([pair(0.1)[0]], 640, 1, false);
+  controller.update([pair(0.1)[0]], 720, 1, false);
+  assert.equal(controller.update([pair()[0]], 760, 1, false).changed, true);
+});
+
+test('ten single-hand pinch/release gestures act ten times while size stays locked', () => {
+  for (const survivor of [0, 1]) {
+    const controller = new CubeController();
+    controller.update(pair(), 0, 1, false);
+    controller.update([pair()[survivor]], 40, 1, false);
+    const size = controller.poseAt(40)!.size;
+    let now = 80, changes = 0;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      for (const ratio of [0.1, 0.1, 0.1, 0.1, 0.9]) {
+        const visible = hand(survivor ? 0.65 : 0.25, survivor ? 0.55 : 0.45, survivor ? 'Right' : 'Left', ratio);
+        changes += Number(controller.update([visible], now, 1, false).changed);
+        near(controller.poseAt(now)!.size, size);
+        now += 40;
+      }
+    }
+    assert.equal(changes, 10);
+  }
+});
+
+test('carry resets safely on stale samples, camera/aspect change, ambiguity, identity switch or teleport', () => {
+  for (const failure of ['gap', 'duplicate', 'reversed', 'aspect', 'mirror', 'ambiguous', 'identity', 'teleport', 'stall'] as const) {
+    const controller = new CubeController(), input = pair();
+    controller.update(input, 0, 1, false);
+    controller.update([input[0]], 40, 1, false);
+    controller.update([pair(0.1)[0]], 80, 1, false);
+    let timestamp = 120, aspect = 1, mirrored = false, visible = [input[0]];
+    if (failure === 'gap') timestamp = 240;
+    if (failure === 'duplicate') timestamp = 80;
+    if (failure === 'reversed') timestamp = 79;
+    if (failure === 'aspect') aspect = 9 / 16;
+    if (failure === 'mirror') mirrored = true;
+    if (failure === 'ambiguous') visible = [hand(0.25, 0.45, 'Left'), hand(0.65, 0.55, 'Left')];
+    if (failure === 'identity') visible = [input[1]];
+    if (failure === 'teleport') visible = [hand(0.9, 0.45, 'Left')];
+    if (failure === 'stall') { controller.poseAt(240); timestamp = 260; }
+    assert.equal(controller.update(visible, timestamp, aspect, mirrored).changed, false, failure);
+    assert.equal(controller.poseAt(Math.max(240, timestamp)), null, failure);
+    const next = Math.max(280, timestamp + 40);
+    assert.equal(controller.update([input[0]], next, aspect, mirrored).changed, false, failure);
+    assert.equal(controller.poseAt(next), null, `${failure}: a single hand must not restore acquisition`);
+  }
+});
+
+test('returning crossed hands cannot resize or finish a carried pinch', () => {
+  const controller = new CubeController();
+  controller.update(pair(), 0, 1, false);
+  controller.update([pair()[0]], 40, 1, false);
+  controller.update([pair(0.1)[0]], 80, 1, false);
+  const crossed = [hand(0.25, 0.45, 'Left'), hand(0.1, 0.65, 'Right')];
+  assert.equal(controller.update(crossed, 160, 1, false).changed, false);
+  assert.equal(controller.poseAt(160), null);
+});

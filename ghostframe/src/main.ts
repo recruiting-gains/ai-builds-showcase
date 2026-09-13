@@ -96,8 +96,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
       </div>
       <section id="cube-controls" aria-label="Cube controls" hidden>
         <div class="section-label"><span>03 / HOLD A NEW DIMENSION</span><span>ON YOUR DEVICE</span></div>
-        <p class="cube-intro">A blue cube, a white outline, and your hands.</p>
-        <p class="hint">Show two open hands. Move them together to position the cube; spread them apart to grow it. Pinch your thumb and index finger briefly, then release to change its appearance.</p>
+        <p class="cube-intro">Shape the light. Hold it in your hand.</p>
+        <p class="hint">Show two hands and spread them apart to grow the cube. Move one hand out of view to hold that size, then move your remaining hand to carry it. Bring both hands back to resize.</p>
         <p id="cube-status" class="hint" role="status">Explore the cube preview, or start your camera.</p>
         <label class="switch-row"><span>Move it myself<small>Drag the cube or use arrow keys and the sliders.</small></span><input id="cube-manual" type="checkbox" checked></label>
         <label class="select-row" for="cube-size">Cube size</label><input id="cube-size" type="range" min="15" max="65" value="38">
@@ -105,7 +105,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
         <label class="select-row" for="cube-y">Up / down</label><input id="cube-y" type="range" min="10" max="90" value="50">
         <button id="cube-preset" class="secondary full">Appearance: Blue ↗</button>
         <button id="cube-retry" class="secondary full" hidden>Retry cube graphics once ↻</button>
-        <p class="hint">Keep both hands in view. If tracking drops, open both hands to start again. Cube gestures only change the cube. Record a silent clip, then save it when you choose.</p>
+        <p class="hint">Briefly pinch your thumb and index finger, then release to change the glow. If both hands leave the camera, show two hands to start again. Record a silent clip, then save it when you choose.</p>
       </section>
       <div class="manual-controls"><label class="switch-row"><span>Mouse & keyboard controls<small>Drag the frame. Use the slider to resize.</small></span><input id="manual" type="checkbox" checked></label><label class="sr-only" for="frame-size">Frame size</label><input id="frame-size" type="range" min="22" max="70" value="44"><div id="perspective-controls" hidden>
         <label class="select-row" for="frame-depth">3D stretch <output id="frame-depth-value">Centered</output></label><input id="frame-depth" type="range" min="-100" max="100" value="0"><div class="range-ends"><span>Right closer</span><span>Left closer</span></div>
@@ -278,7 +278,7 @@ function syncWorldCue(now=performance.now()){
   worldCue.hidden=!active||!notice;
   if(worldCue.textContent!==notice)worldCue.textContent=notice;
 }
-function syncGestureHelp(){$('#gesture-help').textContent=mode==='cube'?'Two open hands: move and resize. Pinch briefly, then release once to change appearance.':mode==='invisible'?'Open palm: visible. Slowly close your hand to disappear. Open it again to return.':handFollowing?'Form an opening with both L-shaped hands—even with one upside down. Open to design. Bring both hands together, then reopen for the next world.':'Push one hand forward, pull the other back. Lift to tilt. Quick pinch: style. Hold 0.6s: prepare a still.';if(mode==='handframe'&&contentMode==='photos')$('#gesture-help').textContent=oneHandPhotoEnabled()?'Open one palm to reveal the full picture. Close it to hide. Tap Next picture to switch.':wholePhotoView()?'Open both hands apart to reveal the whole picture. Palms together, then reopen to switch pictures.':'Open the space between your thumbs and index fingers to shape your picture. Palms together, then reopen to switch pictures.';}
+function syncGestureHelp(){$('#gesture-help').textContent=mode==='cube'?'Spread two hands to resize. Move one out of view to hold and carry. Bring it back to resize again. Pinch and release to change the glow.':mode==='invisible'?'Open palm: visible. Slowly close your hand to disappear. Open it again to return.':handFollowing?'Form an opening with both L-shaped hands—even with one upside down. Open to design. Bring both hands together, then reopen for the next world.':'Push one hand forward, pull the other back. Lift to tilt. Quick pinch: style. Hold 0.6s: prepare a still.';if(mode==='handframe'&&contentMode==='photos')$('#gesture-help').textContent=oneHandPhotoEnabled()?'Open one palm to reveal the full picture. Close it to hide. Tap Next picture to switch.':wholePhotoView()?'Open both hands apart to reveal the whole picture. Palms together, then reopen to switch pictures.':'Open the space between your thumbs and index fingers to shape your picture. Palms together, then reopen to switch pictures.';}
 function setHandFollowing(value:boolean){handFollowing=value;$<HTMLInputElement>('#follow-hands').checked=value;resetPerspective();pinch.reset();if(value&&live){manual=false;$<HTMLInputElement>('#manual').checked=false;}syncManualControls();syncPhotos();}
 function setShape(value:FrameShape){setHandFollowing(false);shape=value;outline=shapePoints(value,customOutline);$('#shape-name').textContent=value==='custom'?'CUSTOM':SHAPES.find(s=>s.id===value)!.name.toUpperCase();document.querySelectorAll<HTMLButtonElement>('[data-shape]').forEach(b=>{b.classList.toggle('active',b.dataset.shape===value);b.setAttribute('aria-pressed',String(b.dataset.shape===value));});$('#custom-shape').classList.toggle('active',value==='custom');}
 function syncManualControls(){const disabled=live&&!manual;for(const id of ['#frame-depth','#frame-roll','#frame-size'])$<HTMLInputElement>(id).disabled=disabled;$('#perspective-manual-hint').textContent=disabled?'Your hands control depth and tilt. Enable mouse controls to use these sliders.':'Try the depth and tilt sliders, or use both hands with the camera.';}
@@ -471,7 +471,7 @@ function render(now:number){
       if(cubePose&&cubeRenderer)cubeRenderer.draw(ctx,cubePose,cubePreset,now,reducedMotion);
     }
     if(!cubeFailed){
-      const message=cubeLoad?'Loading cube graphics…':!cubeEnabled?'Cube paused. Start your camera or reset the effect.':!live?'Simulated cube preview. Start your camera to use your hands and record.':cubeManual?'Manual cube · drag, use arrow keys or the sliders.':cubePose?'Following both hands · pinch briefly, then release to change appearance.':'Show two open hands to bring the cube back.';
+      const message=cubeLoad?'Loading cube graphics…':!cubeEnabled?'Cube paused. Start your camera or reset the effect.':!live?'Simulated cube preview. Start your camera to use your hands and record.':cubeManual?'Manual cube · drag, use arrow keys or the sliders.':cubePose?(cubePose.interaction==='holding'?'Holding with one hand · size locked. Bring your other hand back to resize.':'Sizing with both hands · spread to grow. Move one hand out of view to hold.'):'Show two hands to bring the cube back.';
       if($('#cube-status').textContent!==message)$('#cube-status').textContent=message;
     }
     worldCue.hidden=!focusView?.active||(!cubeFailed&&!cubeLoad&&!!cubePose&&cubeEnabled);
