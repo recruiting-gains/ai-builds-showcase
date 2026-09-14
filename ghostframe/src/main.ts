@@ -22,6 +22,7 @@ import { WorldCycle } from './handframe/world-cycle';
 import { installFullscreen } from './fullscreen';
 import { installRecording } from './recording-ui';
 import { CubeController, type CubePose } from './cube/controller';
+import { EnergyResponse } from './cube/energy';
 import type { CubeRenderer } from './cube/renderer';
 
 const WORLDS: {id:LocalStyle;name:string;note:string}[] = [
@@ -99,6 +100,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
       <section id="cube-controls" aria-label="Cube controls" hidden>
         <div class="section-label"><span>03 / HOLD A NEW DIMENSION</span><span>ON YOUR DEVICE</span></div>
         <p class="cube-intro">Shape the light. Hold it in your hand.</p>
+        <label class="select-row" for="cube-light-style">Light style</label><select id="cube-light-style"><option value="energy">Living Energy Core · preview</option><option value="classic">Classic Cube</option></select>
+        <p class="hint">Energy Core: spread to open the light layers, move to energize, hold still to settle. Classic keeps the original look.</p>
         <p class="hint">Show two hands and spread them apart to grow the cube. Move one hand out of view to hold that size, then move your remaining hand to carry it. Bring both hands back to resize.</p>
         <p id="cube-status" class="hint" role="status">Explore the cube preview, or start your camera.</p>
         <label class="switch-row"><span>Move it myself<small>Drag the cube or use arrow keys and the sliders.</small></span><input id="cube-manual" type="checkbox" checked></label>
@@ -147,11 +150,13 @@ let recording:ReturnType<typeof installRecording>|null=null;
 let background:ImageData|null=null,mask:Float32Array|null=null,hands:Hand[]=[],lastVision=0,inferenceMs=0;
 let handBackend='';
 const cube=new CubeController();
+const cubeEnergy=new EnergyResponse();
+let cubeLiving=true;
 let cubeRenderer:CubeRenderer|null=null,cubeManual=true,cubePreset=0,cubeEnabled=false;
 let cubeFailed=false,cubeRetryUsed=false,cubeInputAfter=0,cubeGeneration=0;
 let cubeLoad:Promise<void>|null=null,CubeGraphics:typeof import('./cube/renderer').CubeRenderer|null=null;
 const manualCube:CubePose={x:.5,y:.5,size:.38};
-function resetCubeInput(){cube.reset();cubeInputAfter=performance.now();}
+function resetCubeInput(){cube.reset();cubeEnergy.reset();cubeInputAfter=performance.now();}
 function disposeCube(){cubeGeneration++;cubeRenderer?.dispose();cubeRenderer=null;resetCubeInput();}
 function cubeUnavailable(message:string){cubeFailed=true;$('#cube-status').textContent=message+' Other effects remain available.';$('#cube-retry').hidden=cubeRetryUsed;}
 function syncCubeControls(){
@@ -216,7 +221,8 @@ const pipeline=new CameraPipeline(result=>{
     // A result captured before a mode/manual/camera boundary cannot arm a gesture.
     if(cubeEnabled&&!cubeManual&&!cameraOnly&&result.timestamp>cubeInputAfter){
       if(cube.update(result.hands,result.timestamp,aspect,pipeline.mirrored).changed)nextCubePreset();
-    }else cube.reset();
+      cubeEnergy.sample(cube.measurementAt(result.timestamp),result.timestamp,aspect);
+    }else {cube.reset();if(!cubeManual)cubeEnergy.reset();}
     return;
   }
   const automatic=automaticShaping();
@@ -435,6 +441,7 @@ for(const [id,key] of [['#cube-size','size'],['#cube-x','x'],['#cube-y','y']] as
   $(id).addEventListener('input',()=>{manualCube[key]=Number($<HTMLInputElement>(id).value)/100;});
 }
 $('#cube-preset').addEventListener('click',nextCubePreset);
+$('#cube-light-style').addEventListener('change',()=>{cubeLiving=$<HTMLSelectElement>('#cube-light-style').value==='energy';cubeEnergy.reset();});
 $('#cube-retry').addEventListener('click',()=>{
   if(mode!=='cube'||!cubeFailed||cubeRetryUsed)return;
   cubeRetryUsed=true;disposeCube();cubeFailed=false;cubeEnabled=true;$('#cube-retry').hidden=true;
@@ -502,7 +509,8 @@ function render(now:number){
     const cubePose=cubeManual||!live?manualCube:cube.poseAt(now);
     if(cubeEnabled&&!cubeFailed&&!document.hidden){
       ensureCubeGraphics();
-      if(cubePose&&cubeRenderer)cubeRenderer.draw(ctx,cubePose,cubePreset,now,reducedMotion);
+      const energyState=cubeManual||!live?cubeEnergy.update(cubePose,now,scene.width/scene.height,reducedMotion):cubeEnergy.advance(now,reducedMotion);
+      if(cubePose&&cubeRenderer)cubeRenderer.draw(ctx,cubePose,cubePreset,now,reducedMotion,cubeLiving?energyState:undefined);
     }
     if(!cubeFailed){
       const message=cubeLoad?'Loading cube graphics…':!cubeEnabled?'Cube paused. Start your camera or reset the effect.':!live?'Simulated cube preview. Start your camera to use your hands and record.':cubeManual?'Manual cube · drag, use arrow keys or the sliders.':cubePose?(cubePose.interaction==='holding'?'Holding with one hand · size locked. Bring your other hand back to resize.':'Sizing with both hands · spread to grow. Move one hand out of view to hold.'):'Show two hands to bring the cube back.';
