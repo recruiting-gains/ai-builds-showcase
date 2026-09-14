@@ -21,6 +21,8 @@ const fragmentShader = `
   uniform float uTime;
   uniform vec3 uBase;
   uniform vec3 uAccent;
+  uniform float uLiving;
+  uniform float uEnergy;
   varying vec2 vUv;
   varying vec3 vNormal;
   float hash(vec2 p) {
@@ -37,6 +39,18 @@ const fragmentShader = `
     float grain = noise(vUv * 44.0 + vec2(uTime * 0.12, -uTime * 0.08));
     float rim = pow(1.0 - abs(normalize(vNormal).z), 2.0);
     vec3 color = mix(uBase, uAccent, 0.35 + grain * 0.40);
+    if (uLiving > 0.5) {
+      // Tinted solid-volume cue survives bright camera input. Directional face
+      // shading and a restrained diagonal reflection read as glass, not a HUD.
+      float face = abs(dot(normalize(vNormal), normalize(vec3(-0.6, 0.8, 0.5))));
+      float reflection = exp(-pow((vUv.x + vUv.y * 0.45 - 0.6) * 9.0, 2.0));
+      float seam = pow(1.0 - min(min(vUv.x, 1.0-vUv.x), min(vUv.y, 1.0-vUv.y)) * 2.0, 10.0);
+      color = mix(vec3(0.008, 0.016, 0.065), uAccent * 0.38, face * 0.65);
+      color += uAccent * reflection * (0.10 + uEnergy * 0.12) + uAccent * seam * 0.10;
+      gl_FragColor = vec4(color, 0.42 + face * 0.13 + reflection * 0.08);
+      #include <colorspace_fragment>
+      return;
+    }
     gl_FragColor = vec4(color, 0.045 + grain * 0.065 + rim * 0.025);
     #include <colorspace_fragment>
   }
@@ -45,6 +59,7 @@ const fragmentShader = `
 const cageFragmentShader = `
   uniform vec3 uAccent;
   uniform float uOpacity;
+  uniform float uLiving;
   varying vec2 vUv;
   varying vec3 vNormal;
   void main() {
@@ -56,8 +71,13 @@ const cageFragmentShader = `
     float glow = (1.0 - smoothstep(0.5, 3.6, pixels)) * 0.12;
     float facing = gl_FrontFacing ? 1.0 : 0.60;
     float alpha = (line * 0.90 + glow) * uOpacity * facing;
-    if (alpha < 0.003) discard;
     vec3 color = mix(uAccent, vec3(0.86, 0.96, 1.0), line * 0.94);
+    if (uLiving > 0.5) {
+      float bevel = (1.0 - smoothstep(0.5, 4.5, pixels)) * 0.32;
+      alpha = (line * 0.72 + bevel) * uOpacity * facing;
+      color = mix(uAccent, vec3(0.84, 0.98, 1.0), line * 0.38);
+    }
+    if (alpha < 0.003) discard;
     gl_FragColor = vec4(color, alpha);
     #include <colorspace_fragment>
   }
@@ -82,8 +102,8 @@ const particleVertexShader = `
       float t = fract(aSeed * 17.13 + uPhase / 6.28318530718);
       float a = t * 6.28318 + lane * 0.8;
       p = vec3((t - 0.5) * 0.84,
-        lane * (0.10 + uSpread * 0.07) + sin(a) * 0.065,
-        cos(a + lane) * 0.19);
+        lane * (0.10 + uSpread * 0.07) + sin(a) * 0.11,
+        cos(a + lane) * 0.26);
     }
     vLight = 0.48 + 0.28 * sin(aSeed * 6.28318 + uTime * 0.44);
     if (uLiving > 0.5) {
@@ -107,8 +127,8 @@ const flowVertexShader = `
     vUv = uv;
     float angle = uv.x * 6.28318 + uPhase + uLane * 0.8;
     vec3 p = vec3(position.x * 0.84,
-      uLane * (0.10 + uSpread * 0.07) + sin(angle) * 0.065 + position.y * 0.085,
-      cos(angle + uLane) * 0.19);
+      uLane * (0.10 + uSpread * 0.07) + sin(angle) * 0.11 + position.y * 0.24,
+      cos(angle + uLane) * 0.26);
     gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
   }
 `;
@@ -119,12 +139,12 @@ const flowFragmentShader = `
   varying vec2 vUv;
   void main() {
     float d = abs(vUv.y - 0.5);
-    float line = exp(-d * d * 300.0);
-    float halo = exp(-d * d * 22.0) * 0.26;
-    float filaments = exp(-pow(abs(d - 0.19) * 95.0, 2.0)) * 0.24;
+    float line = exp(-d * d * 140.0);
+    float halo = exp(-d * d * 15.0) * 0.58;
+    float filaments = exp(-pow(abs(d - 0.22) * 55.0, 2.0)) * 0.48;
     float taper = smoothstep(0.0, 0.10, vUv.x) * smoothstep(0.0, 0.10, 1.0 - vUv.x);
     float pulse = pow(0.5 + 0.5 * sin(vUv.x * 10.0 - uPhase * 2.0), 5.0);
-    float alpha = (line * 0.76 + halo + filaments) * taper * (0.65 + uEnergy * 0.35);
+    float alpha = min(1.0, (line * 0.82 + halo + filaments) * taper * (0.85 + uEnergy * 0.15));
     if (alpha < 0.004) discard;
     vec3 color = mix(uAccent, vec3(0.7, 0.98, 1.0), line * 0.65);
     color = mix(color, vec3(1.0, 0.72, 0.3), pulse * line * uEnergy * 0.18);
@@ -185,17 +205,18 @@ export class CubeRenderer {
       uTime: this.time,
       uBase: { value: new Color(0.015, 0.10, 0.60) },
       uAccent: this.accent,
+      uLiving: this.living, uEnergy: this.energy,
     },
     vertexShader, fragmentShader, transparent: true, depthWrite: false,
     side: DoubleSide, forceSinglePass: true,
   });
   private readonly outline = new ShaderMaterial({
-    uniforms: { uAccent: this.accent, uOpacity: { value: 0.92 } },
+    uniforms: { uAccent: this.accent, uOpacity: { value: 0.92 }, uLiving: this.living },
     vertexShader, fragmentShader: cageFragmentShader, transparent: true,
     depthWrite: false, side: DoubleSide, forceSinglePass: true,
   });
   private readonly innerOutline = new ShaderMaterial({
-    uniforms: { uAccent: this.accent, uOpacity: { value: 0.24 } },
+    uniforms: { uAccent: this.accent, uOpacity: { value: 0.24 }, uLiving: this.living },
     vertexShader, fragmentShader: cageFragmentShader, transparent: true,
     depthWrite: false, side: DoubleSide, forceSinglePass: true,
   });
@@ -214,6 +235,7 @@ export class CubeRenderer {
   private width = 0;
   private height = 0;
   private preset = -1;
+  private readonly core = new Mesh(this.box, this.fill);
 
   private readonly contextLost = (event: Event): void => {
     event.preventDefault();
@@ -233,7 +255,7 @@ export class CubeRenderer {
       this.renderer.debug.onShaderError = () => { this.shaderFailed = true; };
       this.canvas.addEventListener('webglcontextlost', this.contextLost);
       this.camera.position.z = 4;
-      const core = new Mesh(this.box, this.fill);
+      const core = this.core;
       core.scale.setScalar(0.58);
       const motes = new Points(this.particles, this.particleMaterial);
       const innerCage = new Mesh(this.box, this.innerOutline);
@@ -313,7 +335,8 @@ export class CubeRenderer {
       this.energy.value = reducedMotion ? 0 : energyState?.strength ?? 0;
       this.phase.value = reducedMotion ? 0 : energyState?.phase ?? 0;
       this.spread.value = energyState?.spread ?? 0;
-      this.innerOutline.uniforms.uOpacity.value = energyState ? 0.36 + this.energy.value * 0.16 : 0.24;
+      this.core.scale.setScalar(energyState ? 0.96 : 0.58);
+      this.innerOutline.uniforms.uOpacity.value = energyState ? 0 : 0.24;
       const shortest = Math.min(width, height);
       this.group.position.set(
         (Math.min(1, Math.max(0, pose.x)) - 0.5) * width / shortest,

@@ -146,7 +146,9 @@ try {
     window.Worker=class extends OriginalWorker { constructor(...args){super(...args);state.worker=this;state.workers.push({worker:this,terminated:false});this.addEventListener('message',({data})=>{if(data.type==='frame')state.segments.push(data.testSegment);});} terminate(){const item=state.workers.find(x=>x.worker===this);if(item)item.terminated=true;super.terminate();} };
     const create=URL.createObjectURL.bind(URL);URL.createObjectURL=blob=>{const url=create(blob);state.blobs.set(url,blob);return url;};
     navigator.mediaDevices.getUserMedia=async constraints=>{
-      state.cameraRequests.push(constraints);const c=document.createElement('canvas');const portrait=state.portrait===true;c.width=portrait?432:768;c.height=portrait?768:432;
+      state.cameraRequests.push(constraints);
+      if(state.deferCamera){await new Promise(resolve=>{state.releaseCamera=resolve;});delete state.releaseCamera;}
+      const c=document.createElement('canvas');const portrait=state.portrait===true;c.width=portrait?432:768;c.height=portrait?768:432;
       const x=c.getContext('2d');let tick=0;const paint=()=>{const bright=state.background==='bright';x.fillStyle=bright?'#b7bbc0':'#707070';x.fillRect(0,0,c.width,c.height);if(bright){x.fillStyle='#74b9ee';x.fillRect(c.width*.45,0,c.width*.2,c.height);x.fillStyle='#f28c55';x.fillRect(c.width*.25,c.height*.52-6,c.width*.5,12);x.strokeStyle='#46556b';x.lineWidth=5;x.strokeRect(c.width*.12,c.height*.18,c.width*.15,c.height*.16);}x.fillStyle='#d05428';x.fillRect(5,c.height-45,50,35);x.fillStyle='#505050';x.fillRect((tick++*7)%(c.width-40),c.height-25,32,15);
         if(Number.isInteger(state.stageMarker)){const code=state.stageMarker,bits=[1,code&1,(code>>1)&1,(code>>2)&1,(code>>2)&1,(code>>1)&1,code&1,1],cell=c.width/48;
           bits.forEach((bit,n)=>{x.fillStyle=bit?'rgb(220,65,45)':'rgb(45,45,45)';x.fillRect(c.width/2+(n-4)*cell,Math.round(c.height*.02),cell+1,Math.max(10,Math.round(c.height*.035)));});}
@@ -160,7 +162,99 @@ try {
   page=await context.newPage();page.on('pageerror',e=>report.errors.push(e.message));page.on('request',r=>{if(['POST','PUT','PATCH','DELETE'].includes(r.method()))report.mutations.push(r.url());});
   await page.goto(base);await page.locator('[data-mode="handframe"]').click();await page.locator('#follow-hands').uncheck();await page.locator('[data-mode="cube"]').click();await page.locator('#cube-manual').check();
   await page.waitForFunction(()=>window.__cubeProbe.contexts.length>0);await page.waitForTimeout(200);
-  await check('Cube preview is visible without camera permission',async item=>{item.pixels=await pixels();assert.ok(item.pixels.blue>1000,JSON.stringify(item.pixels));assert.ok(item.pixels.white>30);assert.equal(await page.evaluate(()=>window.__cubeProbe.cameraRequests.length),0);await page.locator('#scene').screenshot({path:path.join(output,'cube-preview.png')});});
+  await check('Living Core preview is visible without camera permission',async item=>{item.pixels=await pixels();assert.ok(item.pixels.blue>1000,JSON.stringify(item.pixels));assert.equal(await page.locator('#cube-light-style').inputValue(),'energy');assert.equal(await page.evaluate(()=>window.__cubeProbe.cameraRequests.length),0);await page.locator('#scene').screenshot({path:path.join(output,'cube-preview.png')});});
+  // Preserve the original white-cage/translucent-stripe acceptance below for
+  // Classic. The intentionally tinted Living Core has separate bright/dark,
+  // pixel-restoration and encoded-replay checks in energy-browser-proof.ts.
+  await page.locator('#cube-light-style').selectOption('classic');
+  await check('Immersive Cube fills the viewport without stretching; Fit and exit preserve the canvas',async item=>{
+    await page.evaluate(()=>{window.__cubeProbe.originalScene=document.querySelector('#scene');});
+    const dimensions=()=>page.locator('#scene').evaluate(c=>{const r=c.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,backingWidth:c.width,backingHeight:c.height,viewportWidth:innerWidth,viewportHeight:innerHeight,same:c===window.__cubeProbe.originalScene,count:document.querySelectorAll('#scene').length};});
+    const original=await dimensions();item.layouts=[];
+    try {
+      for(const viewport of [{width:390,height:844},{width:844,height:390}]){
+        await page.setViewportSize(viewport);await page.locator('#cube-immersive').click();
+        await page.waitForFunction(()=>document.querySelector('#camera-view').matches('.focus-view.fill-view'));
+        const fill=await dimensions();item.layouts.push({viewport,fill});
+        assert.equal(await page.locator('#fill-screen').getAttribute('aria-pressed'),'true');
+        assert.ok(fill.width>=fill.viewportWidth-1&&fill.height>=fill.viewportHeight-1,JSON.stringify(fill));
+        assert.ok(fill.x<=1&&fill.y<=1&&fill.x+fill.width>=fill.viewportWidth-1&&fill.y+fill.height>=fill.viewportHeight-1,'Fill must cover all viewport edges');
+        assert.ok(Math.abs(fill.width/fill.height-fill.backingWidth/fill.backingHeight)<.01,'Fill must preserve the canvas aspect ratio');
+        assert.deepEqual([fill.backingWidth,fill.backingHeight],[original.backingWidth,original.backingHeight]);assert.ok(fill.same);assert.equal(fill.count,1);
+        await page.locator('#fill-screen').click();
+        await page.waitForFunction(()=>document.querySelector('#camera-view').matches('.focus-view:not(.fill-view)'));
+        const fit=await dimensions();item.layouts.at(-1).fit=fit;
+        assert.equal(await page.locator('#fill-screen').getAttribute('aria-pressed'),'false');
+        assert.ok(fit.width<=fit.viewportWidth+1&&fit.height<=fit.viewportHeight+1,JSON.stringify(fit));
+        assert.ok(Math.abs(fit.width/fit.height-fit.backingWidth/fit.backingHeight)<.01,'Fit must preserve the canvas aspect ratio');
+        await page.locator('#exit-screen').click();
+        await page.waitForFunction(()=>!document.querySelector('#camera-view').classList.contains('focus-view'));
+        assert.ok((await dimensions()).same,'Exit must restore the original canvas');
+      }
+      await page.locator('#full-screen').click();
+      await page.waitForFunction(()=>document.querySelector('#camera-view').classList.contains('focus-view'));
+      assert.equal(await page.locator('#fill-screen').getAttribute('aria-pressed'),'false','The original Full screen action still opens Fit');
+      assert.equal(await page.locator('#camera-view').evaluate(e=>e.classList.contains('fill-view')),false);
+      assert.equal(await page.evaluate(()=>window.__cubeProbe.cameraRequests.length),0,'Expanding the preview must not request a camera');
+    } finally {
+      if(await page.locator('#exit-screen').isVisible())await page.locator('#exit-screen').click();
+      await page.setViewportSize({width:1200,height:920});
+    }
+  });
+  await check('Manual Cube sliders, pointer and keyboard reach the full normalized image bounds',async item=>{
+    const setRange=async(id,value)=>page.locator('#'+id).evaluate((input,value)=>{input.value=String(value);input.dispatchEvent(new Event('input',{bubbles:true}));},value);
+    const coordinates=()=>page.evaluate(()=>({x:Number(document.querySelector('#cube-x').value),y:Number(document.querySelector('#cube-y').value)}));
+    try {
+      for(const id of ['cube-x','cube-y'])assert.deepEqual(await page.locator('#'+id).evaluate(input=>[input.min,input.max]),['0','100']);
+      await setRange('cube-size',15);await setRange('cube-y',50);
+      item.sliders=[];
+      for(const x of [2,98]){await setRange('cube-x',x);await page.waitForTimeout(120);const sample=await pixels();item.sliders.push({x,...sample});assert.ok(sample.blue>20,JSON.stringify(sample));assert.ok(x<50?sample.center<.2:sample.center>.8,'Slider position must reach the rendered image edge');}
+      await page.locator('#full-screen').click();await page.waitForFunction(()=>document.querySelector('#camera-view').classList.contains('focus-view'));
+      const box=await page.locator('#scene').boundingBox();assert.ok(box);
+      item.pointer=[];
+      // At the horizontal midpoint the top/bottom controls do not intercept a
+      // real drag. Pointer capture then carries it through every image edge.
+      await page.mouse.move(box.x+box.width*.5,box.y+box.height*.5);await page.mouse.down();
+      for(const [x,y] of [[.01,.01],[.99,.99]]){await page.mouse.move(box.x+box.width*x,box.y+box.height*y);const measured=await coordinates();item.pointer.push(measured);assert.ok(Math.abs(measured.x-x*100)<=1&&Math.abs(measured.y-y*100)<=1,JSON.stringify(measured));}
+      await page.mouse.up();
+      await setRange('cube-x',4);await setRange('cube-y',4);await page.locator('#scene').focus();
+      await page.keyboard.press('Shift+ArrowLeft');await page.keyboard.press('Shift+ArrowUp');assert.deepEqual(await coordinates(),{x:0,y:0});
+      await setRange('cube-x',96);await setRange('cube-y',96);
+      await page.keyboard.press('Shift+ArrowRight');await page.keyboard.press('Shift+ArrowDown');assert.deepEqual(await coordinates(),{x:100,y:100});
+      item.keyboard={minimum:{x:0,y:0},maximum:await coordinates()};
+    } finally {
+      await page.mouse.up();if(await page.locator('#exit-screen').isVisible())await page.locator('#exit-screen').click();
+      await setRange('cube-size',38);await setRange('cube-x',50);await setRange('cube-y',50);
+    }
+  });
+  await check('In-view camera Start, Cancel and Stop reset to Start on reopening',async item=>{
+    const labels=[];item.labels=labels;
+    try {
+      await page.evaluate(()=>{window.__cubeProbe.deferCamera=true;});
+      await page.locator('#cube-immersive').click();assert.equal(await page.locator('#screen-camera').innerText(),'Start camera');labels.push('Start camera');
+      await page.locator('#screen-camera').click();
+      await page.waitForFunction(()=>typeof window.__cubeProbe.releaseCamera==='function'&&document.querySelector('#screen-camera').textContent==='Cancel camera');labels.push('Cancel camera');
+      await page.locator('#screen-camera').click();
+      await page.waitForFunction(()=>!document.querySelector('#camera-view').classList.contains('focus-view'));
+      await page.evaluate(()=>{window.__cubeProbe.deferCamera=false;window.__cubeProbe.releaseCamera();});
+      await page.waitForFunction(()=>window.__cubeProbe.streams.length>0&&window.__cubeProbe.streams.every(s=>s.getTracks().every(t=>t.readyState==='ended')));
+      assert.equal(await page.locator('#start-camera').isEnabled(),true);
+      await page.locator('#cube-immersive').click();assert.equal(await page.locator('#screen-camera').innerText(),'Start camera');labels.push('Start camera');
+      await page.locator('#screen-camera').click();
+      await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('Camera on')&&document.querySelector('#screen-camera').textContent==='Stop camera');labels.push('Stop camera');
+      assert.equal(await page.locator('#camera-view').evaluate(e=>e.matches('.focus-view.fill-view')),true,'Starting in view must keep immersive mode open');
+      await page.locator('#screen-camera').click();
+      await page.waitForFunction(()=>!document.querySelector('#camera-view').classList.contains('focus-view'));
+      assert.equal(await page.locator('#start-camera').isEnabled(),true);
+      assert.equal(await page.evaluate(()=>window.__cubeProbe.streams.every(s=>s.getTracks().every(t=>t.readyState==='ended'))),true);
+      assert.equal(await page.evaluate(()=>window.__cubeProbe.workers.every(w=>w.terminated)),true);
+      await page.locator('#cube-immersive').click();assert.equal(await page.locator('#screen-camera').innerText(),'Start camera');labels.push('Start camera');
+    } finally {
+      await page.evaluate(()=>{window.__cubeProbe.deferCamera=false;window.__cubeProbe.releaseCamera?.();});
+      if(await page.locator('#exit-screen').isVisible())await page.locator('#exit-screen').click();
+      if(await page.locator('#stop-camera').isVisible())await page.locator('#stop-camera').click();
+    }
+  });
   await page.locator('#start-camera').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('Camera on'));await page.locator('#cube-manual').check();await page.waitForTimeout(200);
   await check('Transparent blue fill and white wireframe composite over the camera',async item=>{item.pixels=await pixels();assert.ok(item.pixels.blue>1000,JSON.stringify(item.pixels));assert.ok(item.pixels.white>30);assert.ok(item.pixels.corner.slice(0,3).every(v=>Math.abs(v-112)<8),JSON.stringify(item.pixels.corner));});
   await check('Actual downloaded saved clip decodes camera, blue fill and wireframe in two frames',async item=>{

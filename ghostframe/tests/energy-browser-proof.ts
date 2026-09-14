@@ -111,3 +111,18 @@ record.onclick = async () => {
 };
 window.addEventListener('pagehide',()=>{running=false;stream?.getTracks().forEach(track=>track.stop());renderer.dispose();if(objectUrl)URL.revokeObjectURL(objectUrl);});
 draw();
+// Manual visual checks are separate from automated pixel assertions.
+const visualControls=document.createElement('div');
+for(const bright of [true,false]) {
+  const button=document.createElement('button');button.textContent=bright?'View bright-room comparison':'View dark-room comparison';
+  button.onclick=()=>{
+    canvas.width=640;canvas.height=360;background(bright);
+    renderer.draw(ctx,{x:.25,y:.5,size:.55},0,4000,false);
+    renderer.draw(ctx,{x:.75,y:.5,size:.55},0,4000,false,{strength:.6,spread:.8,phase:4});
+    ctx.fillStyle=bright?'#17212f':'#e7f3ff';ctx.font='15px system-ui';
+    ctx.fillText('Classic',110,320);ctx.fillText('Repaired Living Core',406,320);
+    status.textContent='Side-by-side visual review; same renderer, size and background. Not a camera test.';
+  };
+  visualControls.append(button);
+}
+canvas.parentElement!.before(visualControls);
