@@ -1,7 +1,10 @@
 import Foundation
 
 public enum ControlMode: Equatable { case pointerOnly, clickAndDrag }
-public enum ControlState: Equatable { case off, countdown, waitingForHand, active, recoveringHand, recoveringPinch }
+public enum ControlState: Equatable {
+    case off, countdown, waitingForHand, active, recoveringHand, recoveringPinch
+    case reacquiringHand, standby
+}
 public enum PointerAction: Equatable {
     case move(Point2D, dragging: Bool)
     case down(Point2D)
@@ -23,14 +26,24 @@ public final class ControlGate {
     private var recoveryDeadline = 0.0
     private var recoveryReadyAfter = 0.0
     private var recoveryOpenSince: Double?
+    public private(set) var recoveryEnabled = false
+    private var supervisedRecovery: SupervisedRecovery?
+    private var lastPose: RecoveryPose?
+    private var mappingOffset = Point2D(x: 0, y: 0)
+    private var needsOpenAfterResume = false
 
     public init() {}
 
     /// The UI must stop the previous session before requesting a new one.
     @discardableResult
-    public func arm(now: Double, mode: ControlMode, authorized: Bool) -> Bool {
+    public func arm(now: Double, mode: ControlMode, authorized: Bool, recoveryEnabled: Bool = false) -> Bool {
         guard state == .off, now.isFinite, now >= 0, authorized else { return false }
         self.mode = mode
+        self.recoveryEnabled = recoveryEnabled
+        supervisedRecovery = nil
+        lastPose = nil
+        mappingOffset = Point2D(x: 0, y: 0)
+        needsOpenAfterResume = false
         state = .countdown
         deadline = now + 3
         waitingDeadline = deadline + 12
@@ -51,6 +64,11 @@ public final class ControlGate {
         recoveryDeadline = 0
         recoveryReadyAfter = 0
         recoveryOpenSince = nil
+        supervisedRecovery = nil
+        recoveryEnabled = false
+        lastPose = nil
+        mappingOffset = Point2D(x: 0, y: 0)
+        needsOpenAfterResume = false
         reason = message
         return release
     }
@@ -60,6 +78,10 @@ public final class ControlGate {
         guard now.isFinite, authorized else { return stop("Control stopped: permission or emergency monitor unavailable.") }
         guard now >= lastClock, now - lastReceive <= 0.65 else { return stop("Control stopped: camera frames became stale.") }
         lastClock = now
+        if let recovery = supervisedRecovery {
+            guard now < recovery.expiresAt else { return stop("Practice recovery expired. Start again explicitly.") }
+            advanceSupervisedRecovery(now: now)
+        }
         if (state == .recoveringHand || state == .recoveringPinch), now >= recoveryDeadline {
             return stop("Control paused: hand recovery timed out. Start again when ready.")
         }
@@ -76,9 +98,13 @@ public final class ControlGate {
     /// Only for a fresh, successful camera inference with a missing/uncertain hand.
     /// Camera failures, stale deliveries and inference errors must use stop instead.
     /// The caller resets GestureEngine for every missing observation.
-    public func noHand(capturedAt: Double, now: Double, authorized: Bool) -> [PointerAction] {
+    public func noHand(capturedAt: Double, now: Double, authorized: Bool,
+                       reason loss: RecoverableTrackingLoss = .handMissing) -> [PointerAction] {
         guard state != .off else { return [] }
         if let failure = recordFrame(capturedAt: capturedAt, now: now, authorized: authorized) { return stop(failure) }
+        if recoveryEnabled, state == .active || supervisedRecovery != nil {
+            return suspendForLoss(loss, capturedAt: capturedAt, now: now)
+        }
         if state == .recoveringPinch {
             return stop("Control paused: hand lost. Start Mac control again when ready.")
         }
@@ -111,7 +137,9 @@ public final class ControlGate {
         guard frame.timestamp == capturedAt, frame.isReliable else {
             return stop("Control paused: partial hand data is invalid. Start again when ready.")
         }
-        if mode == .pointerOnly { return noHand(capturedAt: capturedAt, now: now, authorized: authorized) }
+        if recoveryEnabled || mode == .pointerOnly {
+            return noHand(capturedAt: capturedAt, now: now, authorized: authorized, reason: .thumbOccluded)
+        }
         if let failure = recordFrame(capturedAt: capturedAt, now: now, authorized: authorized) { return stop(failure) }
         guard !buttonHeld else {
             return stop("Control paused: pinch tracking is uncertain. Start again when ready.")
@@ -134,7 +162,44 @@ public final class ControlGate {
     public func accept(_ output: GestureOutput, capturedAt: Double, now: Double, authorized: Bool) -> [PointerAction] {
         guard state != .off else { return [] }
         if let failure = recordFrame(capturedAt: capturedAt, now: now, authorized: authorized) { return stop(failure) }
+        if let loss = output.recoverableLoss {
+            guard output.point == nil, !output.ready,
+                  output.phase == .cancel || output.phase == .warming else {
+                return stop("Control stopped: invalid tracking-loss output.")
+            }
+            if recoveryEnabled, state == .active || supervisedRecovery != nil {
+                return suspendForLoss(loss, capturedAt: capturedAt, now: now)
+            }
+        }
         if output.phase == .cancel { return stop("Control paused: hand tracking changed. Start again when ready.") }
+        if supervisedRecovery != nil {
+            // Fresh absence/partial detection has its own typed route. An
+            // untyped nil-point warming result can be a malformed frame after
+            // the gesture engine was cleared; it must not masquerade as absence.
+            // Missing candidate metadata cannot earn a dwell; malformed provided
+            // geometry is a hard fault even when recognition is not ready yet.
+            guard output.point.map(valid) == true,
+                  output.wrist.map(valid) ?? true,
+                  output.palmScale.map({ $0.isFinite && (0.025...10).contains($0) }) ?? true else {
+                return stop("Control stopped: untyped invalid recovery observation.")
+            }
+            guard !output.ready || (output.phase != .warming && output.point.map(valid) == true) else {
+                return stop("Control stopped: invalid recovery observation.")
+            }
+            advanceSupervisedRecovery(now: now)
+            if supervisedRecovery?.observe(output, capturedAt: capturedAt, now: now) == true,
+               let pose = RecoveryPose(output) {
+                // Re-anchor without emitting even a pointer-move on this frame.
+                // The offset remains until the next explicit start/hard stop.
+                mappingOffset = Point2D(x: lastPoint.x - pose.point.x, y: lastPoint.y - pose.point.y)
+                lastPose = pose
+                supervisedRecovery = nil
+                state = .active
+                needsOpenAfterResume = true
+                reason = "LIVE · recovered with no grab. Keep fingers open, then make a new pinch."
+            }
+            return []
+        }
         if state == .recoveringHand || state == .recoveringPinch {
             let expectedMode: ControlMode = state == .recoveringHand ? .pointerOnly : .clickAndDrag
             guard mode == expectedMode, !buttonHeld else { return stop("Control stopped: invalid recovery mode.") }
@@ -180,9 +245,15 @@ public final class ControlGate {
             state = .active
             reason = mode == .pointerOnly ? "LIVE · pointer only. Pinching cannot click." : "LIVE · clicks and dragging enabled."
         }
-        guard output.ready, let point = output.point, valid(point) else {
+        guard output.ready, let rawPoint = output.point, valid(rawPoint) else {
             return stop("Control stopped: no reliable pointer.")
         }
+        let point = mapped(rawPoint)
+        if needsOpenAfterResume {
+            guard output.isOpenHand, output.phase == .move else { return [] }
+            needsOpenAfterResume = false
+        }
+        if recoveryEnabled { lastPose = RecoveryPose(output) }
         lastPoint = point
         if mode == .pointerOnly { return [.move(point, dragging: false)] }
         switch output.phase {
@@ -208,15 +279,53 @@ public final class ControlGate {
         point.x.isFinite && point.y.isFinite && (0...1).contains(point.x) && (0...1).contains(point.y)
     }
 
+    /// Remaining fixed absence lease; nil means not currently reacquiring.
+    public func recoveryRemainingSeconds(now: Double) -> Double? {
+        guard let recovery = supervisedRecovery, now.isFinite, now >= recovery.lostAt else { return nil }
+        return max(0, recovery.expiresAt - now)
+    }
+
+    private func mapped(_ point: Point2D) -> Point2D {
+        Point2D(x: min(1, max(0, point.x + mappingOffset.x)),
+                y: min(1, max(0, point.y + mappingOffset.y)))
+    }
+
+    private func suspendForLoss(_ loss: RecoverableTrackingLoss, capturedAt: Double, now: Double) -> [PointerAction] {
+        let release: [PointerAction] = buttonHeld ? [.up(lastPoint)] : []
+        buttonHeld = false
+        needsOpenAfterResume = false
+        if supervisedRecovery == nil {
+            supervisedRecovery = SupervisedRecovery(lostAt: capturedAt, priorPose: lastPose)
+        }
+        supervisedRecovery?.resetDwell()
+        advanceSupervisedRecovery(now: now)
+        if loss == .multipleHands {
+            reason = "Practice waiting: multiple hands. Show one hand with fingers open."
+        }
+        return release
+    }
+
+    private func advanceSupervisedRecovery(now: Double) {
+        supervisedRecovery?.advance(now: now)
+        guard let recovery = supervisedRecovery else { return }
+        state = recovery.isStandby ? .standby : .reacquiringHand
+        reason = recovery.isStandby
+            ? "Practice standby: hold all fingers open for one second. Camera stays on; no input."
+            : "Practice recovery: hold fingers open near the last position. Pointer frozen."
+    }
+
     /// Shared freshness/high-water checks for detected and missing observations.
     /// Deadline and recovery liveness checks happen before updating clocks, so a
     /// late returning frame cannot bypass expiry before the next watchdog tick.
     private func recordFrame(capturedAt: Double, now: Double, authorized: Bool) -> String? {
         guard authorized, now.isFinite, now >= lastClock, capturedAt.isFinite, capturedAt >= 0,
-              capturedAt <= now, now - capturedAt <= 0.25, capturedAt > lastTimestamp else {
+              capturedAt <= now, now - capturedAt <= (recoveryEnabled ? 0.2 : 0.25), capturedAt > lastTimestamp else {
             return "Control stopped: stale frame or permission changed."
         }
         guard now - lastReceive <= 0.65 else { return "Control stopped: camera frames became stale." }
+        if let recovery = supervisedRecovery, now >= recovery.expiresAt {
+            return "Practice recovery expired. Start again explicitly."
+        }
         if state == .recoveringHand || state == .recoveringPinch {
             guard now < recoveryDeadline else { return "Control paused: hand recovery timed out. Start again when ready." }
         }
