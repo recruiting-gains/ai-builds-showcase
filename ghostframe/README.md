@@ -2,6 +2,10 @@
 
 Disappear into the room. Hold another world in your hands.
 
+## Energy Core branch preview
+
+This branch adds **Cube → Light style → Living Energy Core**: three contained light currents, coherent motes, spreading layers, and a brief movement-responsive surge. **Classic Cube** retains the original appearance. This is a local prototype, not a claim that the public link below includes it. Real-phone camera, tracking, recording and performance checks remain required before release. [Implementation and evidence](docs/ENERGY-CORE.md).
+
 A browser camera playground with three independent effects: **Invisible**, which blends a captured empty background into your silhouette, and **HandFrame**, which follows the opening formed by both thumbs and index fingers, with a floating picture that can stretch in perspective; and **Cube**, a blue 3D cube with white wireframe, moved and resized with two hands. An original implementation inspired by a supplied visual demonstration.
 
 HandFrame’s Color worlds now use a straight four-corner panel by default. Your thumbs and index fingers move, stretch and tilt it; bent finger joints no longer notch the edges. Bring both palms together and reopen to change worlds. The original **Follow finger contour** option remains available. [Straight panel repair](docs/STRAIGHT-PANEL.md). Its phone studio also offers front/back camera selection and two local picture slots: open your hands to reveal a picture, then close and reopen to switch. [Phone tracking repair](docs/PHONE-TRACKING-STABILITY.md) · [Phone studio guide](docs/PHONE-STUDIO.md) · [Clear pictures and one-hand reveal](docs/PHOTO-VISIBILITY.md). Its camera keeps its natural portrait or landscape proportions, with the tools underneath. Invisible uses continuous open-palm → close-to-hide → open-to-return control. [World cycling and wider view](docs/WORLD-CYCLE-WIDE-VIEW.md) · [Verification and limits](docs/VERIFICATION.md).

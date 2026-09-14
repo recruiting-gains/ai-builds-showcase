@@ -1,7 +1,8 @@
 import {
   BoxGeometry, BufferGeometry, Color, DoubleSide, Float32BufferAttribute, Group,
-  Matrix4, Mesh, OrthographicCamera, Points, Scene, ShaderMaterial, WebGLRenderer,
+  Matrix4, Mesh, OrthographicCamera, PlaneGeometry, Points, Scene, ShaderMaterial, WebGLRenderer,
 } from 'three';
+import type { EnergyState } from './energy';
 
 const MAX_RENDER_EDGE = 768;
 const PARTICLE_COUNT = 192;
@@ -65,6 +66,10 @@ const cageFragmentShader = `
 const particleVertexShader = `
   uniform float uTime;
   uniform float uPointScale;
+  uniform float uLiving;
+  uniform float uPhase;
+  uniform float uEnergy;
+  uniform float uSpread;
   attribute float aSeed;
   varying float vLight;
   void main() {
@@ -72,9 +77,59 @@ const particleVertexShader = `
     // A bounded, slow flow of the existing points; no CPU simulation or respawns.
     p += 0.009 * vec3(sin(p.y * 9.0 + uTime * 0.32),
       sin(p.z * 9.0 + uTime * 0.27), sin(p.x * 9.0 - uTime * 0.24));
+    if (uLiving > 0.5) {
+      float lane = floor(aSeed * 3.0) - 1.0;
+      float t = fract(aSeed * 17.13 + uPhase / 6.28318530718);
+      float a = t * 6.28318 + lane * 0.8;
+      p = vec3((t - 0.5) * 0.84,
+        lane * (0.10 + uSpread * 0.07) + sin(a) * 0.065,
+        cos(a + lane) * 0.19);
+    }
     vLight = 0.48 + 0.28 * sin(aSeed * 6.28318 + uTime * 0.44);
+    if (uLiving > 0.5) {
+      float t = fract(aSeed * 17.13 + uPhase / 6.28318530718);
+      vLight = (0.34 + aSeed * 0.32 + uEnergy * 0.2)
+        * smoothstep(0.0, 0.08, t) * smoothstep(0.0, 0.08, 1.0 - t);
+    }
     gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
     gl_PointSize = (1.5 + aSeed * 1.8) * uPointScale;
+  }
+`;
+
+// Three finite curved strips inside the shell: real parallax, no scene-wide
+// bloom, screen feedback buffers, camera sampling or per-frame geometry writes.
+const flowVertexShader = `
+  uniform float uPhase;
+  uniform float uLane;
+  uniform float uSpread;
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    float angle = uv.x * 6.28318 + uPhase + uLane * 0.8;
+    vec3 p = vec3(position.x * 0.84,
+      uLane * (0.10 + uSpread * 0.07) + sin(angle) * 0.065 + position.y * 0.085,
+      cos(angle + uLane) * 0.19);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  }
+`;
+const flowFragmentShader = `
+  uniform vec3 uAccent;
+  uniform float uEnergy;
+  uniform float uPhase;
+  varying vec2 vUv;
+  void main() {
+    float d = abs(vUv.y - 0.5);
+    float line = exp(-d * d * 300.0);
+    float halo = exp(-d * d * 22.0) * 0.26;
+    float filaments = exp(-pow(abs(d - 0.19) * 95.0, 2.0)) * 0.24;
+    float taper = smoothstep(0.0, 0.10, vUv.x) * smoothstep(0.0, 0.10, 1.0 - vUv.x);
+    float pulse = pow(0.5 + 0.5 * sin(vUv.x * 10.0 - uPhase * 2.0), 5.0);
+    float alpha = (line * 0.76 + halo + filaments) * taper * (0.65 + uEnergy * 0.35);
+    if (alpha < 0.004) discard;
+    vec3 color = mix(uAccent, vec3(0.7, 0.98, 1.0), line * 0.65);
+    color = mix(color, vec3(1.0, 0.72, 0.3), pulse * line * uEnergy * 0.18);
+    gl_FragColor = vec4(color, alpha);
+    #include <colorspace_fragment>
   }
 `;
 
@@ -116,6 +171,13 @@ export class CubeRenderer {
   private readonly rotation = new Matrix4();
   private readonly box = new BoxGeometry(1, 1, 1);
   private readonly particles = particleGeometry();
+  private readonly flowGeometry = new PlaneGeometry(1, 1, 48, 4);
+  private readonly flow = new Group();
+  private readonly flowMaterials: ShaderMaterial[] = [];
+  private readonly living = { value: 0 };
+  private readonly energy = { value: 0 };
+  private readonly phase = { value: 0 };
+  private readonly spread = { value: 0 };
   private readonly accent = { value: new Color(0.035, 0.42, 1) };
   private readonly time = { value: 0 };
   private readonly fill = new ShaderMaterial({
@@ -138,7 +200,8 @@ export class CubeRenderer {
     depthWrite: false, side: DoubleSide, forceSinglePass: true,
   });
   private readonly particleMaterial = new ShaderMaterial({
-    uniforms: { uAccent: this.accent, uTime: this.time, uPointScale: { value: 1 } },
+    uniforms: { uAccent: this.accent, uTime: this.time, uPointScale: { value: 1 },
+      uLiving: this.living, uEnergy: this.energy, uPhase: this.phase, uSpread: this.spread },
     vertexShader: particleVertexShader, fragmentShader: particleFragmentShader,
     transparent: true, depthWrite: false,
   });
@@ -180,7 +243,19 @@ export class CubeRenderer {
       motes.renderOrder = 1;
       innerCage.renderOrder = 2;
       outerCage.renderOrder = 3;
-      this.group.add(core, motes, innerCage, outerCage);
+      for (const lane of [-1, 0, 1]) {
+        const material = new ShaderMaterial({
+          uniforms: { uAccent: this.accent, uEnergy: this.energy, uPhase: this.phase,
+            uSpread: this.spread, uLane: { value: lane } },
+          vertexShader: flowVertexShader, fragmentShader: flowFragmentShader,
+          transparent: true, depthWrite: false, side: DoubleSide, forceSinglePass: true,
+        });
+        this.flowMaterials.push(material);
+        const ribbon = new Mesh(this.flowGeometry, material);
+        ribbon.renderOrder = 1;
+        this.flow.add(ribbon);
+      }
+      this.group.add(core, motes, this.flow, innerCage, outerCage);
       this.scene.add(this.group);
       this.renderer.compile(this.scene, this.camera);
       if (this.shaderFailed) this.unavailable('Cube graphics could not start. Try another mode.');
@@ -196,6 +271,7 @@ export class CubeRenderer {
     preset: number,
     now: number,
     reducedMotion = false,
+    energyState?: EnergyState,
   ): boolean {
     const renderer = this.renderer;
     if (this.disposed || this.failed || !renderer || !this.canvas) return false;
@@ -230,6 +306,14 @@ export class CubeRenderer {
       }
       const time = reducedMotion || !Number.isFinite(now) ? 0 : now / 1000;
       this.time.value = time;
+      this.living.value = energyState ? 1 : 0;
+      this.accent.value.setRGB(selectedPreset ? 0.55 : 0.035,
+        selectedPreset ? 0.08 : energyState ? 0.78 : 0.42, 1);
+      this.flow.visible = !!energyState;
+      this.energy.value = reducedMotion ? 0 : energyState?.strength ?? 0;
+      this.phase.value = reducedMotion ? 0 : energyState?.phase ?? 0;
+      this.spread.value = energyState?.spread ?? 0;
+      this.innerOutline.uniforms.uOpacity.value = energyState ? 0.36 + this.energy.value * 0.16 : 0.24;
       const shortest = Math.min(width, height);
       this.group.position.set(
         (Math.min(1, Math.max(0, pose.x)) - 0.5) * width / shortest,
@@ -288,6 +372,8 @@ export class CubeRenderer {
     this.canvas?.removeEventListener('webglcontextlost', this.contextLost);
     this.box.dispose();
     this.particles.dispose();
+    this.flowGeometry.dispose();
+    for (const material of this.flowMaterials) material.dispose();
     this.fill.dispose();
     this.outline.dispose();
     this.innerOutline.dispose();

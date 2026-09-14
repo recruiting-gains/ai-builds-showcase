@@ -150,6 +150,11 @@ export class CubeController {
     return unchanged;
   }
 
+  /** Fresh accepted input only. Held visual poses must not drive motion effects. */
+  measurementAt(timestamp: number): CubePose | null {
+    return this.previous && this.validAt === timestamp && this.pose ? { ...this.pose } : null;
+  }
+
   poseAt(now: number): CubePose | null {
     if (!Number.isFinite(now) || now < this.paintTimestamp) {
       this.clearTracking();
