@@ -4,7 +4,9 @@ Disappear into the room. Hold another world in your hands.
 
 ## Energy Core phone-testing preview
 
-The live app now includes **Cube → Light style → Living Energy Core · preview**: three contained light currents, coherent motes, spreading layers, and a brief movement-responsive surge. **Classic Cube** retains the original appearance. Published September 14, 2026 as a reversible preview for phone testing; real iPhone camera, tracking, recording, saving and sustained performance remain unverified. [Implementation and evidence](docs/ENERGY-CORE.md).
+The app includes **Cube → Light style → Living Energy Core · preview**: a tinted glass-like volume, three brighter contained light currents, coherent motes, spreading layers, and a brief movement-responsive surge. **Classic Cube** retains the original white-cage appearance. This is a reversible preview for phone testing; physical iPhone performance and native saving require device verification. [Implementation and evidence](docs/ENERGY-CORE.md).
+
+**Cube → Open edge-to-edge studio** removes the surrounding page and fills the browser viewport with the existing camera canvas. Start or stop the camera from the floating controls; tap the picture to reveal them. **Fit whole view** preserves every camera edge, while Fill crops proportionally to the screen. Neither stretches the camera or changes the full-image recording. Manual dragging, arrow keys and position sliders now cover the complete image bounds, not just the central 80%. Your hands can already be tracked throughout the camera image; full screen does not widen the physical lens. This in-page mode works without requesting native fullscreen. The original **Full screen** button remains fitted by default.
 
 A browser camera playground with three independent effects: **Invisible**, which blends a captured empty background into your silhouette, and **HandFrame**, which follows the opening formed by both thumbs and index fingers, with a floating picture that can stretch in perspective; and **Cube**, a blue 3D cube with white wireframe, moved and resized with two hands. An original implementation inspired by a supplied visual demonstration.
 

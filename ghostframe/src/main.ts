@@ -100,14 +100,16 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
       <section id="cube-controls" aria-label="Cube controls" hidden>
         <div class="section-label"><span>03 / HOLD A NEW DIMENSION</span><span>ON YOUR DEVICE</span></div>
         <p class="cube-intro">Shape the light. Hold it in your hand.</p>
+        <button id="cube-immersive" class="primary full">Open edge-to-edge studio ⛶</button>
+        <p class="hint">Use the whole screen. Drag anywhere in manual mode, or move your hands throughout the camera view. Fill crops the view to your screen; Fit keeps the complete camera image. Recordings keep the complete image.</p>
         <label class="select-row" for="cube-light-style">Light style</label><select id="cube-light-style"><option value="energy">Living Energy Core · preview</option><option value="classic">Classic Cube</option></select>
         <p class="hint">Energy Core: spread to open the light layers, move to energize, hold still to settle. Classic keeps the original look.</p>
         <p class="hint">Show two hands and spread them apart to grow the cube. Move one hand out of view to hold that size, then move your remaining hand to carry it. Bring both hands back to resize.</p>
         <p id="cube-status" class="hint" role="status">Explore the cube preview, or start your camera.</p>
         <label class="switch-row"><span>Move it myself<small>Drag the cube or use arrow keys and the sliders.</small></span><input id="cube-manual" type="checkbox" checked></label>
         <label class="select-row" for="cube-size">Cube size</label><input id="cube-size" type="range" min="15" max="65" value="38">
-        <label class="select-row" for="cube-x">Left / right</label><input id="cube-x" type="range" min="10" max="90" value="50">
-        <label class="select-row" for="cube-y">Up / down</label><input id="cube-y" type="range" min="10" max="90" value="50">
+        <label class="select-row" for="cube-x">Left / right</label><input id="cube-x" type="range" min="0" max="100" value="50">
+        <label class="select-row" for="cube-y">Up / down</label><input id="cube-y" type="range" min="0" max="100" value="50">
         <button id="cube-preset" class="secondary full">Appearance: Blue ↗</button>
         <button id="cube-retry" class="secondary full" hidden>Retry cube graphics once ↻</button>
         <p class="hint">Briefly pinch your thumb and index finger, then release to change the glow. If both hands leave the camera, show two hands to start again. Record a silent clip, then save it when you choose.</p>
@@ -287,6 +289,8 @@ const pipeline=new CameraPipeline(result=>{
   if(active){cameraFacing=pipeline.facing;$<HTMLSelectElement>('#camera-facing').value=cameraFacing;}
   $('#stop-camera').hidden=!active&&!pending;
   $<HTMLButtonElement>('#start-camera').disabled=active||pending;
+  const cameraControl=document.querySelector<HTMLButtonElement>('#screen-camera');
+  if(cameraControl)cameraControl.textContent=active?'Stop camera':pending?'Cancel camera':'Start camera';
   $<HTMLButtonElement>('#capture-background').disabled=pending;
   $<HTMLButtonElement>('#capture-still').disabled=pending;
   if(active){manual=false;$<HTMLInputElement>('#manual').checked=false;$('#background-state').textContent='NOT CAPTURED';}
@@ -320,7 +324,20 @@ function syncManualControls(){const disabled=live&&!manual;for(const id of ['#fr
 function centerDepth(){perspective.recenter();pose=null;manualDepth=manualRoll=0;$<HTMLInputElement>('#frame-depth').value='0';$<HTMLInputElement>('#frame-roll').value='0';$('#frame-depth-value').textContent='Centered';$('#frame-roll-value').textContent='0°';}
 function resetCalibration(){if(calibration)clearInterval(calibration);calibration=null;$('#countdown').hidden=true;}
 function clearStill(){renderGeneration++;renderAbort?.abort();renderAbort=null;prepared=null;generated?.close();generated=null;generatedStyle=null;textureSource=null;textureKey='';if(generatedURL)URL.revokeObjectURL(generatedURL);generatedURL=null;$('#still-panel').hidden=true;$<HTMLImageElement>('#still-preview').removeAttribute('src');setStyle(style);}
-function stopCamera(message='Camera off. The simulated preview is ready.'){cubeEnabled=false;cubeManual=true;disposeCube();syncCubeControls();recording?.stop();if(focusView?.active)void focusView.exit();pipeline.stop();resetPerspective();live=false;recording?.refresh();hands=[];mask=null;personMask=null;lastMaskAt=0;background=null;frame=null;lastGoodFrame=null;lastVision=0;targetFade=fade=0;manual=true;$<HTMLInputElement>('#manual').checked=true;resetCalibration();clearStill();palm.reset();pinch.reset();$('#stop-camera').hidden=true;$<HTMLButtonElement>('#start-camera').disabled=false;$<HTMLSelectElement>('#camera-facing').disabled=false;$<HTMLButtonElement>('#capture-background').disabled=false;$<HTMLButtonElement>('#capture-still').disabled=false;$('#background-state').textContent='PREVIEW READY';setFade(0);syncManualControls();status(message);}
+function stopCamera(message='Camera off. The simulated preview is ready.'){
+  cubeEnabled=false;cubeManual=true;disposeCube();syncCubeControls();recording?.stop();
+  if(focusView?.active)void focusView.exit();
+  pipeline.stop();resetPerspective();live=false;recording?.refresh();
+  hands=[];mask=null;personMask=null;lastMaskAt=0;background=null;frame=null;lastGoodFrame=null;lastVision=0;
+  targetFade=fade=0;manual=true;$<HTMLInputElement>('#manual').checked=true;
+  resetCalibration();clearStill();palm.reset();pinch.reset();
+  $('#stop-camera').hidden=true;$<HTMLButtonElement>('#start-camera').disabled=false;
+  const cameraControl=document.querySelector<HTMLButtonElement>('#screen-camera');
+  if(cameraControl)cameraControl.textContent='Start camera';
+  $<HTMLSelectElement>('#camera-facing').disabled=false;$<HTMLButtonElement>('#capture-background').disabled=false;
+  $<HTMLButtonElement>('#capture-still').disabled=false;$('#background-state').textContent='PREVIEW READY';
+  setFade(0);syncManualControls();status(message);
+}
 function setFade(value:number){if(live&&!background&&value>0){status('Capture the empty background before disappearing.');return;}targetFade=value/100;$<HTMLInputElement>('#fade').value=String(value);$('#fade-value').textContent=`${Math.round(value)}%`;document.querySelectorAll<HTMLButtonElement>('[data-fade]').forEach(b=>{b.classList.toggle('active',Number(b.dataset.fade)===value);b.setAttribute('aria-pressed',String(Number(b.dataset.fade)===value));});}
 function nextWorld(){const list=WORLDS.map(world=>world.id);setStyle(list[(list.indexOf(style)+1)%list.length]);}
 function nextContent(){if(contentMode==='photos'){photos.next();syncPhotos();}else nextWorld();}
@@ -406,6 +423,15 @@ recording=installRecording(scene,$('#recording-dock'),()=>live);
 $('#camera-only').addEventListener('click',()=>{cameraOnly=!cameraOnly;resetPerspective();resetCubeInput();$('#camera-only').setAttribute('aria-pressed',String(cameraOnly));$('#camera-only').textContent=cameraOnly?'Show effects':'Just camera';});
 $('#start-camera').addEventListener('click',()=>{stopCamera('Starting camera…');$('#stop-camera').hidden=false;void pipeline.start(cameraFacing);});
 $('#stop-camera').addEventListener('click',()=>stopCamera());
+// Expand the existing canvas, never a second stream. Starting the camera stays
+// an explicit action, including after the tab was hidden or permission failed.
+$('#cube-immersive').addEventListener('click',()=>focusView?.enter(true,false));
+const screenCamera=document.createElement('button');screenCamera.id='screen-camera';
+screenCamera.textContent='Start camera';$('.screen-actions').prepend(screenCamera);
+screenCamera.addEventListener('click',()=>{
+  if(live||$<HTMLButtonElement>('#start-camera').disabled){stopCamera();return;}
+  $('#stop-camera').hidden=false;void pipeline.start(cameraFacing);
+});
 $<HTMLSelectElement>('#camera-facing').addEventListener('change',()=>{const wasLive=live;cameraFacing=$<HTMLSelectElement>('#camera-facing').value as 'user'|'environment';stopCamera(wasLive?'Switching camera…':`${cameraFacing==='user'?'Front':'Back'} camera selected. Tap Start your camera.`);syncPhotos();if(wasLive)void pipeline.start(cameraFacing);});
 document.querySelectorAll<HTMLButtonElement>('[data-source]').forEach(button=>button.addEventListener('click',()=>setContent(button.dataset.source as 'filters'|'photos')));
 for(let index=0;index<2;index++){
@@ -469,10 +495,10 @@ let dragging=false;
 scene.addEventListener('pointerdown',e=>{if(live&&(mode==='cube'?!cubeManual:!manual))return;dragging=true;scene.setPointerCapture(e.pointerId);moveFrame(e);});
 scene.addEventListener('pointermove',e=>{if(dragging)moveFrame(e);});scene.addEventListener('pointerup',()=>dragging=false);scene.addEventListener('pointercancel',()=>dragging=false);
 function moveFrame(e:PointerEvent){const r=scene.getBoundingClientRect();
-  if(mode==='cube'){manualCube.x=Math.max(.1,Math.min(.9,(e.clientX-r.left)/r.width));manualCube.y=Math.max(.1,Math.min(.9,(e.clientY-r.top)/r.height));
+  if(mode==='cube'){manualCube.x=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));manualCube.y=Math.max(0,Math.min(1,(e.clientY-r.top)/r.height));
     $<HTMLInputElement>('#cube-x').value=String(manualCube.x*100);$<HTMLInputElement>('#cube-y').value=String(manualCube.y*100);return;}
 manualFrame.x=Math.max(.01,Math.min(.99-manualFrame.width,(e.clientX-r.left)/r.width-manualFrame.width/2));manualFrame.y=Math.max(.01,Math.min(.99-manualFrame.height,(e.clientY-r.top)/r.height-manualFrame.height/2));}
-scene.tabIndex=0;scene.addEventListener('keydown',e=>{if(live&&(mode==='cube'?!cubeManual:!manual))return;const amount=e.shiftKey?.05:.02;const d:Record<string,[number,number]>={ArrowLeft:[-amount,0],ArrowRight:[amount,0],ArrowUp:[0,-amount],ArrowDown:[0,amount]};if(d[e.key]){e.preventDefault();if(mode==='cube'){manualCube.x=Math.max(.1,Math.min(.9,manualCube.x+d[e.key][0]));manualCube.y=Math.max(.1,Math.min(.9,manualCube.y+d[e.key][1]));$<HTMLInputElement>('#cube-x').value=String(manualCube.x*100);$<HTMLInputElement>('#cube-y').value=String(manualCube.y*100);return;}manualFrame.x=Math.max(.01,Math.min(.99-manualFrame.width,manualFrame.x+d[e.key][0]));manualFrame.y=Math.max(.01,Math.min(.99-manualFrame.height,manualFrame.y+d[e.key][1]));}});
+scene.tabIndex=0;scene.addEventListener('keydown',e=>{if(live&&(mode==='cube'?!cubeManual:!manual))return;const amount=e.shiftKey?.05:.02;const d:Record<string,[number,number]>={ArrowLeft:[-amount,0],ArrowRight:[amount,0],ArrowUp:[0,-amount],ArrowDown:[0,amount]};if(d[e.key]){e.preventDefault();if(mode==='cube'){manualCube.x=Math.max(0,Math.min(1,manualCube.x+d[e.key][0]));manualCube.y=Math.max(0,Math.min(1,manualCube.y+d[e.key][1]));$<HTMLInputElement>('#cube-x').value=String(manualCube.x*100);$<HTMLInputElement>('#cube-y').value=String(manualCube.y*100);return;}manualFrame.x=Math.max(.01,Math.min(.99-manualFrame.width,manualFrame.x+d[e.key][0]));manualFrame.y=Math.max(.01,Math.min(.99-manualFrame.height,manualFrame.y+d[e.key][1]));}});
 let hiddenTimer:ReturnType<typeof setTimeout>|undefined;
 document.addEventListener('visibilitychange',()=>{
   clearTimeout(hiddenTimer);

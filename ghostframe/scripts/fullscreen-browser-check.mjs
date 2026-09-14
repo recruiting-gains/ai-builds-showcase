@@ -290,7 +290,7 @@ try {
     await page.waitForFunction(() => document.querySelector('#camera-view').classList.contains('screen-quiet') &&
       Number(getComputedStyle(document.querySelector('.screen-actions')).opacity) < 0.05, null, { timeout: 5000 });
     await shot('fullscreen-controls-faded.png');
-    const expected = ['camera-only', 'fill-screen', 'exit-screen', 'scene'];
+    const expected = ['screen-camera', 'camera-only', 'fill-screen', 'exit-screen', 'scene'];
     for (const id of expected) { await page.keyboard.press('Tab'); assert.equal(await page.evaluate(() => document.activeElement?.id), id); }
     await page.keyboard.press('Shift+Tab'); assert.equal(await page.evaluate(() => document.activeElement?.id), 'exit-screen');
     await page.waitForFunction(() => Number(getComputedStyle(document.querySelector('.screen-actions')).opacity) > 0.95);

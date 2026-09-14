@@ -74,13 +74,16 @@ export function installFullscreen(viewport: HTMLElement, opener: HTMLButtonEleme
     if (native) notice.textContent = 'Esc to return · Move or tap to show controls';
     else fallbackNotice();
   }
-  function enter() {
+  function enter(fill = false, preferNative = true) {
     if (active) return;
     active = true;
     const ticket = ++generation;
     previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : opener;
     // This is the primary behavior, applied before any optional host API.
     viewport.classList.add('focus-view'); document.body.classList.add('camera-focus');
+    viewport.classList.toggle('fill-view', fill);
+    fillButton.setAttribute('aria-pressed', String(fill));
+    fillButton.textContent = fill ? 'Fit whole view' : 'Fill view';
     opener.setAttribute('aria-expanded', 'true'); fallbackNotice();
     // Make the page controls unreachable to keyboard navigation while expanded.
     for (let element: HTMLElement = viewport; element.parentElement; element = element.parentElement) {
@@ -95,6 +98,9 @@ export function installFullscreen(viewport: HTMLElement, opener: HTMLButtonEleme
       if (element.parentElement === document.body) break;
     }
     onChange(true); focus(scene); reveal();
+    // Immersive phone mode is an in-page viewport, not a native transition.
+    // Embedded hosts can immediately cancel native fullscreen on an iframe.
+    if (!preferNative) { fallbackNotice(); return; }
     pendingNative = ticket;
     // A stalled request cannot stall the usable tab view or its Exit button.
     nativeTimer = setTimeout(() => settleNative(ticket), 1500);
@@ -144,5 +150,5 @@ export function installFullscreen(viewport: HTMLElement, opener: HTMLButtonEleme
       else if (!event.shiftKey && (index === candidates.length - 1 || index < 0)) { event.preventDefault(); if (candidates[0]) focus(candidates[0]); }
     }
   });
-  return { get active() { return active; }, reveal, exit };
+  return { get active() { return active; }, reveal, enter, exit };
 }
