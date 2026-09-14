@@ -2,9 +2,9 @@
 
 Disappear into the room. Hold another world in your hands.
 
-## Energy Core branch preview
+## Energy Core phone-testing preview
 
-This branch adds **Cube → Light style → Living Energy Core**: three contained light currents, coherent motes, spreading layers, and a brief movement-responsive surge. **Classic Cube** retains the original appearance. This is a local prototype, not a claim that the public link below includes it. Real-phone camera, tracking, recording and performance checks remain required before release. [Implementation and evidence](docs/ENERGY-CORE.md).
+The live app now includes **Cube → Light style → Living Energy Core · preview**: three contained light currents, coherent motes, spreading layers, and a brief movement-responsive surge. **Classic Cube** retains the original appearance. Published September 14, 2026 as a reversible preview for phone testing; real iPhone camera, tracking, recording, saving and sustained performance remain unverified. [Implementation and evidence](docs/ENERGY-CORE.md).
 
 A browser camera playground with three independent effects: **Invisible**, which blends a captured empty background into your silhouette, and **HandFrame**, which follows the opening formed by both thumbs and index fingers, with a floating picture that can stretch in perspective; and **Cube**, a blue 3D cube with white wireframe, moved and resized with two hands. An original implementation inspired by a supplied visual demonstration.
 

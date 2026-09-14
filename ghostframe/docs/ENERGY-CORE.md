@@ -1,6 +1,6 @@
 # Living Energy Core — first prototype
 
-Status: implemented on the isolated `codex/ghostframe-energy-core` branch. Production is unchanged. This upgrade affects Cube only; Invisible and HandFrame keep their existing behavior.
+Status: published September 14, 2026 as a reversible phone-testing preview in the [existing GhostFrame app](https://jedi-mindtrick.recruiting-gains.workers.dev/). Choose **Cube → Light style → Living Energy Core · preview**; choose **Classic Cube** to return to the original appearance. This upgrade affects Cube only; Invisible and HandFrame keep their existing behavior. Physical iPhone validation remains pending.
 
 ## Try the working example
 
@@ -38,8 +38,15 @@ No new backend, database, account, microphone, camera/photo upload endpoint, or 
 
 ## Review and remaining gates
 
-Independent review found cadence amplification, loss/reacquisition rearming and a phase-loop discontinuity; these were corrected and tests added. A manual-mode callback reset was also corrected. No production deployment, source push, physical camera test or sustained thermal benchmark is claimed.
+Independent review found cadence amplification, loss/reacquisition rearming and a phase-loop discontinuity; these were corrected and tests added. A manual-mode callback reset was also corrected. A second read-only release review found no code blocker for the explicitly requested reversible preview. No physical camera test or sustained thermal benchmark is claimed.
 
-Before release, perform paired60-second Classic/Energy runs on the actual iPhone with camera+tracking+recording: target median cadence≥30fps, p95display interval≤50ms, no effect-related freeze>250ms and≤10%regression versus baseline. Measure rather than infer. Verify ten pinch/release changes, brief hand loss, carry, camera switch, stop/page-hide cleanup, portrait/landscape/mirror mapping, actual recorded replay and native saving. If baseline misses the targets, investigate or lower quality—do not redefine a failure as a pass.
+Before claiming physical-phone acceptance or promoting the preview as device-validated, perform paired60-second Classic/Energy runs on the actual iPhone with camera+tracking+recording: target median cadence≥30fps, p95display interval≤50ms, no effect-related freeze>250ms and≤10%regression versus baseline. Measure rather than infer. Verify ten pinch/release changes, brief hand loss, carry, camera switch, stop/page-hide cleanup, portrait/landscape/mirror mapping, actual recorded replay and native saving. If baseline misses the targets, investigate or lower quality—do not redefine a failure as a pass.
+
+## Publication receipt
+
+- Runtime source: `df4c3a923df6b0fceed1812b34f899798ff0aded`, pushed to `codex/ghostframe-energy-core`. Later publication-documentation commits do not alter the runtime bundle.
+- Cloudflare version: `4529cac2-da0e-4b1c-b66e-650e0fe0cf8f`, deployed at 2026-09-14T20:47:38Z to the existing `jedi-mindtrick` Worker. Previous version `f5b2cba4-6966-4ee9-b59e-38090e50568d` remains the rollback checkpoint.
+- Every built static file, including HTML, JavaScript, CSS, vision worker, models and WASM, returned HTTP 200 and matched the local SHA-256 exactly. Health and configuration endpoints returned HTTP 200. The existing Worker script etag, bindings, Durable Object namespace, migration and AI settings are unchanged.
+- The live browser visibly rendered the Cube preview and exposed both Light style options with the camera off. This verifies publication and simulated rendering, not real-phone tracking, recording or frame rate.
 
 The separate Studio concept uses editable Blender geometry and a Runway-generated appearance texture. It is look development, explicitly labeled **CONCEPT / NOT LIVE CAMERA**, not evidence that the app renders the same complexity or runs on a phone.
