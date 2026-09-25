@@ -1,0 +1,16 @@
+# Jev usage router (Cloudflare Workers AI path)
+enabled: true
+mode: shadow   # shadow = log only, never honored; active = honor the routed action
+bypass: false
+provider: cloudflare   # cloudflare | typesafe
+model: typesafe/jev
+# Leave empty and set CLOUDFLARE_ACCOUNT_ID in your environment instead.
+cloudflare_account_id: ""
+confidence_min:
+  reuse_cache: 0.85
+  escalate_human: 0.70
+  research: 0.75
+  browser: 0.80
+  subagent: 0.80
+  stop_retry: 0.85
+  complexity_high: 0.67   # score (0..1) at or above this counts as "high" complexity
