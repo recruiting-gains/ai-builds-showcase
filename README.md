@@ -186,11 +186,11 @@ Live hand tracking and color effects run on your device. An optional, separately
 
 ## Agent systems
 
-### Trading Desk: Grok Bots + moomoo
+### The Hive: Grok Bots + moomoo
 
 Seven Grok agents with narrow roles run a 7:35 AM CT huddle and pick one ticker a day, or none. A Risk agent runs the rules in code and can veto any ticket. Jev, a small typed model on Cloudflare Workers AI, decides when an expensive step is worth running. moomoo is connected view-only, the account is cash only, and the human places every trade by hand. Educational build log, not financial advice.
 
-[Read the write-up, prompts, and router code](./trading-desk)
+[Read the write-up, prompts, and router code](./the-hive)
 
 ## How I build
 
