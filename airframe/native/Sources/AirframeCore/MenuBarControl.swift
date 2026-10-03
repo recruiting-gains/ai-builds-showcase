@@ -4,21 +4,23 @@ import Foundation
 /// No permission callback or later camera restart may recreate this intent.
 public struct MenuBarStartRequest {
     public private(set) var mode: ControlMode?
+    public private(set) var recoveryEnabled = false
     private var requestedAt = 0.0
     private var lastClock = 0.0
     public var isPending: Bool { mode != nil }
 
     public init() {}
 
-    public mutating func begin(mode: ControlMode, now: Double, authorized: Bool) {
+    public mutating func begin(mode: ControlMode, now: Double, authorized: Bool, recoveryEnabled: Bool = false) {
         cancel()
         guard authorized, now.isFinite, now >= 0 else { return }
         self.mode = mode
+        self.recoveryEnabled = recoveryEnabled
         requestedAt = now
         lastClock = now
     }
 
-    public mutating func cancel() { mode = nil }
+    public mutating func cancel() { mode = nil; recoveryEnabled = false }
 
     /// True only while waiting for this explicitly requested camera session.
     @discardableResult
@@ -49,7 +51,7 @@ public struct MenuBarStartRequest {
 
 /// The green state is evidence of a fresh hand AND armed control, not camera use alone.
 public enum MenuBarIndicator: Equatable {
-    case off, cameraOnly, starting, waiting, holding, tracking
+    case off, cameraOnly, starting, waiting, holding, looking, standby, tracking
 
     public static func resolve(state: ControlState, pending: Bool, cameraRequested: Bool,
                                cameraRunning: Bool, authorized: Bool, lastHandAt: Double?, now: Double) -> Self {
@@ -61,6 +63,8 @@ public enum MenuBarIndicator: Equatable {
         case .countdown: return .starting
         case .waitingForHand: return .waiting
         case .recoveringHand, .recoveringPinch: return .holding
+        case .reacquiringHand: return .looking
+        case .standby: return .standby
         case .active:
             guard let lastHandAt, now.isFinite, now >= 0, lastHandAt.isFinite, lastHandAt >= 0,
                   now >= lastHandAt, now - lastHandAt <= 0.2 else { return .holding }
@@ -74,6 +78,8 @@ public enum MenuBarIndicator: Equatable {
         case .cameraOnly: return "CAM"
         case .starting, .waiting: return "WAIT"
         case .holding: return "HOLD"
+        case .looking: return "LOOKING"
+        case .standby: return "HOLD OPEN"
         case .tracking: return "LIVE"
         }
     }
@@ -85,6 +91,8 @@ public enum MenuBarIndicator: Equatable {
         case .starting: return "Starting · keep an open hand visible"
         case .waiting: return "Waiting for a steady open hand"
         case .holding: return "Pointer frozen · finding your hand"
+        case .looking: return "Practice recovery · looking for open fingers"
+        case .standby: return "Practice standby · camera on, input frozen"
         case .tracking: return "Tracking · Mac control active"
         }
     }

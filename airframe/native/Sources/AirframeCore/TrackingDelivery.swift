@@ -3,6 +3,7 @@
 public enum TrackingDelivery: Equatable, Sendable {
     case observation(HandFrame?, capturedAt: Double)
     case pinchUncertain(PinchUncertainFrame, capturedAt: Double)
+    case trackingLoss(RecoverableTrackingLoss, capturedAt: Double)
     case fault(String)
 
     /// Run when queued and again immediately before delivery. Nil observations
@@ -10,6 +11,10 @@ public enum TrackingDelivery: Equatable, Sendable {
     public func validated(at now: Double) -> TrackingDelivery {
         switch self {
         case .fault:
+            return self
+        case let .trackingLoss(_, capturedAt):
+            let timing = TrackingDelivery.observation(nil, capturedAt: capturedAt).validated(at: now)
+            if case .fault = timing { return timing }
             return self
         case let .pinchUncertain(frame, capturedAt):
             let timing = TrackingDelivery.observation(nil, capturedAt: capturedAt).validated(at: now)
@@ -40,12 +45,45 @@ public enum TrackingDelivery: Equatable, Sendable {
     public static func coalesce(pending: TrackingDelivery?, incoming: TrackingDelivery) -> TrackingDelivery {
         if let pending, case .fault = pending { return pending }
         if case .fault = incoming { return incoming }
-        if let pending, case .observation(nil, _) = pending { return pending }
-        if case .observation(nil, _) = incoming { return incoming }
+        guard pending?.hasMalformedPartial != true, !incoming.hasMalformedPartial else {
+            return .fault("Partial hand observation is invalid. Controls are paused.")
+        }
+        if let pending, case let .pinchUncertain(_, partialAt) = pending,
+           let incomingLoss = incoming.lossTimestamp {
+            if incomingLoss < partialAt { return incoming }
+            // Preserve the actual first uncertainty and its timestamp, not a
+            // fabricated earlier timestamp for the later missing-hand event.
+            // A typed loss also takes the legacy noHand path, so the later
+            // full loss cannot be hidden by legacy partial-hand recovery.
+            return .trackingLoss(.thumbOccluded, capturedAt: partialAt)
+        }
+        if let pending, let pendingLoss = pending.lossTimestamp {
+            if case let .pinchUncertain(_, partialAt) = incoming, partialAt < pendingLoss {
+                return .trackingLoss(.thumbOccluded, capturedAt: partialAt)
+            }
+            if let incomingLoss = incoming.lossTimestamp, incomingLoss < pendingLoss { return incoming }
+            return pending
+        }
+        if incoming.lossTimestamp != nil { return incoming }
         // A queued thumb-occlusion event must not disappear behind a newer
         // complete hand; the gate must reset click readiness first. Genuine
         // hand loss has higher priority and still stops clicking immediately.
-        if let pending, case .pinchUncertain = pending { return pending }
+        if let pending, case let .pinchUncertain(_, pendingAt) = pending {
+            if case let .pinchUncertain(_, incomingAt) = incoming, incomingAt < pendingAt { return incoming }
+            return pending
+        }
         return incoming
+    }
+
+    private var lossTimestamp: Double? {
+        switch self {
+        case let .observation(nil, capturedAt), let .trackingLoss(_, capturedAt): return capturedAt
+        default: return nil
+        }
+    }
+
+    private var hasMalformedPartial: Bool {
+        guard case let .pinchUncertain(frame, capturedAt) = self else { return false }
+        return frame.timestamp != capturedAt || !frame.isReliable
     }
 }

@@ -151,8 +151,8 @@ final class MotionTests: XCTestCase {
         let good = TrackingDelivery.observation(frame(10.05), capturedAt: 10.05)
         let lost = TrackingDelivery.observation(nil, capturedAt: 10.1)
         XCTAssertEqual(TrackingDelivery.coalesce(pending: uncertain, incoming: good), uncertain)
-        XCTAssertEqual(TrackingDelivery.coalesce(pending: uncertain, incoming: lost), lost)
-        XCTAssertEqual(TrackingDelivery.coalesce(pending: lost, incoming: uncertain), lost)
+        XCTAssertEqual(TrackingDelivery.coalesce(pending: uncertain, incoming: lost), .trackingLoss(.thumbOccluded, capturedAt: 10))
+        XCTAssertEqual(TrackingDelivery.coalesce(pending: lost, incoming: uncertain), .trackingLoss(.thumbOccluded, capturedAt: 10))
         guard case .fault = uncertain.validated(at: 10.201) else { return XCTFail("Stale partial hand accepted") }
         guard case .fault = TrackingDelivery.pinchUncertain(partial(10), capturedAt: 10.01).validated(at: 10.1) else {
             return XCTFail("Partial sample/timestamp mismatch accepted")
