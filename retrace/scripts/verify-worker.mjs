@@ -40,6 +40,7 @@ const pass = (name) => {
   console.log(`PASS ${name}`);
 };
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const strictClose = process.argv.includes("--strict-close");
 const origin = "https://retrace.test";
 const request = (path, init = {}) => mf.dispatchFetch(`${origin}${path}`, init);
 const post = (path, body, headers = {}) =>
@@ -65,7 +66,7 @@ const ingest = (events) =>
     { Authorization: `Bearer ${bindings.INGEST_SECRET}` },
   );
 let cookie;
-const connect = async (ack = true) => {
+const connect = async (ack = true, closeOnStatus = true) => {
   const address = await mf.ready;
   const url = new URL("/api/stream", address);
   const streamOrigin = url.origin;
@@ -79,7 +80,12 @@ const connect = async (ack = true) => {
     const value = JSON.parse(data.toString());
     messages.push(value);
     if (ack && value.type === "samples") ws.send('{"type":"ack"}');
-    if (value.type === "status" && value.status === "disconnected") ws.close();
+    if (
+      closeOnStatus &&
+      value.type === "status" &&
+      value.status === "disconnected"
+    )
+      ws.close();
   });
   ws.on("close", () => {
     closed = true;
@@ -91,6 +97,23 @@ const connect = async (ack = true) => {
   await sleep(30);
   return { ws, messages, isClosed: () => closed };
 };
+async function waitForNativeClose(ws, milliseconds = 5000) {
+  if (ws.readyState === WebSocket.CLOSED) return;
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      ws.terminate();
+      reject(
+        new Error(
+          `Native WebSocket close event was not received within ${milliseconds} ms.`,
+        ),
+      );
+    }, milliseconds);
+    ws.once("close", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
 try {
   mf = new Miniflare(convertV4MiniflareOptions(options));
   assert.equal((await request("/api/health")).status, 200);
@@ -158,6 +181,16 @@ try {
     401,
   );
   pass("signed short-lived cookies and stream origin/signature checks");
+  const noCodeViewer = await connect(true, false);
+  noCodeViewer.ws.close();
+  await waitForNativeClose(noCodeViewer.ws);
+  const normalViewer = await connect(true, false);
+  normalViewer.ws.close(1000, "Normal client shutdown");
+  await waitForNativeClose(normalViewer.ws);
+  const serverClosedViewer = await connect(true, false);
+  serverClosedViewer.ws.send('{"type":"invalid"}');
+  await waitForNativeClose(serverClosedViewer.ws);
+  pass("native client no-code/normal close and server policy close handshakes");
   const viewer = await connect();
   assert.equal(viewer.messages[0].status, "waiting");
   const epoch = viewer.messages[0].epoch;
@@ -287,9 +320,10 @@ try {
     ),
   );
   assert.ok(slow.ws.readyState >= WebSocket.CLOSING);
-  slow.ws.terminate();
+  if (strictClose) await waitForNativeClose(slow.ws);
+  else slow.ws.terminate();
   pass(
-    "slow viewer receives disconnect status and initiates closure after exactly 10 unacknowledged batches",
+    "slow viewer receives exactly 10 unacknowledged batches and disconnect control",
   );
   viewer.ws.close();
   await mf.dispose();
@@ -322,7 +356,8 @@ try {
     ),
   );
   assert.ok(resumed.ws.readyState >= WebSocket.CLOSING);
-  resumed.ws.terminate();
+  if (strictClose) await waitForNativeClose(resumed.ws);
+  else resumed.ws.terminate();
   assert.equal(
     (
       await request("/api/stream", {
@@ -338,6 +373,10 @@ try {
       throttled = true;
   assert.equal(throttled, true);
   pass("bounded viewer login attempts");
+  if (!strictClose)
+    console.log(
+      "LIMITATION: server-initiated slow-viewer/logout native close completion remains unverified; --strict-close reproduces the bounded 5-second check.",
+    );
   console.log(
     `${passes} runtime verification groups passed. Fixtures only; no hardware or production writes.`,
   );

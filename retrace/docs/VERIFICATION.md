@@ -6,7 +6,7 @@ Checked October 4, 2026. The source is an original implementation; the public ex
 
 - TypeScript frontend, Worker, and bridge checks pass.
 - 13 unit/protocol tests pass: deterministic scenarios, room bounds, missing measurements, schema validation, source immutability, sequence reset/order, streamed body limits, HTTPS rules, and finite bridge retries.
-- 11 isolated workerd verification groups pass: public API, authentication/origin checks, signed cookies, actual WebSocket ingestion, schema bounds, rate-limit recovery, spawned NDJSON bridge, slow-viewer flow control, restart behavior, logout revocation, and bounded login attempts.
+- 12 isolated workerd verification groups pass: public API, authentication/origin checks, signed cookies, actual WebSocket ingestion, schema bounds, rate-limit recovery, spawned NDJSON bridge, slow-viewer flow control, restart behavior, logout revocation, and bounded login attempts.
 - Production bundle and Wrangler deployment dry run pass.
 - Dependency audit reports no vulnerabilities at this check.
 
@@ -27,7 +27,7 @@ The same public/browser suite also passes against the deployed URL. Phone result
 
 The Cloudflare Worker is live at https://retrace.recruiting-gains.workers.dev/ . Public health returns HTTP 200 with service ReTrace, version 1.0.0, simulated demo, and a configured private stream. Ingest/viewer/session secrets are kept outside source.
 
-Live private-stream verification uses a labeled, synthetic protocol fixture, never physical sensor data. Login, authenticated ingestion, exact browser display, fixture labeling, and clearing on disconnect have passed. Native WebSocket closure is undergoing a separate release check. Detailed machine output is retained locally; it contains no credentials.
+Live private-stream verification uses a labeled, synthetic protocol fixture, never physical sensor data. Login, authenticated ingestion, exact browser display, fixture labeling, and clearing on disconnect have passed. Native WebSocket closure after the browser disconnect action was observed against the deployed Worker within the bounded five-second check. Unauthenticated ingestion returned HTTP 401. Detailed machine output is retained locally; it contains no credentials.
 
 ## Evidence boundaries
 
@@ -35,4 +35,4 @@ No CSI device, radio capture, room calibration, learned model, medical measureme
 
 Signal measurements are never written to backend storage. Durable storage holds only control metadata such as source/sequence state, throttling counters, and temporary revocations. Browser samples expire after 60 seconds or clear on disconnect.
 
-Miniflare's native WebSocket close handshake was delayed in isolated tests. Those tests verify the explicit disconnected message and bounded outgoing batches; native closure is undergoing a separate deployed Chrome check.
+Isolated native close tests pass for client no-code/code-1000 closes and invalid-message policy closes. Native server-initiated slow-viewer/logout closure did not complete within the local five-second check; protocol disconnection, sample bounds, and cookie revocation pass. `node scripts/verify-worker.mjs --strict-close` retains that diagnostic. The deployed browser's own disconnect path separately passes native closure; this does not establish every server-initiated path.

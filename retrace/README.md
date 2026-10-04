@@ -2,7 +2,7 @@
 
 An interactive place to explore changing signals, inspect a moment, and play it back.
 
-[Open ReTrace](https://retrace.recruiting-gains.workers.dev/) · [What was tested](docs/VERIFICATION.md) · [Connect a sensor bridge](docs/SENSOR-CONTRACT.md)
+[Open ReTrace](https://retrace.recruiting-gains.workers.dev/) · [Watch the tour](https://retrace.recruiting-gains.workers.dev/media/ReTrace-landscape.mp4) · [Portrait video](https://retrace.recruiting-gains.workers.dev/media/ReTrace-portrait.mp4) · [What was tested](docs/VERIFICATION.md) · [Connect a sensor bridge](docs/SENSOR-CONTRACT.md)
 
 ![ReTrace's actual interface: an illustrative room, signal charts, and a replay timeline. All data in this public view is simulated.](public/retrace-preview.png)
 
@@ -64,6 +64,8 @@ Browser checks use installed Chrome by default. Set `PLAYWRIGHT_CHANNEL=chromium
 ## Deploy
 
 Authenticate Wrangler for the intended Cloudflare account. Review `wrangler.jsonc`, then run `npm run deploy`. Upload the three private-stream secrets through Wrangler's secret input or a protected secrets file. The configuration creates the `retrace` Worker and its `SignalRoom` Durable Object migration. Missing or reused secrets disable private endpoints; the public demo remains available.
+
+The finished tour files are release assets, excluded from Git. Run `npm run media:fetch` before building a release to download and verify the published MP4s against `public/media/manifest.json`. See [media notes](docs/MEDIA.md).
 
 Deployment is explicit. GitHub Actions runs checks; it does not silently deploy another project's resources. A code rollback does not roll back Durable Object control metadata.
 

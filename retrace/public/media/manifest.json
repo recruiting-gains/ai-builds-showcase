@@ -1,0 +1,18 @@
+{
+  "durationSeconds": 30,
+  "framesPerSecond": 30,
+  "files": [
+    {
+      "file": "ReTrace-landscape.mp4",
+      "url": "https://retrace.recruiting-gains.workers.dev/media/ReTrace-landscape.mp4",
+      "bytes": 6802418,
+      "sha256": "7b49d0291f7f74af190a86fae27b0a218299e3ffbf9d2e563f2473677f5593df"
+    },
+    {
+      "file": "ReTrace-portrait.mp4",
+      "url": "https://retrace.recruiting-gains.workers.dev/media/ReTrace-portrait.mp4",
+      "bytes": 7830649,
+      "sha256": "898a5ad59294ad588bfe31f02ba301d31e170fd46860b87161596b8e7a54b976"
+    }
+  ]
+}

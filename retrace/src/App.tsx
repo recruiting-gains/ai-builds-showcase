@@ -29,7 +29,7 @@ import Room from "./Room";
 import { scenarios, sampleScenario, signalHistory } from "../shared/scenarios";
 import type { ReceivedEvent, StreamMessage } from "../shared/types";
 const sourceURL =
-  "https://github.com/recruiting-gains/ai-builds-showcase/tree/main/retrace";
+  "https://github.com/recruiting-gains/ai-builds-showcase/tree/codex/retrace/retrace";
 function Clock({ time }: { time: number }) {
   return (
     <>
@@ -628,6 +628,16 @@ export default function App() {
           <Radio size={20} />
         </button>
         <div className="rail-bottom">
+          <a
+            className="rail-button"
+            href="/media/ReTrace-landscape.mp4"
+            target="_blank"
+            rel="noreferrer"
+            title="Watch the 30-second tour"
+            aria-label="Watch the 30-second tour"
+          >
+            <Play size={20} />
+          </a>
           <button
             className="rail-button"
             title="About ReTrace"

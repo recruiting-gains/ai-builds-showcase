@@ -165,9 +165,7 @@ export class SignalRoom extends DurableObject<Env> {
     await this.scheduleExpiry();
     return new Response(null, { status: 101, webSocket: client });
   }
-  async ingest(
-    events: SignalEvent[],
-  ): Promise<{
+  async ingest(events: SignalEvent[]): Promise<{
     accepted: number;
     dropped: number;
     epoch: string;
@@ -268,7 +266,13 @@ export class SignalRoom extends DurableObject<Env> {
     }
   }
   webSocketClose(ws: WebSocket, code: number) {
-    ws.close(code);
+    // Current compatibility dates auto-reply before invoking this handler.
+    // Older runtimes may still require a reply; reserved observation codes
+    // (notably 1005 from close() without a status) must never go on the wire.
+    if (ws.readyState === WebSocket.READY_STATE_CLOSED) return;
+    const validCode =
+      code >= 1000 && code < 5000 && ![1004, 1005, 1006, 1015].includes(code);
+    ws.close(validCode ? code : 1000);
   }
   webSocketError(ws: WebSocket) {
     ws.close(1011, "Stream unavailable");
