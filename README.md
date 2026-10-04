@@ -43,6 +43,17 @@ A cozy animated office for project activity. Choose among five rooms, switch flo
 
 ## Live builds
 
+### ReTrace — Signal Observatory
+
+[![ReTrace's actual interface with an illustrative room, signal charts, and a replay timeline. Public data is simulated.](./retrace/public/retrace-preview.png)](https://retrace.recruiting-gains.workers.dev/)
+
+Explore how a changing signal can be visualized over time. Play a repeatable scenario, pause an event, scrub backward, and save a labeled snapshot. A private connection interface accepts structured measurements through a local bridge.
+
+The public room, movement, and signals are simulated. The transport is software-tested; physical Wi-Fi sensing and position estimation are outside this version. An original implementation inspired by studying RuView, with its scope and evidence documented.
+
+[**Open live build ↗**](https://retrace.recruiting-gains.workers.dev/) · [Source & setup](./retrace) · [What was tested](./retrace/docs/VERIFICATION.md)
+
+
 ### GhostFrame
 
 [![GhostFrame's actual violet and blue phone studio, with a simulated scene, camera selection and two local picture slots. Camera is off in this preview.](./docs/assets/showcase/ghostframe.png)](https://jedi-mindtrick.recruiting-gains.workers.dev/)
