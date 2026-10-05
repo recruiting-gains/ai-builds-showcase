@@ -1,0 +1,154 @@
+name: ReTrace cloud release
+run-name: ReTrace ${{ inputs.mode }} · ${{ inputs.commit_sha }}
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Full 40-character reviewed commit SHA already on main
+        required: true
+        type: string
+      mode:
+        description: Verify only, upload without traffic change, or publish production
+        required: true
+        default: verify
+        type: choice
+        options: [verify, upload, production]
+      expected_production_version:
+        description: Current production version UUID; required for upload/production
+        required: false
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: retrace-cloud-release
+  cancel-in-progress: false
+env:
+  RETRACE_COMMIT_SHA: ${{ inputs.commit_sha }}
+  RETRACE_RELEASE_MODE: ${{ inputs.mode }}
+  RETRACE_EXPECTED_VERSION: ${{ inputs.expected_production_version }}
+  WRANGLER_SEND_METRICS: 'false'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      artifact_hash: ${{ steps.package.outputs.artifact_hash }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: controller
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: source
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+      - name: Validate exact reviewed main commit and release intent
+        env:
+          RETRACE_SOURCE: source
+        run: node controller/retrace/scripts/release/release.mjs validate
+      - name: Install locked source and trusted release tools without lifecycle scripts
+        run: |
+          npm ci --ignore-scripts --prefix controller/retrace
+          npm ci --ignore-scripts --prefix source/retrace
+      - name: Test release guards
+        run: node --test controller/retrace/scripts/release/*.test.mjs
+      - name: Verify reviewed application
+        working-directory: source/retrace
+        run: |
+          npm audit --audit-level=moderate --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run test:worker
+          npm run media:fetch
+          npm run build
+          npx --no-install playwright install --with-deps chromium
+          npm run test:e2e
+        env:
+          PLAYWRIGHT_CHANNEL: chromium
+      - name: Verify redesigned 3D story and accessibility
+        working-directory: source/retrace
+        run: |
+          npm exec vite -- preview --host 127.0.0.1 --port 5179 --strictPort > artifacts/experience-server.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:5179/ >/dev/null; then break; fi
+            sleep 1
+          done
+          npm run test:experience
+        env:
+          PLAYWRIGHT_CHANNEL: chromium
+      - name: Package the tested assets and Worker
+        id: package
+        run: node controller/retrace/scripts/release/release.mjs pack
+        env:
+          RETRACE_SOURCE: source
+          RETRACE_ARTIFACT: release-artifact
+          RETRACE_RELEASE_EVIDENCE: build-evidence
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: retrace-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-artifact/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Save validation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: retrace-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build-evidence/
+            source/retrace/artifacts/
+          retention-days: 7
+  release:
+    if: inputs.mode != 'verify'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: retrace-production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: controller
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: retrace-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-artifact
+      - name: Install trusted deployment tooling before credentials are supplied
+        working-directory: controller/retrace
+        run: |
+          npm ci --ignore-scripts
+          npm audit --audit-level=moderate --ignore-scripts
+          npx --no-install playwright install --with-deps chromium
+      - name: Verify existing state, upload exact artifact, and optionally promote
+        run: node controller/retrace/scripts/release/release.mjs release
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: '3058ec0673db0768c53a7991b701ff3b'
+          RETRACE_ARTIFACT: release-artifact
+          RETRACE_RELEASE_EVIDENCE: release-evidence
+          RETRACE_ARTIFACT_HASH: ${{ needs.verify.outputs.artifact_hash }}
+      - name: Verify production assets and actual desktop/mobile 3D view
+        if: inputs.mode == 'production'
+        run: node controller/retrace/scripts/release/verify-live.mjs
+        env:
+          RETRACE_ARTIFACT: release-artifact
+          RETRACE_RELEASE_EVIDENCE: release-evidence
+          PLAYWRIGHT_CHANNEL: chromium
+      - name: Save release and rollback evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: retrace-release-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-evidence/
+          retention-days: 14
