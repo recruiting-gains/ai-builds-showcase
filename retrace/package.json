@@ -18,7 +18,8 @@
     "test:worker": "node scripts/verify-worker.mjs",
     "test:e2e": "node scripts/verify-e2e.mjs",
     "media:fetch": "node scripts/fetch-media.mjs",
-    "test:experience": "node scripts/verify-experience.mjs"
+    "test:experience": "node scripts/verify-experience.mjs",
+    "test:release": "node --test scripts/release/*.test.mjs"
   },
   "dependencies": {
     "lucide-react": "1.52.0",

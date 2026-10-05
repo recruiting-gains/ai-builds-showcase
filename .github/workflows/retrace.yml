@@ -1,9 +1,9 @@
 name: ReTrace checks
 on:
   push:
-    paths: ['retrace/**', '.github/workflows/retrace.yml']
+    paths: ['retrace/**', '.github/workflows/retrace.yml', '.github/workflows/retrace-release.yml']
   pull_request:
-    paths: ['retrace/**', '.github/workflows/retrace.yml']
+    paths: ['retrace/**', '.github/workflows/retrace.yml', '.github/workflows/retrace-release.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,6 +27,7 @@ jobs:
       - run: npm audit --audit-level=moderate --ignore-scripts
       - run: npm run typecheck
       - run: npm test
+      - run: npm run test:release
       - run: npm run test:worker
       - run: npm run build
       - run: npx playwright install --with-deps chromium
