@@ -3,10 +3,17 @@ import AxeBuilder from "@axe-core/playwright";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 const base = process.env.RETRACE_URL || "http://127.0.0.1:8787";
+const observatory = new URL(base);
+observatory.searchParams.set("observatory", "");
+const fallback = new URL(observatory);
+fallback.searchParams.set("fallback", "1");
 await mkdir("artifacts", { recursive: true });
 const browser = await chromium.launch({
   headless: true,
-  channel: process.env.PLAYWRIGHT_CHANNEL || "chrome",
+  ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH
+    ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH }
+    : { channel: process.env.PLAYWRIGHT_CHANNEL || "chrome" }),
+  args: ["--enable-unsafe-swiftshader"],
 });
 const results = [];
 try {
@@ -22,7 +29,7 @@ try {
     const page = await context.newPage();
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto(base);
+    await page.goto(observatory.toString());
     await page.getByRole("heading", { level: 1 }).waitFor();
     await page.waitForTimeout(700);
     assert.equal(
@@ -96,14 +103,14 @@ try {
     await context.close();
   }
   const p = await browser.newPage({ viewport: { width: 390, height: 844 } });
-  await p.goto(`${base}/?fallback=1`);
+  await p.goto(fallback.toString());
   await p.getByRole("img", { name: "Illustrative 2D room plan" }).waitFor();
   await p.screenshot({ path: "artifacts/fallback.png" });
   results.push({ name: "renderer-fallback", result: "passed" });
   await p.close();
   const p2 = await browser.newPage();
   await p2.route("**/api/health", (route) => route.abort());
-  await p2.goto(base);
+  await p2.goto(observatory.toString());
   await p2.getByText("Local demo · API unavailable").waitFor();
   results.push({ name: "offline-api", result: "passed" });
   await p2.close();
@@ -125,7 +132,7 @@ try {
       }),
     );
   });
-  await sensor.goto(base);
+  await sensor.goto(observatory.toString());
   await sensor
     .getByRole("button", { name: "Connect a sensor", exact: false })
     .click();
@@ -181,7 +188,7 @@ try {
     });
   });
   await cancel.routeWebSocket("**/api/stream", () => opened++);
-  await cancel.goto(base);
+  await cancel.goto(observatory.toString());
   await cancel
     .getByRole("button", { name: "Connect a sensor", exact: false })
     .click();
