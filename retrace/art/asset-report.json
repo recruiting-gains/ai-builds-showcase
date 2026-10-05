@@ -1,0 +1,66 @@
+{
+  "format": "glTF 2.0 binary",
+  "bytes": 2239412,
+  "triangles": 30584,
+  "sourceMeshes": 748,
+  "drawMeshes": 53,
+  "groups": [
+    "architecture",
+    "retrace_roof",
+    "cutaway_front",
+    "cutaway_right",
+    "furniture",
+    "landscape"
+  ],
+  "units": "metres",
+  "up": "Y",
+  "front": "+Z",
+  "bounds": [
+    11.185835361480713,
+    3.4200001140125096,
+    11.865000009536743
+  ],
+  "geometryBounds": {
+    "min": [
+      -5.480835437774658,
+      -0.0005000014789402485,
+      -3.950000047683716
+    ],
+    "max": [
+      5.704999923706055,
+      3.4195001125335693,
+      7.914999961853027
+    ]
+  },
+  "materials": [
+    "mineral_plaster",
+    "honed_limestone",
+    "deep_joints",
+    "charcoal_powdercoat",
+    "weathered_charcoal_membrane",
+    "membrane_subtle_wear",
+    "membrane_subtle_shade",
+    "warm_oak",
+    "oak_light",
+    "cedar_honey",
+    "cedar_dark",
+    "cedar_light",
+    "woven_linen",
+    "oatmeal_upholstery",
+    "clay_cushion",
+    "woven_sand_rug",
+    "burnished_steel",
+    "warm_white_stone",
+    "tinted_architectural_glass",
+    "leaf_olive",
+    "leaf_sage",
+    "garden_soil",
+    "brushed_brass",
+    "warm_luminous_diffuser",
+    "unlit_interior_diffuser",
+    "chalk_ceramic",
+    "muted_book_spines"
+  ],
+  "provenance": "All geometry authored in art/build_house.mjs. No imported models, textures, HDRIs, code, or paid generation.",
+  "generator": "Three.js GLTFExporter under Node 24 in the cloud executor; original procedural geometry and no third-party assets."
+}
