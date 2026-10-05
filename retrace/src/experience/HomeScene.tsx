@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -25,7 +25,9 @@ const poses = [
 export default function HomeScene(props: Props) {
   const host = useRef<HTMLDivElement>(null), callout = useRef<HTMLDivElement>(null);
   const latest = useRef(props), invalidate = useRef<() => void>(() => {});
+  const syncExploreMode = useRef<() => void>(() => {});
   latest.current = props;
+  useLayoutEffect(() => { syncExploreMode.current(); }, [props.explore]);
   useEffect(() => { invalidate.current(); }, [props.progress, props.reduced, props.paused, props.explore, props.replay, props.position]);
 
   useEffect(() => {
@@ -134,7 +136,7 @@ export default function HomeScene(props: Props) {
     }, undefined, () => { if (alive) latest.current.onFail(); });
     let width = 0, height = 0, current = -1, frame = 0, visible = true;
     let pulseTime = 0, renderCount = 0;
-    let lastTime = 0, lastRender = 0, lastExplore = false, lastSignature = "", lastOpen = -1, orbitDirty = false;
+    let lastTime = 0, lastRender = 0, lastSignature = "", lastOpen = -1, orbitDirty = false;
     const eye = new THREE.Vector3(), target = new THREE.Vector3(), projected = new THREE.Vector3();
     function requestRender() { if (alive && !frame) frame = requestAnimationFrame(draw); }
     invalidate.current = requestRender;
@@ -149,6 +151,21 @@ export default function HomeScene(props: Props) {
     const visibilityChange = () => { if (!document.hidden) { lastTime = performance.now(); requestRender(); } };
     document.addEventListener("visibilitychange", visibilityChange);
     const orbitChange = () => { orbitDirty = true; requestRender(); }; controls.addEventListener("change", orbitChange);
+    // Keyboard access must not wait for an expensive or suspended WebGL frame.
+    // The last rendered target matches the camera pose the visitor can see.
+    syncExploreMode.current = () => {
+      const exploring = latest.current.explore;
+      if (exploring) controls.target.copy(target);
+      controls.enabled = exploring;
+      renderer.domElement.style.touchAction = exploring ? "none" : "pan-y";
+      renderer.domElement.tabIndex = exploring ? 0 : -1;
+      if (exploring) {
+        renderer.domElement.focus({ preventScroll: true });
+        controls.update();
+      }
+      requestRender();
+    };
+    syncExploreMode.current();
     const keydown = (event: KeyboardEvent) => {
       if (!latest.current.explore) return;
       if (event.key === "Escape") { event.preventDefault(); latest.current.onExitExplore(); return; }
@@ -189,13 +206,6 @@ export default function HomeScene(props: Props) {
       eye.fromArray(a.eye).lerp(new THREE.Vector3().fromArray(b.eye), blend);
       target.fromArray(a.target).lerp(new THREE.Vector3().fromArray(b.target), blend);
       if (compact()) { const move = smooth((q - .13) / .18); eye.multiplyScalar(1.11 + move * .05); target.set(.3, 1.1, 1.25 - move * .15); }
-      if (state.explore !== lastExplore) {
-        controls.target.copy(target); controls.enabled = state.explore;
-        renderer.domElement.style.touchAction = state.explore ? "none" : "pan-y";
-        renderer.domElement.tabIndex = state.explore ? 0 : -1;
-        if (state.explore) renderer.domElement.focus({ preventScroll: true });
-        controls.update();
-      }
       if (!state.explore) { camera.position.copy(eye); camera.lookAt(target); }
       const open = smooth((q - .20) / .235);
       if (Math.abs(open - lastOpen) > .0005) {
@@ -231,13 +241,13 @@ export default function HomeScene(props: Props) {
       el.dataset.sceneSettled = String(!moving);
       el.dataset.drawCalls = String(renderer.info.render.calls); el.dataset.triangles = String(renderer.info.render.triangles);
       el.dataset.renderProgress = q.toFixed(4); el.dataset.routerOrigin = ROUTER_ORIGIN.toArray().join(",");
-      lastRender = now; lastSignature = signature; lastExplore = state.explore; orbitDirty = false;
+      lastRender = now; lastSignature = signature; orbitDirty = false;
       if (moving || pulsing) requestRender();
     }
     const lost = (event: Event) => { event.preventDefault(); latest.current.onFail(); };
     renderer.domElement.addEventListener("webglcontextlost", lost); requestRender();
     return () => {
-      alive = false; invalidate.current = () => {}; cancelAnimationFrame(frame);
+      alive = false; invalidate.current = () => {}; syncExploreMode.current = () => {}; cancelAnimationFrame(frame);
       resizeObserver.disconnect(); observer.disconnect(); document.removeEventListener("visibilitychange", visibilityChange);
       renderer.domElement.removeEventListener("keydown", keydown); renderer.domElement.removeEventListener("webglcontextlost", lost);
       controls.removeEventListener("change", orbitChange); controls.dispose();

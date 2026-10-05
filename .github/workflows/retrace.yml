@@ -34,4 +34,24 @@ jobs:
       - run: npm run test:e2e
         env:
           PLAYWRIGHT_CHANNEL: chromium
+      - name: Verify 3D interactions and accessibility
+        run: |
+          mkdir -p artifacts
+          npm exec vite -- preview --host 127.0.0.1 --port 5179 --strictPort > artifacts/experience-server.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:5179/ >/dev/null; then break; fi
+            sleep 1
+          done
+          npm run test:experience
+        env:
+          PLAYWRIGHT_CHANNEL: chromium
       - run: npm run check:deploy
+      - name: Save browser validation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: retrace-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: retrace/artifacts/
+          retention-days: 7
