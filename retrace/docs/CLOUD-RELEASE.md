@@ -8,7 +8,7 @@ The implementation is [`.github/workflows/retrace-release.yml`](../../.github/wo
 
 Source changes can be reviewed in a draft PR. This document does not mean that the workflow is active, that its credentials exist, or that an end-to-end cloud release has passed. No new release token has been created. Activation and authenticated acceptance remain blocked on the approved workflow/application reaching the default branch and the user completing the secure environment/token setup below.
 
-The current production release is being handled separately by the existing Mac release task. Do not run this pipeline against production while that work is in progress. Read the live deployment after it finishes; a version UUID in an earlier handoff is not an authoritative current baseline.
+Coordinate with any separate release task before dispatching this pipeline. The approved preview was published separately; do not redeploy that commit merely to configure CI. Read the live deployment immediately before an upload or production run; a version UUID in an earlier handoff is not an authoritative current baseline.
 
 ## Manual release modes
 
