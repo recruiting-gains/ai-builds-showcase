@@ -39,7 +39,7 @@ export default function Features() {
         {FEATURES.map((feature) => (
           <div
             key={feature.title}
-            className="rounded-xl border border-dark-green/10 bg-white/60 p-6 shadow-sm transition hover:shadow-md"
+            className="rounded-xl border border-dark-green/10 bg-white/60 p-6 shadow-xs transition hover:shadow-md"
           >
             <div className="text-3xl">{feature.icon}</div>
             <h3 className="mt-4 text-xl font-bold">{feature.title}</h3>

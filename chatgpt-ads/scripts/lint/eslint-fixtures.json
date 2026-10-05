@@ -1,0 +1,169 @@
+{
+  "source": "@next/eslint-plugin-next and eslint-config-next 16.3.8, captured before migration",
+  "cases": [
+    {
+      "name": "React missing key",
+      "code": "export default function Example() { return <div>{[1,2].map(n => <span>{n}</span>)}</div>; }",
+      "messages": [
+        {
+          "ruleId": "react/jsx-key",
+          "severity": 2,
+          "message": "Missing \"key\" prop for element in iterator",
+          "messageId": "missingIterKey",
+          "line": 1,
+          "column": 65,
+          "endLine": 1,
+          "endColumn": 81
+        }
+      ]
+    },
+    {
+      "name": "React key present",
+      "code": "export default function Example() { return <div>{[1,2].map(n => <span key={n}>{n}</span>)}</div>; }",
+      "messages": []
+    },
+    {
+      "name": "Hooks conditional call",
+      "code": "import {useState} from 'react'; export default function Example({ready}:{ready:boolean}) { if (ready) { useState(0); } return <div/>; }",
+      "messages": [
+        {
+          "ruleId": "react-hooks/rules-of-hooks",
+          "severity": 2,
+          "message": "React Hook \"useState\" is called conditionally. React Hooks must be called in the exact same order in every component render.",
+          "line": 1,
+          "column": 105,
+          "endLine": 1,
+          "endColumn": 113
+        }
+      ]
+    },
+    {
+      "name": "Hooks top-level call",
+      "code": "import {useState} from 'react'; export default function Example() { const [value] = useState(0); return <div>{value}</div>; }",
+      "messages": []
+    },
+    {
+      "name": "Compiler render state update",
+      "code": "import {useState} from 'react'; export default function Example() { const [value,setValue] = useState(0); setValue(1); return <div>{value}</div>; }",
+      "messages": [
+        {
+          "ruleId": "react-hooks/set-state-in-render",
+          "severity": 2,
+          "message": "Error: Cannot call setState during render\n\nCalling setState during render may trigger an infinite loop.\n* To reset state when other state/props change, store the previous value in state and update conditionally: https://react.dev/reference/react/useState#storing-information-from-previous-renders\n* To derive data from other state/props, compute the derived data during render without using state.\n\n<root>/app/lint-fixture.tsx:1:107\n> 1 | import {useState} from 'react'; export default function Example() { const [value,setValue] = useState(0); setValue(1); return <div>{value}</div>; }\n    |                                                                                                           ^^^^^^^^ Found setState() in render",
+          "line": 1,
+          "column": 107,
+          "endLine": 1,
+          "endColumn": 115
+        }
+      ]
+    },
+    {
+      "name": "Compiler event state update",
+      "code": "import {useState} from 'react'; export default function Example() { const [value,setValue] = useState(0); return <button onClick={() => setValue(1)}>{value}</button>; }",
+      "messages": []
+    },
+    {
+      "name": "Accessibility missing alt",
+      "code": "export default function Example() { return <img src='/logo.png'/>; }",
+      "messages": [
+        {
+          "ruleId": "jsx-a11y/alt-text",
+          "severity": 1,
+          "message": "img elements must have an alt prop, either with meaningful text, or an empty string for decorative images.",
+          "line": 1,
+          "column": 44,
+          "endLine": 1,
+          "endColumn": 66
+        }
+      ]
+    },
+    {
+      "name": "Accessibility alt present",
+      "code": "export default function Example() { return <img src='/logo.png' alt='Logo'/>; }",
+      "messages": []
+    },
+    {
+      "name": "Anonymous default export",
+      "code": "export default {value:1};",
+      "messages": [
+        {
+          "ruleId": "import/no-anonymous-default-export",
+          "severity": 1,
+          "message": "Assign object to a variable before exporting as module default",
+          "line": 1,
+          "column": 1,
+          "endLine": 1,
+          "endColumn": 26
+        }
+      ]
+    },
+    {
+      "name": "Named default export",
+      "code": "const settings = {value:1}; export default settings;",
+      "messages": []
+    },
+    {
+      "name": "TypeScript explicit any",
+      "code": "export function identity(value:any) { return value; }",
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-explicit-any",
+          "severity": 2,
+          "message": "Unexpected any. Specify a different type.",
+          "messageId": "unexpectedAny",
+          "line": 1,
+          "column": 32,
+          "endLine": 1,
+          "endColumn": 35
+        }
+      ]
+    },
+    {
+      "name": "TypeScript typed value",
+      "code": "export function identity(value:string) { return value; }",
+      "messages": []
+    },
+    {
+      "name": "Unused variable warning",
+      "code": "const unusedValue = 1; export {};",
+      "messages": [
+        {
+          "ruleId": "@typescript-eslint/no-unused-vars",
+          "severity": 1,
+          "message": "'unusedValue' is assigned a value but never used.",
+          "messageId": "unusedVar",
+          "line": 1,
+          "column": 7,
+          "endLine": 1,
+          "endColumn": 18
+        }
+      ]
+    },
+    {
+      "name": "Used variable",
+      "code": "const value = 1; export {value};",
+      "messages": []
+    },
+    {
+      "name": "TypeScript core no-var",
+      "code": "export var value = 1;",
+      "messages": [
+        {
+          "ruleId": "no-var",
+          "severity": 2,
+          "message": "Unexpected var, use let or const instead.",
+          "messageId": "unexpectedVar",
+          "line": 1,
+          "column": 8,
+          "endLine": 1,
+          "endColumn": 22
+        }
+      ]
+    },
+    {
+      "name": "TypeScript core const",
+      "code": "export const value = 1;",
+      "messages": []
+    }
+  ]
+}

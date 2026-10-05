@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
-@import 'shadcn/tailwind.css';
+@import './vendor/shadcn/tailwind.css';
 @custom-variant dark (&:is(.dark *));
 @theme inline {
   --color-background: var(--background);
@@ -28,6 +28,8 @@
 }
 :root,
 .dark {
+  --font-geist-sans: 'Geist';
+  --font-geist-mono: 'Geist Mono';
   color-scheme: dark;
   --background: #101216;
   --foreground: #ebe9e4;

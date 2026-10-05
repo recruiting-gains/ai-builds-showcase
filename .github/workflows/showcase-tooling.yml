@@ -1,0 +1,69 @@
+name: Showcase tooling checks
+
+on:
+  push:
+    paths:
+      - 'agent-office/**'
+      - 'chatgpt-ads/**'
+      - '.github/workflows/showcase-tooling.yml'
+  pull_request:
+    paths:
+      - 'agent-office/**'
+      - 'chatgpt-ads/**'
+      - '.github/workflows/showcase-tooling.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: showcase-tooling-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Verify ${{ matrix.project }} tooling
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [agent-office, chatgpt-ads]
+    defaults:
+      run:
+        working-directory: ${{ matrix.project }}
+        shell: bash
+    env:
+      CI: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: ${{ matrix.project }}/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Audit the complete dependency tree
+        run: npm audit --audit-level=moderate --ignore-scripts
+      - name: Check Agent Office types, tests, static export, and bridge
+        if: matrix.project == 'agent-office'
+        run: |
+          npm run check
+          npm run build
+          npm run check:build
+          npm run check:deploy
+      - name: Check ChatGPT Ads lint, types, tests, and Worker bundle
+        if: matrix.project == 'chatgpt-ads'
+        run: |
+          npm run lint
+          npm run test:lint
+          npm run typecheck
+          npm test
+          npm run deploy:check
