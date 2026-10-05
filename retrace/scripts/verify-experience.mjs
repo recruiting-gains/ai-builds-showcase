@@ -28,8 +28,15 @@ async function open(width, height, query = "?reduced") {
 }
 async function chapter(page, index) {
   await page.getByRole("navigation", { name: "Story chapters" }).locator("button").nth(index).click();
+  // Native smooth scrolling and scene rendering share the browser's main thread.
+  // Wait for the requested destination, not a fixed delay or an intermediate chapter.
+  await page.waitForFunction(({ index, anchor }) => {
+    const story = document.querySelector(".rt-story");
+    if (!story) return false;
+    const destination = story.offsetTop + anchor * (story.offsetHeight - innerHeight);
+    return Math.abs(scrollY - destination) <= 1 && document.querySelector(".rt-experience")?.dataset.stage === String(index);
+  }, { index, anchor: [0, .32, .63, .94][index] }, { timeout: 30000 });
   await expect(page.locator(".rt-experience")).toHaveAttribute("data-stage", String(index));
-  await page.waitForTimeout(300);
 }
 async function settled(page) {
   await page.waitForFunction(() => {
