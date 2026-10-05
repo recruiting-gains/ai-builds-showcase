@@ -13,6 +13,7 @@ async function check(name, fn) {
     results.push({ name, status: "passed", ...data });
   } catch (e) {
     results.push({ name, status: "failed", error: e.stack });
+    console.error(e.stack);
   }
   console.log(name, results.at(-1).status);
   await writeFile(`${output}/qa-results.json`, JSON.stringify(results, null, 2));
@@ -27,8 +28,15 @@ async function open(width, height, query = "?reduced") {
 }
 async function chapter(page, index) {
   await page.getByRole("navigation", { name: "Story chapters" }).locator("button").nth(index).click();
+  // Native smooth scrolling and scene rendering share the browser's main thread.
+  // Wait for the requested destination, not a fixed delay or an intermediate chapter.
+  await page.waitForFunction(({ index, anchor }) => {
+    const story = document.querySelector(".rt-story");
+    if (!story) return false;
+    const destination = story.offsetTop + anchor * (story.offsetHeight - innerHeight);
+    return Math.abs(scrollY - destination) <= 1 && document.querySelector(".rt-experience")?.dataset.stage === String(index);
+  }, { index, anchor: [0, .32, .63, .94][index] }, { timeout: 30000 });
   await expect(page.locator(".rt-experience")).toHaveAttribute("data-stage", String(index));
-  await page.waitForTimeout(300);
 }
 async function settled(page) {
   await page.waitForFunction(() => {
@@ -97,6 +105,79 @@ try {
       assert.deepEqual(errors, []);
       return { pageErrors: errors, keyboardOrbit: true, pulsesPauseResume: true, replayScenarios: 5 };
     } finally {
+      await context.close();
+    }
+  });
+  await check("keyboard-explore-with-scene-frame-pending", async () => {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
+    const page = await context.newPage(), errors = [];
+    page.on("pageerror", error => errors.push(error.message));
+    await page.addInitScript(() => {
+      const request = requestAnimationFrame.bind(window), cancel = cancelAnimationFrame.bind(window);
+      const held = new Map();
+      let sceneDraw = null, paused = false;
+      // Identify the scene callback by its rendered-frame counter, without depending on minified names.
+      // Hold only that callback: React, Playwright, and other browser work can continue normally.
+      window.requestAnimationFrame = callback => {
+        const id = request(now => {
+          if (paused && callback === sceneDraw) { held.set(id, callback); return; }
+          const before = document.querySelector(".rt-renderer")?.dataset.frameCount;
+          callback(now);
+          if (document.querySelector(".rt-renderer")?.dataset.frameCount !== before) sceneDraw = callback;
+        });
+        return id;
+      };
+      window.cancelAnimationFrame = id => { held.delete(id); cancel(id); };
+      window.__retraceSceneFrameGate = {
+        pause() {
+          if (!sceneDraw) throw new Error("Scene draw callback was not identified");
+          paused = true;
+        },
+        pendingCount: () => held.size,
+        resume() {
+          paused = false;
+          for (const callback of held.values()) request(callback);
+          held.clear();
+        },
+      };
+    });
+    try {
+      await page.goto(`${base}/?reduced`, { waitUntil: "networkidle" });
+      const renderer = page.locator(".rt-renderer"), canvas = renderer.locator("canvas");
+      await expect(renderer).toHaveAttribute("data-model-ready", "true", { timeout: 30000 });
+      await chapter(page, 1);
+      await expect(renderer).toHaveAttribute("data-render-progress", "0.3800", { timeout: 30000 });
+      await expect(renderer).toHaveAttribute("data-scene-settled", "true");
+      const explore = page.getByRole("button", { name: "Explore in 3D", exact: true });
+      await explore.focus();
+      await page.evaluate(() => window.__retraceSceneFrameGate.pause());
+      const frames = await frameCount(page);
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("button", { name: "Return to the story", exact: true })).toHaveAttribute("aria-pressed", "true");
+      await expect.poll(() => page.evaluate(() => window.__retraceSceneFrameGate.pendingCount())).toBeGreaterThan(0);
+      await expect(canvas).toBeFocused();
+      await expect(canvas).toHaveAttribute("tabindex", "0");
+      await expect(canvas).toHaveCSS("touch-action", "none");
+      assert.equal(await frameCount(page), frames, "Scene rendered while its callback was held");
+      await page.keyboard.press("Escape");
+      await expect(explore).toBeFocused();
+      await expect(explore).toHaveAttribute("aria-pressed", "false");
+      await expect(canvas).toHaveAttribute("tabindex", "-1");
+      await expect(canvas).toHaveCSS("touch-action", "pan-y");
+      assert.equal(await frameCount(page), frames, "Escape required a scene render");
+      await page.evaluate(() => window.__retraceSceneFrameGate.resume());
+      // Entering again creates a visual state change; returning to the original idle mode
+      // while frames were held may correctly leave no work for the renderer to draw.
+      await page.keyboard.press("Enter");
+      await expect(canvas).toBeFocused();
+      await expect.poll(() => frameCount(page), { timeout: 15000 }).toBeGreaterThan(frames);
+      await page.keyboard.press("Escape");
+      await expect(explore).toBeFocused();
+      await expect(canvas).toHaveCSS("touch-action", "pan-y");
+      assert.deepEqual(errors, []);
+      return { focusIndependentOfSceneRender: true, escapeIndependentOfSceneRender: true, resumedRendering: true, pageErrors: errors };
+    } finally {
+      await page.evaluate(() => window.__retraceSceneFrameGate?.resume()).catch(() => {});
       await context.close();
     }
   });
