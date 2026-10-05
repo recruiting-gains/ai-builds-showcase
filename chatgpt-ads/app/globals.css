@@ -1,6 +1,64 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss" source(none);
+
+@source "../app";
+@source "../components";
+@source "../pages";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+@theme {
+  --color-beige: #fffbf0;
+  --color-dark-green: #0f2d1f;
+  --color-terminal: #0f172a;
+
+  /* Keep the existing palette and system fonts during the Tailwind migration. */
+  --color-red-500: #ef4444;
+  --color-red-700: #b91c1c;
+  --color-yellow-500: #eab308;
+  --color-green-50: #f0fdf4;
+  --color-green-500: #22c55e;
+  --color-green-600: #16a34a;
+  --color-green-700: #15803d;
+  --color-green-800: #166534;
+  --color-orange-400: #fb923c;
+  --color-amber-50: #fffbeb;
+  --color-amber-800: #92400e;
+  --color-gray-200: #e5e7eb;
+  --color-gray-400: #9ca3af;
+  --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --animate-blink: blink 1s step-start infinite;
+
+  @keyframes blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+  }
+}
+
+@layer base {
+  *, ::before, ::after, ::backdrop, ::file-selector-button {
+    border-color: var(--color-gray-200);
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: var(--color-gray-400);
+    opacity: 1;
+  }
+
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  /* Tailwind 3 kept the browser's native file-picker button. */
+  ::file-selector-button {
+    all: revert;
+    appearance: button;
+    font: inherit;
+  }
+}
 
 :root {
   --background: #fffbf0;
@@ -20,6 +78,13 @@ html {
 :focus-visible {
   outline: 3px solid #16a34a;
   outline-offset: 3px;
+}
+
+/* These controls already show a focus ring; preserve their transparent outline
+   while keeping the visible outline on buttons and the focused results. */
+.focus\:outline-hidden:focus {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {

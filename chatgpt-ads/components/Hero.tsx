@@ -9,8 +9,8 @@ export default function Hero() {
     <section className="mx-auto grid min-w-0 max-w-6xl grid-cols-1 items-center gap-12 overflow-hidden px-4 py-16 sm:px-6 md:grid-cols-2 md:py-24">
       <div className="min-w-0">
         <p className="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-green-700">Transparent campaign analysis</p>
-        <h1 className="break-words text-4xl font-black leading-tight text-dark-green sm:text-5xl">ChatGPT Ads</h1>
-        <h2 className="mt-4 max-w-full break-words text-xl font-semibold leading-snug text-dark-green sm:text-2xl md:text-3xl">
+        <h1 className="wrap-break-word text-4xl font-black leading-tight text-dark-green sm:text-5xl sm:leading-none">ChatGPT Ads</h1>
+        <h2 className="mt-4 max-w-full wrap-break-word text-xl font-semibold leading-snug text-dark-green sm:text-2xl sm:leading-8 md:text-3xl md:leading-9">
           Turn an ad export into a{" "}
           <span className="relative block w-fit max-w-full sm:inline-block">
             clear action plan.
@@ -36,7 +36,7 @@ export default function Hero() {
               <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-green-600 text-sm text-white">
                 ✓
               </span>
-              <span className="min-w-0 break-words">{item}</span>
+              <span className="min-w-0 wrap-break-word">{item}</span>
             </li>
           ))}
         </ul>
@@ -58,7 +58,7 @@ export default function Hero() {
           <span className="h-3 w-3 rounded-full bg-yellow-500" />
           <span className="h-3 w-3 rounded-full bg-green-500" />
         </div>
-        <pre className="max-w-full whitespace-pre-wrap break-words text-sm leading-relaxed md:text-base" style={{ imageRendering: "pixelated" }}>
+        <pre className="max-w-full whitespace-pre-wrap wrap-break-word text-sm leading-relaxed md:text-base md:leading-6" style={{ imageRendering: "pixelated" }}>
 {`CAMPAIGN HEALTH CHECK
 ---------------------
 Transparent rules. Clear next steps.`}

@@ -53,7 +53,6 @@ beforeAll(async () => {
       {
         config: {
           name: "looplab-tests",
-          type: "worker",
           compatibilityDate: "2026-09-04",
           manifest: {
             mainModule: "index.js",
@@ -91,6 +90,7 @@ beforeAll(async () => {
       autorag: vi.fn(),
       models: vi.fn(),
       toMarkdown: vi.fn(),
+      websearch: vi.fn(),
     },
     ASSETS: {
       fetch: vi.fn(async () => new Response("asset")),

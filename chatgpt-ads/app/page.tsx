@@ -19,7 +19,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-beige text-dark-green">
       {/* Nav */}
-      <header className="sticky top-0 z-50 border-b border-dark-green/10 bg-beige/90 backdrop-blur">
+      <header className="sticky top-0 z-50 border-b border-dark-green/10 bg-beige/90 backdrop-blur-sm">
         <nav className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <span className="shrink-0 text-lg font-black sm:text-xl">ChatGPT Ads</span>
           <div className="hidden items-center gap-8 md:flex">
@@ -63,7 +63,7 @@ export default function Home() {
             { title: "Unsure what looks healthy?", copy: "ROAS, CTR, and CPC tell different parts of the story." },
             { title: "Need a starting point?", copy: "A transparent checklist can guide a deeper, human review." },
           ].map((card) => (
-            <div key={card.title} className="rounded-xl border border-dark-green/10 bg-white/60 p-6 text-center shadow-sm">
+            <div key={card.title} className="rounded-xl border border-dark-green/10 bg-white/60 p-6 text-center shadow-xs">
               <h3 className="text-xl font-bold">{card.title}</h3>
               <p className="mt-2 text-dark-green/80">{card.copy}</p>
             </div>
@@ -166,7 +166,7 @@ export default function Home() {
 
 function ExampleStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-dark-green/10 bg-white/60 p-6 text-center shadow-sm">
+    <div className="rounded-xl border border-dark-green/10 bg-white/60 p-6 text-center shadow-xs">
       <p className="text-2xl font-black">{value}</p>
       <p className="mt-1 text-sm uppercase tracking-wide text-dark-green/70">{label}</p>
     </div>

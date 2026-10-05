@@ -85,7 +85,7 @@ Reviewed project hook → metadata filter → authenticated loopback observer
 Hosted demo → static assets + scripted sample states (no local connection)
 ```
 
-- Frontend: React, TypeScript, Vinext static export, accessible Base UI/Shadcn controls.
+- Frontend: React, TypeScript, Next.js static export, accessible Base UI/Shadcn controls.
 - Local backend: Node.js HTTP, loopback-only binding, random per-run capability, exact Host/Origin checks, immediate data projection, bounded in-memory history.
 - Desktop: Swift/AppKit + WKWebView; only its exact loopback origin can load.
 - Hosting: static Cloudflare-compatible output. No real task data, runtime token, or local configuration is included.
@@ -96,11 +96,17 @@ Hosted demo → static assets + scripted sample states (no local connection)
 ```sh
 npm run check
 npm run build
+npm run check:build
+npm run check:deploy
 npm audit
 node scripts/build-mac.mjs
 ```
 
 See [verification details and limitations](docs/VERIFICATION.md).
+
+The security tooling migration preserves the static output and local bridge. See
+[build compatibility notes](docs/TOOLING.md) for fonts, Sites metadata, and the
+retained Shadcn stylesheet.
 
 ## Cloudflare deployment
 
