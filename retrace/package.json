@@ -1,0 +1,45 @@
+{
+  "name": "retrace",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "npm run typecheck && vite build",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p worker/tsconfig.json",
+    "test": "tsx --test tests/*.test.ts",
+    "test:browser": "node scripts/verify-browser.mjs",
+    "preview": "wrangler dev",
+    "types": "wrangler types --include-runtime=false",
+    "deploy": "wrangler deploy",
+    "check:deploy": "wrangler deploy --dry-run",
+    "bridge": "tsx bridge/cli.ts",
+    "fixture": "tsx bridge/fixture.ts",
+    "test:worker": "node scripts/verify-worker.mjs",
+    "test:e2e": "node scripts/verify-e2e.mjs",
+    "media:fetch": "node scripts/fetch-media.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "1.52.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@cloudflare/workers-types": "5.20261004.1",
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.6.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.186.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "esbuild": "0.28.2",
+    "miniflare": "5.20261001.0-alpha",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vite": "8.3.2",
+    "wrangler": "4.147.0",
+    "ws": "8.21.0"
+  }
+}
