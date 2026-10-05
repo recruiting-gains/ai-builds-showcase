@@ -1,0 +1,341 @@
+{
+  "source": "@next/eslint-plugin-next and eslint-config-next 16.3.8, captured before migration",
+  "cases": [
+    {
+      "name": "relative call",
+      "code": "location.assign('/dashboard');",
+      "messages": [
+        {
+          "ruleId": "@next/next/no-location-assign-relative-destination",
+          "severity": 1,
+          "message": "Do not use `location.assign()` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination",
+          "messageId": "noLocationAssign",
+          "line": 1,
+          "column": 1,
+          "endLine": 1,
+          "endColumn": 30
+        }
+      ]
+    },
+    {
+      "name": "relative href",
+      "code": "location.href = '/dashboard';",
+      "messages": [
+        {
+          "ruleId": "@next/next/no-location-assign-relative-destination",
+          "severity": 1,
+          "message": "Do not use `location.href` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination",
+          "messageId": "noLocationAssign",
+          "line": 1,
+          "column": 1,
+          "endLine": 1,
+          "endColumn": 29
+        }
+      ]
+    },
+    {
+      "name": "window call",
+      "code": "window.location.assign('/dashboard');",
+      "messages": [
+        {
+          "ruleId": "@next/next/no-location-assign-relative-destination",
+          "severity": 1,
+          "message": "Do not use `window.location.assign()` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination",
+          "messageId": "noLocationAssign",
+          "line": 1,
+          "column": 1,
+          "endLine": 1,
+          "endColumn": 37
+        }
+      ]
+    },
+    {
+      "name": "globalThis href",
+      "code": "globalThis.location.href = '/dashboard';",
+      "messages": [
+        {
+          "ruleId": "@next/next/no-location-assign-relative-destination",
+          "severity": 1,
+          "message": "Do not use `globalThis.location.href` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination",
+          "messageId": "noLocationAssign",
+          "line": 1,
+          "column": 1,
+          "endLine": 1,
+          "endColumn": 40
+        }
+      ]
+    },
+    {
+      "name": "document call",
+      "code": "document.location.assign('/dashboard');",
+      "messages": [
+        {
+          "ruleId": "@next/next/no-location-assign-relative-destination",
+          "severity": 1,
+          "message": "Do not use `document.location.assign()` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination",
+          "messageId": "noLocationAssign",
+          "line": 1,
+          "column": 1,
+          "endLine": 1,
+          "endColumn": 39
+        }
+      ]
+    },
+    {
+      "name": "self href",
+      "code": "self.location.href = '/dashboard';",
+      "messages": [
+        {
+          "ruleId": "@next/next/no-location-assign-relative-destination",
+          "severity": 1,
+          "message": "Do not use `self.location.href` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination",
+          "messageId": "noLocationAssign",
+          "line": 1,
+          "column": 1,
+          "endLine": 1,
+          "endColumn": 34
+        }
+      ]
+    },
+    {
+      "name": "computed members",
+      "code": "window['location']['assign']('/dashboard');",
+      "messages": [
+        {
+          "ruleId": "@next/next/no-location-assign-relative-destination",
+          "severity": 1,
+          "message": "Do not use `window['location']['assign']()` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination",
+          "messageId": "noLocationAssign",
+          "line": 1,
+          "column": 1,
+          "endLine": 1,
+          "endColumn": 43
+        }
+      ]
+    },
+    {
+      "name": "computed href",
+      "code": "location['href'] = '/dashboard';",
+      "messages": [
+        {
+          "ruleId": "@next/next/no-location-assign-relative-destination",
+          "severity": 1,
+          "message": "Do not use `location['href']` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination",
+          "messageId": "noLocationAssign",
+          "line": 1,
+          "column": 1,
+          "endLine": 1,
+          "endColumn": 32
+        }
+      ]
+    },
+    {
+      "name": "literal binding",
+      "code": "const destination = '/dashboard'; location.assign(destination);",
+      "messages": [
+        {
+          "ruleId": "@next/next/no-location-assign-relative-destination",
+          "severity": 1,
+          "message": "Do not use `location.assign()` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination",
+          "messageId": "noLocationAssign",
+          "line": 1,
+          "column": 35,
+          "endLine": 1,
+          "endColumn": 63
+        }
+      ]
+    },
+    {
+      "name": "template prefix",
+      "code": "function go(id) { location.href = `/dashboard/${id}`; }",
+      "messages": [
+        {
+          "ruleId": "@next/next/no-location-assign-relative-destination",
+          "severity": 1,
+          "message": "Do not use `location.href` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination",
+          "messageId": "noLocationAssign",
+          "line": 1,
+          "column": 19,
+          "endLine": 1,
+          "endColumn": 53
+        }
+      ]
+    },
+    {
+      "name": "concatenation prefix",
+      "code": "function go(id) { location.assign('/dashboard/' + id); }",
+      "messages": [
+        {
+          "ruleId": "@next/next/no-location-assign-relative-destination",
+          "severity": 1,
+          "message": "Do not use `location.assign()` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination",
+          "messageId": "noLocationAssign",
+          "line": 1,
+          "column": 19,
+          "endLine": 1,
+          "endColumn": 54
+        }
+      ]
+    },
+    {
+      "name": "assigned binding",
+      "code": "let destination = 'https://example.com'; destination = '/dashboard'; location.assign(destination);",
+      "messages": [
+        {
+          "ruleId": "@next/next/no-location-assign-relative-destination",
+          "severity": 1,
+          "message": "Do not use `location.assign()` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination",
+          "messageId": "noLocationAssign",
+          "line": 1,
+          "column": 70,
+          "endLine": 1,
+          "endColumn": 98
+        }
+      ]
+    },
+    {
+      "name": "bound template",
+      "code": "function go(id) { const destination = `/dashboard/${id}`; location.assign(destination); }",
+      "messages": [
+        {
+          "ruleId": "@next/next/no-location-assign-relative-destination",
+          "severity": 1,
+          "message": "Do not use `location.assign()` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination",
+          "messageId": "noLocationAssign",
+          "line": 1,
+          "column": 59,
+          "endLine": 1,
+          "endColumn": 87
+        }
+      ]
+    },
+    {
+      "name": "document relative",
+      "code": "location.assign('dashboard');",
+      "messages": [
+        {
+          "ruleId": "@next/next/no-location-assign-relative-destination",
+          "severity": 1,
+          "message": "Do not use `location.assign()` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination",
+          "messageId": "noLocationAssign",
+          "line": 1,
+          "column": 1,
+          "endLine": 1,
+          "endColumn": 29
+        }
+      ]
+    },
+    {
+      "name": "query relative",
+      "code": "location.assign('?tab=one');",
+      "messages": [
+        {
+          "ruleId": "@next/next/no-location-assign-relative-destination",
+          "severity": 1,
+          "message": "Do not use `location.assign()` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination",
+          "messageId": "noLocationAssign",
+          "line": 1,
+          "column": 1,
+          "endLine": 1,
+          "endColumn": 28
+        }
+      ]
+    },
+    {
+      "name": "fragment relative",
+      "code": "location.assign('#heading');",
+      "messages": [
+        {
+          "ruleId": "@next/next/no-location-assign-relative-destination",
+          "severity": 1,
+          "message": "Do not use `location.assign()` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination",
+          "messageId": "noLocationAssign",
+          "line": 1,
+          "column": 1,
+          "endLine": 1,
+          "endColumn": 28
+        }
+      ]
+    },
+    {
+      "name": "https external",
+      "code": "location.assign('https://example.com/dashboard');",
+      "messages": []
+    },
+    {
+      "name": "protocol relative external",
+      "code": "location.href = '//example.com/dashboard';",
+      "messages": []
+    },
+    {
+      "name": "scheme external",
+      "code": "location.assign('mailto:hello@example.com');",
+      "messages": []
+    },
+    {
+      "name": "external template",
+      "code": "function go(id) { location.assign(`https://example.com/${id}`); }",
+      "messages": []
+    },
+    {
+      "name": "external concatenation",
+      "code": "function go(id) { location.assign('https://example.com/' + id); }",
+      "messages": []
+    },
+    {
+      "name": "unknown destination",
+      "code": "function go(destination) { location.assign(destination); }",
+      "messages": []
+    },
+    {
+      "name": "shadowed location parameter",
+      "code": "function go(location) { location.assign('/dashboard'); }",
+      "messages": []
+    },
+    {
+      "name": "shadowed window parameter",
+      "code": "function go(window) { window.location.assign('/dashboard'); }",
+      "messages": []
+    },
+    {
+      "name": "shadowed globalThis",
+      "code": "const globalThis = {location:{href:''}}; globalThis.location.href = '/dashboard';",
+      "messages": []
+    },
+    {
+      "name": "shadowed location binding",
+      "code": "const location = {assign() {}}; location.assign('/dashboard');",
+      "messages": []
+    },
+    {
+      "name": "spread argument",
+      "code": "function go(args) { location.assign(...args); }",
+      "messages": []
+    },
+    {
+      "name": "missing argument",
+      "code": "location.assign();",
+      "messages": []
+    },
+    {
+      "name": "different method",
+      "code": "location.replace('/dashboard');",
+      "messages": []
+    },
+    {
+      "name": "different object",
+      "code": "const router = {assign() {}}; router.assign('/dashboard');",
+      "messages": []
+    },
+    {
+      "name": "unknown computed member",
+      "code": "function go(method) { location[method]('/dashboard'); }",
+      "messages": []
+    },
+    {
+      "name": "assignment after read",
+      "code": "let destination = 'https://example.com'; location.assign(destination); destination = '/dashboard';",
+      "messages": []
+    }
+  ]
+}

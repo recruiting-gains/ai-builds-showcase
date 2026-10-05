@@ -102,7 +102,7 @@ export default function AuditTool() {
             id="platform"
             value={platform}
             onChange={(event) => setPlatform(event.target.value as (typeof SUPPORTED_PLATFORMS)[number])}
-            className="w-full rounded-lg border border-dark-green/20 bg-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-dark-green"
+            className="w-full rounded-lg border border-dark-green/20 bg-white px-4 py-3 focus:outline-hidden focus:ring-2 focus:ring-dark-green"
           >
             {SUPPORTED_PLATFORMS.map((item) => (
               <option key={item} value={item}>
@@ -163,7 +163,7 @@ export default function AuditTool() {
               setPastedData(event.target.value);
               setError(null);
             }}
-            className="w-full rounded-lg border border-dark-green/20 bg-white px-4 py-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-dark-green"
+            className="w-full rounded-lg border border-dark-green/20 bg-white px-4 py-3 font-mono text-sm focus:outline-hidden focus:ring-2 focus:ring-dark-green"
           />
         </div>
 
@@ -186,7 +186,7 @@ export default function AuditTool() {
       </form>
 
       {result && (
-        <div ref={resultRef} tabIndex={-1} className="scroll-mt-24 outline-none">
+        <div ref={resultRef} tabIndex={-1} className="scroll-mt-24 outline-hidden">
           <Results result={result} />
         </div>
       )}

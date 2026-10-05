@@ -64,7 +64,9 @@ The production stack is Next.js 16, React 19, TypeScript, Tailwind CSS, OpenNext
 
 ## Run locally
 
-Requirements: Node.js 22 or newer and npm.
+Requirements: Node.js 24 and npm.
+
+Tailwind CSS 4 requires Safari 16.4+, Chrome 111+, or Firefox 128+. The migration preserves the existing palette, typography, spacing, focus indicators, and campaign behavior; older browsers are outside this CSS framework's supported baseline.
 
 ```bash
 npm ci
@@ -79,7 +81,9 @@ npm run deploy:check
 npm audit
 ```
 
-The checks cover ESLint, TypeScript through the production build, campaign-engine tests, input-limit tests, the Next.js build, the OpenNext conversion, and a Wrangler deployment dry run.
+The checks cover ESLint and Oxlint, lint regression fixtures, TypeScript, campaign-engine tests, input-limit tests, the Next.js build, the OpenNext conversion, and a Wrangler deployment dry run. Run the lint regression suite independently with `npm run test:lint`.
+
+The explicit ESLint configuration preserves all 64 existing React, Hooks/Compiler, TypeScript, accessibility, import, and core checks with their original severities. Oxlint supplies 21 Next.js checks. The remaining `no-location-assign-relative-destination` check is retained from the attributed upstream implementation under `scripts/lint/`. This removes the obsolete glob dependency chain without disabling security auditing or useful lint checks. Oxlint's internal-link rule also checks relative literal links without consulting the filesystem; same-page anchors, external links, downloads, and new-tab links remain allowed. Fixtures document this broader behavior.
 
 ## Deploy
 
