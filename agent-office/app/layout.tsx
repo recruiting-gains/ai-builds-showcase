@@ -1,16 +1,5 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
 
 export const metadata: Metadata = {
   title: 'Agent Office — Your project companion',
@@ -26,11 +15,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
-      </body>
+      <head>
+        {/* oxlint-disable-next-line next/no-page-custom-font -- App Router root layout: preserve the existing remote-font/CSP fallback contract on every route. */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Geist&display=swap"
+        />
+        {/* oxlint-disable-next-line next/no-page-custom-font -- App Router root layout: preserve the existing remote-font/CSP fallback contract on every route. */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Geist+Mono&display=swap"
+        />
+      </head>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
