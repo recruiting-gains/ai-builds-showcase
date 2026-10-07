@@ -62,6 +62,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var stopMenuItem: NSMenuItem!
     private var startPointerMenuItem: NSMenuItem!
     private var startClicksMenuItem: NSMenuItem!
+    private var startRecoveryMenuItem: NSMenuItem!
+    private var practiceScope: PracticeScope?
     private var statusMenuItem: NSMenuItem!
     private var reasonMenuItem: NSMenuItem!
     private var menuStart = MenuBarStartRequest()
@@ -78,26 +80,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var screenIDs: [CGDirectDisplayID] = []
     private var observers: [NSObjectProtocol] = []
     private var countdownStarted = 0.0
+    private var lastRefreshAt = -Double.infinity
+    private var lastShownState: ControlState = .off
+    private var cameraDelayed = false
+    private var diagnosticLabel = NSTextField(wrappingLabelWithString: "Local diagnostics appear after camera start. No video is saved.")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
         buildWindow()
         installLocalEmergencyMonitor()
         camera.onFrame = { [weak self] frame, capturedAt in self?.receive(frame, capturedAt: capturedAt) }
+        camera.onTrackingLoss = { [weak self] reason, capturedAt in
+            guard let self else { return }
+            // The normal receive path services a pending, explicit Start intent.
+            self.receive(nil, capturedAt: capturedAt, lossReason: reason)
+        }
         camera.onPinchUncertain = { [weak self] frame, capturedAt in
             guard let self else { return }
-            self.preview.hand = nil
+            if self.preview.showVideo { self.preview.hand = nil }
             self.lastHandAt = nil
             _ = self.gestures.update(nil)
             self.cameraLabel.stringValue = "Hand visible, thumb uncertain. Open your hand toward the camera."
             self.pointer.post(self.gate.pinchUncertain(frame, capturedAt: capturedAt,
                 now: ProcessInfo.processInfo.systemUptime, authorized: self.canControl))
-            self.refresh()
+            self.refresh(force: false)
         }
         camera.onFault = { [weak self] message in
             guard let self else { return }
             self.preview.hand = nil
             self.cameraLabel.stringValue = message
+            self.cameraDelayed = message.contains("too old") || message.contains("timing") || message.contains("discontinuity")
             // A failed/stale camera sample is never eligible for pointer recovery.
             self.lastHandAt = nil
             if self.menuStart.isPending { self.stopEverything("Start canceled: " + message) }
@@ -107,6 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             guard let self else { return }
             self.cameraRunning = running
             self.cameraLabel.stringValue = message
+            if running { self.cameraDelayed = false }
             self.preview.cameraOn = running
             self.preview.needsLayout = true
             if !running {
@@ -121,19 +134,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         for name in [NSWorkspace.willSleepNotification, NSWorkspace.screensDidSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {
             observers.append(workspaceCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in self?.stopEverything("Stopped for sleep or session change.") })
         }
+        for name in [NSWorkspace.didActivateApplicationNotification, NSWorkspace.didTerminateApplicationNotification,
+                     NSWorkspace.activeSpaceDidChangeNotification] {
+            observers.append(workspaceCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+                guard let self, let scope = self.practiceScope,
+                      self.gate.state != .off || self.menuStart.isPending else { return }
+                if name == NSWorkspace.activeSpaceDidChangeNotification || !scope.eligible {
+                    self.stopEverything("Practice recovery stopped: practice focus, Space, or session changed. Start again when ready.")
+                }
+            })
+        }
+        observers.append(NotificationCenter.default.addObserver(forName: .NSApplicationProtectedDataWillBecomeUnavailable,
+            object: nil, queue: .main) { [weak self] _ in
+                self?.stopEverything("Stopped: protected data became unavailable. Start again when ready.")
+            })
         observers.append(NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             self?.stopControl("Display configuration changed. Select a display and start again.")
             self?.reloadDisplays()
         })
         timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self else { return }
+            if let scope = self.practiceScope, !scope.eligible {
+                self.stopEverything("Practice recovery stopped: practice or session is no longer eligible.")
+                return
+            }
             if self.menuStart.isPending,
                !self.menuStart.validate(now: ProcessInfo.processInfo.systemUptime, authorized: self.hasControlPermissionAndMonitors) {
                 self.stopEverything("Menu start canceled or timed out. Choose Start again when ready.")
             }
             let actions = self.gate.tick(now: ProcessInfo.processInfo.systemUptime, authorized: self.canControl)
             self.pointer.post(actions)
-            self.refresh()
+            self.refresh(force: false)
         }
         RunLoop.main.add(timer!, forMode: .common)
         refresh()
@@ -141,7 +172,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private var hasControlPermissionAndMonitors: Bool { SystemPointer.isTrusted && globalMonitor != nil && localMonitor != nil }
+    private var hasControlPermissionAndMonitors: Bool {
+        SystemPointer.isTrusted && globalMonitor != nil && localMonitor != nil
+            && (practiceScope?.eligible ?? true)
+    }
     private var canControl: Bool { hasControlPermissionAndMonitors && cameraRunning }
 
     private var emergencyMask: NSEvent.EventTypeMask { [.keyDown, .mouseMoved, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel, .leftMouseDragged] }
@@ -182,14 +216,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         stopControl("Paused: physical mouse or trackpad took over. Start again when ready.")
     }
 
-    private func receive(_ frame: HandFrame?, capturedAt: Double) {
-        preview.hand = frame
+    private func receive(_ frame: HandFrame?, capturedAt: Double, lossReason: RecoverableTrackingLoss = .handMissing) {
+        if preview.showVideo { preview.hand = frame }
         let now = ProcessInfo.processInfo.systemUptime
         if menuStart.isPending, cameraRunning {
+            let recoveryEnabled = menuStart.recoveryEnabled
             if let mode = menuStart.take(capturedAt: capturedAt, now: now, authorized: canControl) {
                 gestures.reset()
                 countdownStarted = now
-                guard gate.arm(now: now, mode: mode, authorized: canControl) else {
+                guard gate.arm(now: now, mode: mode, authorized: canControl, recoveryEnabled: recoveryEnabled) else {
                     stopEverything("Menu start could not arm safely. Choose Start again.")
                     return
                 }
@@ -200,10 +235,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         }
         lastHandAt = frame?.timestamp
         guard let frame else {
-            if cameraRunning { cameraLabel.stringValue = "Camera on. Show one open hand in good light." }
+            if cameraRunning { cameraLabel.stringValue = lossReason == .multipleHands ? "More than one hand detected. Show only your control hand." : "Camera on. Looking for one clear open hand." }
             _ = gestures.update(nil)
-            pointer.post(gate.noHand(capturedAt: capturedAt, now: now, authorized: canControl))
-            refresh()
+            pointer.post(gate.noHand(capturedAt: capturedAt, now: now, authorized: canControl, reason: lossReason))
+            refresh(force: false)
             return
         }
         let output = gestures.update(frame)
@@ -211,7 +246,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             cameraLabel.stringValue = output.ready ? "Hand detected. Point to aim; pinch only clicks when allowed." : "Hand detected. Keep your fingers open and steady to get ready."
         }
         pointer.post(gate.accept(output, capturedAt: frame.timestamp, now: now, authorized: canControl))
-        refresh()
+        refresh(force: false)
     }
 
     @objc private func toggleCamera() {
@@ -233,14 +268,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
     @objc private func startPointerFromMenu() { startFromMenu(mode: .pointerOnly) }
     @objc private func startClicksFromMenu() { startFromMenu(mode: .clickAndDrag) }
+    @objc private func startRecoveryFromMenu() { startFromMenu(mode: .clickAndDrag, recoveryEnabled: true) }
 
-    private func startFromMenu(mode: ControlMode) {
+    private func startFromMenu(mode: ControlMode, recoveryEnabled: Bool = false) {
         guard gate.state == .off, !menuStart.isPending else { return }
         // Never queue computer control across a first-time permission dialog.
         guard SystemPointer.isTrusted, AVCaptureDevice.authorizationStatus(for: .video) == .authorized else {
             showWindow()
             stopControl("First approve Camera using Start camera and Accessibility using Set up Accessibility. Then choose a menu-bar Start option. Nothing was started.")
             return
+        }
+        if recoveryEnabled {
+            guard let scope = PracticeScope.resolve(), scope.eligible else {
+                showWindow()
+                stopControl("Bring Airframe Desktop Practice to the front, then choose recovery from A. Recovery is limited to that supervised test; no control was started.")
+                return
+            }
+            // Require the named, already-frontmost helper. Do not queue a Start
+            // across asynchronous application activation or a focus change.
+            window.orderOut(nil)
+            practiceScope = scope
         }
         installEmergencyMonitors()
         guard hasControlPermissionAndMonitors else {
@@ -251,7 +298,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         previewToggle.state = .off
         preview.showVideo = false
         lastHandAt = nil
-        menuStart.begin(mode: mode, now: ProcessInfo.processInfo.systemUptime, authorized: true)
+        menuStart.begin(mode: mode, now: ProcessInfo.processInfo.systemUptime, authorized: true, recoveryEnabled: recoveryEnabled)
         window.orderOut(nil)
         camera.start()
         refresh()
@@ -282,6 +329,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         let canceledStartup = menuStart.isPending
         menuStart.cancel()
         pointer.post(gate.stop(reason))
+        practiceScope = nil
         gestures.reset()
         lastHandAt = nil
         removeEmergencyMonitors()
@@ -301,9 +349,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         refresh()
     }
 
-    private func refresh() {
+    private func refresh(force: Bool = true) {
         guard window != nil else { return }
-        if gate.state == .off, !menuStart.isPending, globalMonitor != nil { removeEmergencyMonitors() }
+        let now = ProcessInfo.processInfo.systemUptime
+        guard force || gate.state != lastShownState || now - lastRefreshAt >= 0.1 else { return }
+        lastRefreshAt = now; lastShownState = gate.state
+        if gate.state == .off, !menuStart.isPending {
+            practiceScope = nil
+            if globalMonitor != nil { removeEmergencyMonitors() }
+        }
         cameraButton.isEnabled = true
         cameraButton.title = cameraRunning ? "Stop camera" : camera.isRequested ? "Cancel camera setup" : "Start camera"
         permissionLabel.stringValue = SystemPointer.isTrusted ? "✓ Accessibility approved for this app." : "Accessibility not approved. Preview still works."
@@ -314,17 +368,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         stopMenuItem.isEnabled = camera.isRequested || cameraRunning || gate.state != .off || menuStart.isPending
         startPointerMenuItem.isEnabled = gate.state == .off && !menuStart.isPending
         startClicksMenuItem.isEnabled = startPointerMenuItem.isEnabled
+        startRecoveryMenuItem.isEnabled = startPointerMenuItem.isEnabled
         switch gate.state {
         case .off: stateLabel.stringValue = menuStart.isPending ? "STARTING CAMERA · CONTROL OFF" : "CONTROL OFF"
         case .countdown:
             let count = max(1, Int(ceil(3 - (ProcessInfo.processInfo.systemUptime - countdownStarted))))
             stateLabel.stringValue = "STARTING IN \(count)…"
-        case .waitingForHand: stateLabel.stringValue = "SHOW AN OPEN HAND"
+        case .waitingForHand: stateLabel.stringValue = "LOOKING · SHOW AN OPEN HAND"
+        case .reacquiringHand: stateLabel.stringValue = "LOOKING · OPEN HAND TO RESUME"
+        case .standby: stateLabel.stringValue = "HOLD FINGERS OPEN · RESUME PRACTICE"
         case .recoveringHand: stateLabel.stringValue = "POINTER FROZEN · FINDING HAND"
         case .recoveringPinch: stateLabel.stringValue = "POINTER FROZEN · OPEN HAND TO CONTINUE"
         case .active: stateLabel.stringValue = clicks.state == .on ? "LIVE · CLICK + DRAG" : "LIVE · POINTER ONLY"
         }
-        detailLabel.stringValue = menuStart.isPending ? "Waiting for fresh camera data. Move the mouse or press Escape to cancel." : gate.reason
+        if cameraDelayed && gate.state == .off { stateLabel.stringValue = "CAMERA DELAY · CONTROL OFF" }
+        let remaining = gate.recoveryRemainingSeconds(now: now).map { " · \(Int(ceil($0)))s remaining" } ?? ""
+        let stopPrefix = gate.state == .off && !menuStart.isPending ? (cameraRunning ? "Camera is on; control is off. Last stop: " : "") : ""
+        detailLabel.stringValue = menuStart.isPending ? "Waiting for fresh camera data. Move the mouse or press Escape to cancel." : stopPrefix + gate.reason + remaining
+        diagnosticLabel.stringValue = camera.diagnosticsSummary
         refreshMenuIndicator()
     }
 
@@ -334,8 +395,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             lastHandAt: lastHandAt, now: ProcessInfo.processInfo.systemUptime)
         let color: NSColor = indicator == .tracking ? .systemGreen : indicator == .off ? .secondaryLabelColor : .systemOrange
         let countdown = gate.state == .countdown ? " \(max(1, Int(ceil(3 - (ProcessInfo.processInfo.systemUptime - countdownStarted)))))" : ""
+        let shortLabel = cameraDelayed && gate.state == .off ? "DELAY" : indicator.shortLabel
         let title = NSMutableAttributedString(string: "●", attributes: [.foregroundColor: color, .font: NSFont.systemFont(ofSize: 12, weight: .bold)])
-        title.append(NSAttributedString(string: " A \(indicator.shortLabel)\(countdown)", attributes: [.foregroundColor: NSColor.labelColor, .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)]))
+        title.append(NSAttributedString(string: " A \(shortLabel)\(countdown)", attributes: [.foregroundColor: NSColor.labelColor, .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)]))
         statusItem.button?.attributedTitle = title
         let mode = clicks.state == .on ? "Pinch clicks enabled" : "Pointer only"
         statusItem.button?.setAccessibilityLabel("Airframe: \(indicator.description). \(mode).")
@@ -369,6 +431,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         menu.addItem(.separator())
         startPointerMenuItem = menu.addItem(withTitle: "Start pointer only — camera on, preview hidden", action: #selector(startPointerFromMenu), keyEquivalent: "")
         startClicksMenuItem = menu.addItem(withTitle: "Start with pinch clicks — camera on, preview hidden", action: #selector(startClicksFromMenu), keyEquivalent: "")
+        startRecoveryMenuItem = menu.addItem(withTitle: "Start Desktop Practice recovery — 30s return window", action: #selector(startRecoveryFromMenu), keyEquivalent: "")
         stopMenuItem = menu.addItem(withTitle: "STOP CAMERA & CONTROL", action: #selector(emergencyStop), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Show setup / optional camera preview", action: #selector(showWindow), keyEquivalent: "")
@@ -421,10 +484,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         preview = PreviewView(session: camera.session)
         preview.translatesAutoresizingMaskIntoConstraints = false
         preview.widthAnchor.constraint(equalToConstant: 430).isActive = true
-        preview.heightAnchor.constraint(equalToConstant: 300).isActive = true
+        preview.heightAnchor.constraint(equalToConstant: 240).isActive = true
         cameraLabel.font = .systemFont(ofSize: 12)
         previewToggle.target = self; previewToggle.action = #selector(previewChanged)
-        let left = stack([preview, previewToggle, cameraLabel, label("Point to aim • Pinch to press • Open to release", size: 13, bold: true), label("Amber HOLD: open your hand near its last position for ½s.\nBrief thumb-only misses can hold before a click; lost hands or uncertain drags stop click control.\nIf control is off, press Start again. Use good light.", size: 12)])
+        diagnosticLabel.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
+        diagnosticLabel.textColor = .secondaryLabelColor
+        let left = stack([preview, previewToggle, cameraLabel, label("Point to aim • Pinch to press • Open to release", size: 13, bold: true), label("NEW: Bring Desktop Practice forward, then choose recovery from A.\nHand loss releases the drag; return open to resume. After a longer loss, hold all fingers open for 1s. Recovery expires after 30s.\nSwitching apps stops the trial. Releasing can commit a drop or click.", size: 12), diagnosticLabel])
+        left.widthAnchor.constraint(equalToConstant: 430).isActive = true
+        for field in left.arrangedSubviews.compactMap({ $0 as? NSTextField }) {
+            field.widthAnchor.constraint(equalToConstant: 430).isActive = true
+        }
         cameraButton = button("Start camera", action: #selector(toggleCamera), prominent: true)
         controlButton = button("Start Mac control", action: #selector(toggleControl))
         clicks.target = self; clicks.action = #selector(modeChanged)

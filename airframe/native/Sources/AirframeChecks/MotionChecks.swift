@@ -171,10 +171,10 @@ func runMotionChecks() {
         let lost = TrackingDelivery.observation(nil, capturedAt: 10.1)
         check(TrackingDelivery.coalesce(pending: uncertain, incoming: good) == uncertain,
               "Complete hand erased pending readiness reset")
-        check(TrackingDelivery.coalesce(pending: uncertain, incoming: lost) == lost,
-              "Thumb hold concealed genuine loss")
-        check(TrackingDelivery.coalesce(pending: lost, incoming: uncertain) == lost,
-              "Uncertain thumb concealed pending genuine loss")
+        check(TrackingDelivery.coalesce(pending: uncertain, incoming: lost) == .trackingLoss(.thumbOccluded, capturedAt: 10),
+              "Mixed loss did not preserve the first uncertainty and conservative loss handling")
+        check(TrackingDelivery.coalesce(pending: lost, incoming: uncertain) == .trackingLoss(.thumbOccluded, capturedAt: 10),
+              "Reverse arrival order changed the first-loss cause or timestamp")
         if case .fault = uncertain.validated(at: 10.201) {} else { check(false, "Stale thumb hold became fresh") }
         if case .fault = TrackingDelivery.pinchUncertain(partial(10), capturedAt: 10.01).validated(at: 10.1) {} else {
             check(false, "Partial frame/sample timestamp mismatch accepted")

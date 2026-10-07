@@ -422,6 +422,8 @@ group("Real gesture engine requires a new uninterrupted 500 ms open dwell") {
 runTrackingDeliveryChecks()
 runMenuBarControlChecks()
 runMotionChecks()
+runRecoveryChecks()
+runCameraQualityChecks()
 
 print("\nAirframe standalone checks: \(groups) groups, \(assertions) assertions, \(failures.count) failures.")
 print("Evidence boundary: synthetic core and input-gate logic only; not XCTest, live-camera recognition, Accessibility permission, or actual OS-input acceptance.")
