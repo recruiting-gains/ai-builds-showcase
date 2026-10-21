@@ -30,7 +30,7 @@
     "@axe-core/playwright": "^4.11.0",
     "miniflare": "5.20260926.1-alpha",
     "typescript": "7.0.2",
-    "vite": "8.2.2",
+    "vite": "8.3.5",
     "vitest": "4.1.11",
     "tsx": "^4.20.0",
     "wrangler": "4.144.0"
