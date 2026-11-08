@@ -35,9 +35,10 @@ try{
  await context.route('**/api/render',route=>route.abort());
  const page=await context.newPage();page.on('pageerror',error=>report.errors.push(error.message));page.on('request',request=>{if(request.method()==='POST')report.posts.push(request.url());});
  await page.goto(base);await page.locator('#photo-file-0').waitFor({state:'attached'});
- assert.equal(await page.locator('[data-mode=handframe]').getAttribute('aria-pressed'),'true');pass('Phone starts in the HandFrame studio');
+ assert.equal(await page.locator('[data-mode=orb]').getAttribute('aria-pressed'),'true');pass('Phone starts on the orb');
  assert.equal(await page.locator('#photo-fit').inputValue(),'reveal');assert.ok(await page.locator('#one-hand-option').isHidden());pass('Whole-picture reveal is the default; one-hand option is not shown for the front camera');
  for(const width of [320,390,430,844]){await page.setViewportSize({width,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`overflow at ${width}`);}await page.setViewportSize({width:390,height:844});pass('No horizontal overflow at 320, 390, 430 and 844 pixels');
+ await page.locator('[data-mode=handframe]').click();assert.equal(await page.locator('[data-mode=handframe]').getAttribute('aria-pressed'),'true');pass('HandFrame remains one tap from the orb');
  const makePhoto=async color=>Buffer.from(await page.evaluate(color=>{const c=document.createElement('canvas');c.width=120;c.height=80;const x=c.getContext('2d');x.fillStyle=color;x.fillRect(0,0,120,80);return c.toDataURL('image/png').split(',')[1];},color),'base64');
  const a=await makePhoto('#ee2244'),b=await makePhoto('#2255ee');
  await page.locator('#photo-file-0').setInputFiles({name:'first.png',mimeType:'image/png',buffer:a});await page.waitForFunction(()=>document.querySelector('[data-photo-select="0"]').getAttribute('aria-pressed')==='true');

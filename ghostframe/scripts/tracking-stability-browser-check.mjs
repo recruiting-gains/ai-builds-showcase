@@ -66,6 +66,8 @@ try {
   page.on('pageerror', error => report.errors.push(error.message));
   page.on('request', request => { if (request.method() === 'POST') report.posts.push(request.url()); });
   await page.goto(base); await page.locator('#photo-file-0').waitFor({ state: 'attached' });
+  await page.locator('[data-mode=handframe]').click();
+  assert.equal(await page.locator('[data-mode=handframe]').getAttribute('aria-pressed'), 'true');
   const photo = Buffer.from(await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 120; c.height = 80; const x = c.getContext('2d'); x.fillStyle = '#ee2244'; x.fillRect(0, 0, 120, 80); return c.toDataURL('image/png').split(',')[1]; }), 'base64');
   await page.locator('#photo-file-0').setInputFiles({ name: 'tracking-test.png', mimeType: 'image/png', buffer: photo });
   await page.locator('#start-camera').click();

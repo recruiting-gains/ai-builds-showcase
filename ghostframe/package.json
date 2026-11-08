@@ -17,7 +17,8 @@
     "test:phone": "node scripts/verify-phone-studio.mjs",
     "test:cube": "node scripts/verify-cube.mjs",
     "test:panel": "node scripts/verify-panel.mjs",
-    "test:camera": "node scripts/verify-camera-view.mjs"
+    "test:camera": "node scripts/verify-camera-view.mjs",
+    "test:orb": "node scripts/verify-orb.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",

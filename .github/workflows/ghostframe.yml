@@ -43,4 +43,7 @@ jobs:
       - run: npm run test:camera
         env:
           PLAYWRIGHT_CHANNEL: chromium
+      - run: npm run test:orb
+        env:
+          PLAYWRIGHT_CHANNEL: chromium
       - run: npm run check:deploy

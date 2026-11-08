@@ -2,6 +2,12 @@
 
 Disappear into the room. Hold another world in your hands.
 
+## Orb — between your hands
+
+Phones open on **Orb**. Two hands place a translucent light between the palms. It grows as the hands spread, eases instead of jumping, and holds then fades when tracking drops. Green links and red dots show the hands the tracker sees. This is an original motion effect inspired by one verified still of a hand-tracked orb. It is not a frame-accurate copy of that clip, and the full reference video was not available here.
+
+The simulated scene runs with the camera off. **Start your camera** uses the front or rear camera when the browser allows it. **Add to Home Screen** installs the app; iPhone uses Share → Add to Home Screen. Invisible, HandFrame and Cube stay in the same mode switch. Camera frames and the orb stay on the device. The optional HandFrame still is the only path that uploads a picture, and only after a separate confirmation. A second body-pose model is not loaded: it would share the hand worker and can stall a phone. [Orb design, checks and limits](docs/ORB.md).
+
 ## Energy Core phone-testing preview
 
 The app includes **Cube → Light style → Living Energy Core · preview**: a tinted glass-like volume, three brighter contained light currents, coherent motes, spreading layers, and a brief movement-responsive surge. **Classic Cube** retains the original white-cage appearance. This is a reversible preview for phone testing; physical iPhone performance and native saving require device verification. [Implementation and evidence](docs/ENERGY-CORE.md).

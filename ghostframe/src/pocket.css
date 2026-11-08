@@ -1,0 +1,54 @@
+/* Phone shell for the orb home screen. Existing effect controls keep their tested structure. */
+.pocket { background: #0c0e19; }
+.pocket .topbar { padding-left: max(0px, env(safe-area-inset-left)); padding-right: max(0px, env(safe-area-inset-right)); }
+#install-app { min-height: 40px; padding: 8px 12px; border-radius: 999px; border: 1px solid #8e82c4; background: #2a2444; color: #f4efff; font-size: 12px; font-weight: 650; }
+#install-help { margin: 8px 16px 0; }
+.mode-tabs { min-width: 0; max-width: 100%; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+.mode-tabs button { flex: 0 0 auto; min-height: 44px; }
+.orb-intro { margin: 0 0 8px; font-size: 22px; line-height: 1.25; letter-spacing: -0.03em; color: #f4f7ff; }
+#orb-controls { max-width: 720px; }
+#orb-controls .hint, #orb-controls .select-row, #orb-controls .switch-row { font-size: 13px; }
+#orb-controls input[type=range] { min-height: 28px; }
+#orb-status { min-height: 3.2em; color: #d5def4; }
+.orb-mode .intro { display: none; }
+.orb-mode .studio-heading h2 em { color: #d5ecff; }
+.orb-mode .viewport:not(.focus-view) { background: #070910; border-color: #31415f; }
+.orb-mode #effect-caption { font-weight: 650; }
+
+.pocket .notes { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+@media (max-width: 760px) {
+  .pocket { padding-bottom: env(safe-area-inset-bottom); }
+  .pocket .topbar { height: auto; min-height: 52px; margin: 0 12px; flex-wrap: wrap; row-gap: 4px; padding: 8px 0 10px; }
+  .pocket .brand { font-size: 12px; letter-spacing: 0.08em; }
+  .pocket .about-link { min-height: 44px; display: inline-flex; align-items: center; }
+  .pocket .playground { margin-top: 8px; border-radius: 18px; }
+  .pocket .mode-tabs { flex-wrap: wrap; gap: 6px; overflow: visible; padding-bottom: 2px; }
+  .pocket .mode-tabs button { flex: 1 1 calc(50% - 6px); justify-content: center; padding: 10px 8px; border-radius: 999px; }
+  .pocket .studio-footer { align-items: flex-start; gap: 10px; }
+  .pocket #install-app { min-height: 44px; }
+  .orb-mode .notes { gap: 18px; padding-top: 22px; }
+  .orb-mode .notes article > span { font-size: 10px; }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .orb-mode .topbar { height: 48px; }
+  .orb-mode .intro, .orb-mode .studio-heading { display: none; }
+  .orb-mode .playground {
+    grid-template-columns: minmax(0, 1.4fr) minmax(250px, 0.85fr);
+    margin-top: 6px;
+  }
+  .orb-mode .controls {
+    max-height: calc(100dvh - 58px);
+    overflow: auto;
+    border-top: 0;
+    border-left: 1px solid #363d55;
+  }
+  .orb-mode .viewport:not(.focus-view) { margin: 8px; }
+  .orb-mode .viewport:not(.focus-view) #scene { width: min(100%, calc(72dvh * var(--scene-aspect, 1.77778))); }
+  .orb-mode .studio-footer { padding-bottom: 8px; }
+  .orb-mode .notes { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb-mode .viewport { scroll-behavior: auto; }
+}
