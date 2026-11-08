@@ -1,5 +1,22 @@
 # Verification record
 
+## Orb phone app — November 8, 2026
+
+Phones now open on an original two-hand orb. Invisible, HandFrame and Cube stay in the mode switch. The reference was one still of a hand-tracked orb; the motion here is not claimed as a copy of the unseen clip. No body-pose model was added.
+
+Checked on this branch, with generated input only:
+
+- `npm test`: 303 application tests passed, including the new orb controller, simulated hands, skeleton links and install-manifest tests.
+- `npm run test:harness`: 14 harness tests passed.
+- `npm run typecheck` and `npm run build` passed.
+- `npm run test:orb` with Playwright Chromium: 10 checks passed. They cover the labelled simulated orb, red landmarks and green links, slider override, synthetic two-hand tracking with no uploads, hold-then-clear after loss, a declined camera, landscape width, the standalone manifest and icons, the same-origin service worker, WCAG A/AA via axe, and the install-help fallback.
+- `npm run test:phone`: 32 phone-studio checks and 14 tracking-stability checks passed in Chromium. The phone check now starts on Orb, then opens HandFrame. Photos, tilt, recording, denied and missing cameras still pass.
+- `npm run test:camera`: 9 camera-view checks passed, including portrait and landscape, front and rear, fullscreen fit, and local recording.
+
+- Desktop Chromium at 1440×900, reduced motion, camera off: no horizontal overflow, axe `wcag2a`/`wcag2aa` clean, and Invisible remains the pressed mode. The phone width is what selects Orb.
+
+Not run for this update: the general browser/AI-still suite, the cube and panel browser suites, WebKit, a physical phone, and deployment. `npm run deploy` was not used. A green synthetic check does not establish iPhone tracking, frame rate, or the install prompt on a real home screen.
+
 ## Phone tracking repair — September 12, 2026
 
 The [phone tracking repair](PHONE-TRACKING-STABILITY.md) passes 242 application tests, 14 harness tests, the existing 31 phone checks and 14 new stability checks in each of Chromium and WebKit. Actual MediaPipe worker processing also passes in Chromium with generated portrait and landscape input. A separate actual-worker WebKit smoke test hit a camera-permission error before loading models; that path remains unverified, distinct from the passing WebKit compositor suite. Types, production build, model integrity, dependency audit and deployment dry run pass.

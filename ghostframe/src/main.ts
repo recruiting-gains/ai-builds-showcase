@@ -1,5 +1,6 @@
 import './style.css';
 import './studio.css';
+import './pocket.css';
 import type { FrameRect, Hand, LocalStyle, Mode, Point } from './contracts';
 import { deriveFrame, PinchController, stylePixels } from './handframe';
 import { blendInvisible, portalMask, scaleMask } from './effects/invisible';
@@ -24,6 +25,10 @@ import { installRecording } from './recording-ui';
 import { CubeController, type CubePose } from './cube/controller';
 import { EnergyResponse } from './cube/energy';
 import type { CubeRenderer } from './cube/renderer';
+import { OrbController, type OrbPose } from './orb/controller';
+import { demoHands } from './orb/demo-hands';
+import { drawHandSkeleton, drawOrb } from './orb/draw';
+import { installPwa } from './pwa';
 
 const WORLDS: {id:LocalStyle;name:string;note:string}[] = [
   {id:'dream',name:'Daydream',note:'Soft pastel colors with a painted finish.'},
@@ -46,12 +51,12 @@ const SHAPES: {id:FrameShape;name:string;icon:string}[] = [
 ];
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
-<header class="topbar"><a class="brand" href="/" aria-label="GhostFrame home"><span class="brand-mark">⌑</span> GHOSTFRAME<span class="edition">YOUR HANDS. NEW DIMENSIONS.</span></a><a class="about-link" href="#how-it-works">How it works <span>↗</span></a></header>
+<header class="topbar"><a class="brand" href="/" aria-label="GhostFrame home"><span class="brand-mark">⌑</span> GHOSTFRAME<span class="edition">YOUR HANDS. NEW DIMENSIONS.</span></a><button id="install-app" type="button">Add to Home Screen</button><a class="about-link" href="#how-it-works">How it works <span>↗</span></a></header>
 <main>
-  <section class="intro"><div><p class="eyebrow"><span></span> A SMALL EXPERIMENT IN THE IMPOSSIBLE</p><h1>Now you see me.<br><em>Now, imagine.</em></h1></div><p class="intro-note">Disappear into the room.<br> Hold another world in your hands.<br><span>Three camera effects. One playful studio.</span></p></section>
+  <section class="intro"><div><p class="eyebrow"><span></span> A SMALL EXPERIMENT IN THE IMPOSSIBLE</p><h1>Now you see me.<br><em>Now, imagine.</em></h1></div><p class="intro-note">Disappear into the room.<br> Hold another world in your hands.<br><span>An orb, invisibility, a frame, and a cube.</span></p></section>
   <section class="playground" aria-label="Camera playground">
-    <div class="studio"><div class="studio-heading"><div><span class="eyebrow">YOUR POCKET STUDIO</span><h2>Make room for <em>imagination.</em></h2></div><span class="orbital-mark" aria-hidden="true"><i></i><i></i><i></i></span></div>
-      <div class="studio-bar"><div class="mode-tabs" role="group" aria-label="Choose an effect"><button class="active" data-mode="invisible" aria-pressed="true"><span>01</span> Invisible</button><button data-mode="handframe" aria-pressed="false"><span>02</span> HandFrame</button><button data-mode="cube" aria-pressed="false"><span>03</span> Cube</button></div><div class="studio-actions" id="studio-actions"><button id="full-screen" class="screen-open" aria-expanded="false" aria-controls="camera-view">Full screen <span aria-hidden="true">⛶</span></button></div></div><div id="studio-status"></div>
+    <div class="studio"><div class="studio-heading"><div><span class="eyebrow">YOUR POCKET STUDIO</span><h2 id="studio-title">Make room for <em>imagination.</em></h2></div><span class="orbital-mark" aria-hidden="true"><i></i><i></i><i></i></span></div>
+      <div class="studio-bar"><div class="mode-tabs" role="group" aria-label="Choose an effect"><button data-mode="orb" aria-pressed="false"><span>01</span> Orb</button><button class="active" data-mode="invisible" aria-pressed="true"><span>02</span> Invisible</button><button data-mode="handframe" aria-pressed="false"><span>03</span> HandFrame</button><button data-mode="cube" aria-pressed="false"><span>04</span> Cube</button></div><div class="studio-actions" id="studio-actions"><button id="full-screen" class="screen-open" aria-expanded="false" aria-controls="camera-view">Full screen <span aria-hidden="true">⛶</span></button></div></div><div id="studio-status"></div><p id="install-help" class="hint" role="status" hidden></p>
       <div class="viewport" id="camera-view"><canvas id="scene" width="768" height="432" aria-label="Interactive simulated preview of the Invisible effect"></canvas><div class="viewport-top"><span id="source-tag">INTERACTIVE PREVIEW · SIMULATED SCENE</span><span id="frame-tag">NO CAMERA CONNECTED</span></div><div class="viewport-bottom"><div><span class="record-dot"></span><span id="effect-caption">A little less here.</span></div><span id="live-metric">YOUR CAMERA IS OFF</span></div><div id="countdown" hidden></div><div class="screen-actions" role="group" aria-label="Full screen controls"><span id="screen-notice" role="status">Esc to return</span><button id="camera-only" aria-pressed="false">Just camera</button><button id="fill-screen" aria-pressed="false">Fill view</button><button id="exit-screen">Exit full screen <span aria-hidden="true">✕</span></button></div><span id="screen-camera-state">Simulated preview · Camera off</span></div>
       <div id="recording-home"><section id="recording-dock" aria-label="Record your GhostFrame"></section></div>
       <div class="studio-footer"><span id="gesture-help">Open palm: visible. Slowly close your hand to disappear. Open it again to return.</span><button id="reset" class="text-button">Reset effect ↺</button></div>
@@ -60,6 +65,17 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
       <div class="control-title"><span class="eyebrow">DESIGN YOUR NEXT DIMENSION</span><span class="tiny-star" aria-hidden="true">✳</span></div>
       <div id="camera-dock"><div class="camera-actions"><label class="camera-picker" for="camera-facing"><span>Camera</span><select id="camera-facing"><option value="user">Front · selfie</option><option value="environment">Back · world</option></select></label><button class="primary" id="start-camera">Start your camera <span>↗</span></button><button id="stop-camera" class="secondary" hidden>Stop camera</button></div></div>
       <div id="status-dock"><p id="status" class="status" role="status">Explore the simulated preview, or turn on your camera when you’re ready.</p></div>
+      <section id="orb-controls" aria-label="Orb controls" hidden>
+        <div class="section-label"><span>01 / BETWEEN YOUR HANDS</span><span id="orb-state">SIMULATED</span></div>
+        <p class="orb-intro">A light you hold between both hands.</p>
+        <p id="orb-status" class="hint" role="status">Simulated preview. Two illustrated hands move the orb. This is not a camera recording.</p>
+        <label class="switch-row"><span>Follow my hands<small>The orb sits between both palms and grows as you spread them.</small></span><input id="orb-follow" type="checkbox" checked></label>
+        <label class="switch-row"><span>Show hand skeleton<small>Green connections and red landmarks, drawn on this device.</small></span><input id="orb-skeleton" type="checkbox" checked></label>
+        <p class="hint">If a hand leaves, the orb holds its place, then fades. Bring both palms back to resume. The reference film was only a still; this motion is original. Camera frames stay on this device.</p>
+        <label class="select-row" for="orb-size">Orb size</label><input id="orb-size" type="range" min="18" max="72" value="42" disabled>
+        <label class="select-row" for="orb-x">Left / right</label><input id="orb-x" type="range" min="0" max="100" value="50" disabled>
+        <label class="select-row" for="orb-y">Up / down</label><input id="orb-y" type="range" min="0" max="100" value="42" disabled>
+      </section>
       <div id="invisible-controls">
         <div class="section-label"><span>01 / SAVE THE ROOM</span><span id="background-state">PREVIEW READY</span></div>
         <button id="capture-background" class="secondary full">Capture empty background <span>5s</span></button><p class="hint">Step out of view. Keep the camera still. Recapture whenever the room or camera changes.</p>
@@ -120,7 +136,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML=`
         <p class="hint" id="perspective-manual-hint">Try the depth and tilt sliders, or use both hands with the camera.</p></div></div>
     </aside>
   </section>
-  <section id="how-it-works" class="notes"><article><span>01 / A CAMERA ILLUSION</span><h2>Leave a little mystery.</h2><p>Invisible blends your captured room into your silhouette. A steady camera and even lighting give it the best chance to work.</p></article><article><span>02 / FRAME YOUR IMAGINATION</span><h2>Your hands, the viewfinder.</h2><p>Form an opening with both thumbs and index fingers. The picture follows its outline as you move. Bring one hand closer for perspective. Bring both hands together and reopen to change worlds.</p></article><article><span>03 / ON YOUR TERMS</span><h2>Local until you say so.</h2><p>Live camera frames stay in your browser. AI rendering sends only your selected still. No accounts or microphone. Record a clip only when you tap Record; save it directly from your browser.</p></article></section>
+  <section id="how-it-works" class="notes"><article><span>01 / BETWEEN YOUR HANDS</span><h2>Hold the light.</h2><p>Orb follows both palms, grows as they spread, and holds then fades if tracking drops. Green lines and red dots show the hands it sees. It is an original effect inspired by a still, not a copy of that clip. Everything stays on this device.</p></article><article><span>02 / A CAMERA ILLUSION</span><h2>Leave a little mystery.</h2><p>Invisible blends your captured room into your silhouette. A steady camera and even lighting give it the best chance to work.</p></article><article><span>03 / FRAME YOUR IMAGINATION</span><h2>Your hands, the viewfinder.</h2><p>Form an opening with both thumbs and index fingers. The picture follows its outline as you move. Bring one hand closer for perspective. Bring both hands together and reopen to change worlds.</p></article><article><span>04 / ON YOUR TERMS</span><h2>Local until you say so.</h2><p>Live camera frames stay in your browser. AI rendering sends only your selected still. No accounts or microphone. Record a clip only when you tap Record; save it directly from your browser.</p></article></section>
 </main><footer><span>GHOSTFRAME <span class="muted">/ Built by Cruz G.</span></span><span>Hand tracking + a little imagination.</span><a href="https://github.com/recruiting-gains/ai-builds-showcase/tree/main/ghostframe" target="_blank" rel="noopener noreferrer">Explore the source ↗</a></footer>`;
 
 const $=<T extends HTMLElement>(selector:string)=>document.querySelector<T>(selector)!;
@@ -152,6 +168,9 @@ let recording:ReturnType<typeof installRecording>|null=null;
 let background:ImageData|null=null,mask:Float32Array|null=null,hands:Hand[]=[],lastVision=0,inferenceMs=0;
 let handBackend='';
 const cube=new CubeController();
+const orb=new OrbController();
+let orbFollow=true,orbSkeleton=true,orbInputAfter=0,orbRaw:Hand[]=[];
+const manualOrb:Pick<OrbPose,'x'|'y'|'size'>={x:.5,y:.42,size:.42};
 const cubeEnergy=new EnergyResponse();
 let cubeLiving=true;
 let cubeRenderer:CubeRenderer|null=null,cubeManual=true,cubePreset=0,cubeEnabled=false;
@@ -194,7 +213,7 @@ function sizeCameraCanvas():boolean{
   // masks and delayed tracking results instead of blending across orientations.
   cameraInputAfter=performance.now();
   background=null;mask=null;personMask=null;lastMaskAt=lastVision=0;hands=[];
-  resetCalibration();resetPerspective();resetCubeInput();palm.reset();pinch.reset();
+  resetCalibration();resetPerspective();resetCubeInput();orb.reset();orbRaw=[];palm.reset();pinch.reset();
   targetFade=fade=0;setFade(0);
   textureSource=null;textureKey='';simulatedMask=demoMask(W,H);
   $('#background-state').textContent=live?'NOT CAPTURED':'PREVIEW READY';
@@ -225,6 +244,12 @@ const pipeline=new CameraPipeline(result=>{
       if(cube.update(result.hands,result.timestamp,aspect,pipeline.mirrored).changed)nextCubePreset();
       cubeEnergy.sample(cube.measurementAt(result.timestamp),result.timestamp,aspect);
     }else {cube.reset();if(!cubeManual)cubeEnergy.reset();}
+    return;
+  }
+  if(mode==='orb'){
+    orbRaw=result.hands;
+    if(orbFollow&&!cameraOnly&&result.timestamp>orbInputAfter)orb.update(result.hands,result.timestamp,aspect,pipeline.mirrored);
+    else orb.reset();
     return;
   }
   const automatic=automaticShaping();
@@ -278,7 +303,11 @@ const pipeline=new CameraPipeline(result=>{
     if(action==='capture'&&lastGoodFrame&&lastVision-lastGoodAt<1000)captureStill(lastGoodFrame);
   }else if(mode==='handframe')pinch.reset();
 },(message,active)=>{
-  live=active;status(message);resetCubeInput();
+  live=active;status(message);resetCubeInput();orb.reset();orbRaw=[];orbInputAfter=performance.now();
+  $('#source-tag').textContent=active?'LIVE CAMERA · ON-DEVICE TRACKING':'INTERACTIVE PREVIEW · SIMULATED SCENE';
+  $('#frame-tag').textContent=active?'STARTING TRACKING':'NO CAMERA CONNECTED';
+  $('#live-metric').textContent=active?'Starting tracking…':'YOUR CAMERA IS OFF';
+  $('#screen-camera-state').hidden=active;
   if(active){cubeEnabled=mode==='cube';cubeManual=false;}
   else{cubeEnabled=false;disposeCube();}
   syncCubeControls();
@@ -317,7 +346,8 @@ function syncWorldCue(now=performance.now()){
   worldCue.hidden=!active||!notice;
   if(worldCue.textContent!==notice)worldCue.textContent=notice;
 }
-function syncGestureHelp(){$('#gesture-help').textContent=mode==='cube'?'Spread two hands to resize. Move one out of view to hold and carry. Bring it back to resize again. Pinch and release to change the glow.':mode==='invisible'?'Open palm: visible. Slowly close your hand to disappear. Open it again to return.':handFollowing&&straightPanel()?'Open both thumbs and index fingers to hold a straight panel. Move your hands to stretch and tilt it. Palms together, then reopen to change color.':handFollowing?'Form an opening with both L-shaped hands—even with one upside down. Open to design. Bring both hands together, then reopen for the next world.':'Push one hand forward, pull the other back. Lift to tilt. Quick pinch: style. Hold 0.6s: prepare a still.';if(mode==='handframe'&&contentMode==='photos')$('#gesture-help').textContent=oneHandPhotoEnabled()?'Open one palm to reveal the full picture. Close it to hide. Tap Next picture to switch.':wholePhotoView()?'Open both hands apart to reveal the whole picture. Palms together, then reopen to switch pictures.':'Open the space between your thumbs and index fingers to shape your picture. Palms together, then reopen to switch pictures.';}
+function syncOrbControls(){for(const id of ['#orb-size','#orb-x','#orb-y'])$<HTMLInputElement>(id).disabled=orbFollow;$<HTMLInputElement>('#orb-follow').checked=orbFollow;$<HTMLInputElement>('#orb-skeleton').checked=orbSkeleton;}
+function syncGestureHelp(){$('#gesture-help').textContent=mode==='orb'?'Spread both hands to grow the orb. If tracking drops, it holds, then fades. Bring both hands back to resume.':mode==='cube'?'Spread two hands to resize. Move one out of view to hold and carry. Bring it back to resize again. Pinch and release to change the glow.':mode==='invisible'?'Open palm: visible. Slowly close your hand to disappear. Open it again to return.':handFollowing&&straightPanel()?'Open both thumbs and index fingers to hold a straight panel. Move your hands to stretch and tilt it. Palms together, then reopen to change color.':handFollowing?'Form an opening with both L-shaped hands—even with one upside down. Open to design. Bring both hands together, then reopen for the next world.':'Push one hand forward, pull the other back. Lift to tilt. Quick pinch: style. Hold 0.6s: prepare a still.';if(mode==='handframe'&&contentMode==='photos')$('#gesture-help').textContent=oneHandPhotoEnabled()?'Open one palm to reveal the full picture. Close it to hide. Tap Next picture to switch.':wholePhotoView()?'Open both hands apart to reveal the whole picture. Palms together, then reopen to switch pictures.':'Open the space between your thumbs and index fingers to shape your picture. Palms together, then reopen to switch pictures.';}
 function setHandFollowing(value:boolean){handFollowing=value;$<HTMLInputElement>('#follow-hands').checked=value;resetPerspective();pinch.reset();if(value&&live){manual=false;$<HTMLInputElement>('#manual').checked=false;}syncManualControls();syncPhotos();}
 function setShape(value:FrameShape){setHandFollowing(false);shape=value;outline=shapePoints(value,customOutline);$('#shape-name').textContent=value==='custom'?'CUSTOM':SHAPES.find(s=>s.id===value)!.name.toUpperCase();document.querySelectorAll<HTMLButtonElement>('[data-shape]').forEach(b=>{b.classList.toggle('active',b.dataset.shape===value);b.setAttribute('aria-pressed',String(b.dataset.shape===value));});$('#custom-shape').classList.toggle('active',value==='custom');}
 function syncManualControls(){const disabled=live&&!manual;for(const id of ['#frame-depth','#frame-roll','#frame-size'])$<HTMLInputElement>(id).disabled=disabled;$('#perspective-manual-hint').textContent=disabled?'Your hands control depth and tilt. Enable mouse controls to use these sliders.':'Try the depth and tilt sliders, or use both hands with the camera.';}
@@ -325,7 +355,7 @@ function centerDepth(){perspective.recenter();pose=null;manualDepth=manualRoll=0
 function resetCalibration(){if(calibration)clearInterval(calibration);calibration=null;$('#countdown').hidden=true;}
 function clearStill(){renderGeneration++;renderAbort?.abort();renderAbort=null;prepared=null;generated?.close();generated=null;generatedStyle=null;textureSource=null;textureKey='';if(generatedURL)URL.revokeObjectURL(generatedURL);generatedURL=null;$('#still-panel').hidden=true;$<HTMLImageElement>('#still-preview').removeAttribute('src');setStyle(style);}
 function stopCamera(message='Camera off. The simulated preview is ready.'){
-  cubeEnabled=false;cubeManual=true;disposeCube();syncCubeControls();recording?.stop();
+  cubeEnabled=false;cubeManual=true;disposeCube();syncCubeControls();orb.reset();orbRaw=[];recording?.stop();
   if(focusView?.active)void focusView.exit();
   pipeline.stop();resetPerspective();live=false;recording?.refresh();
   hands=[];mask=null;personMask=null;lastMaskAt=0;background=null;frame=null;lastGoodFrame=null;lastVision=0;
@@ -374,12 +404,15 @@ function setMode(value:Mode){
   if(value===mode)return;
   disposeCube();resetCalibration();mode=value;
   cubeEnabled=value==='cube';cubeManual=!live;resetCubeInput();syncCubeControls();
+  orb.reset();orbRaw=[];orbInputAfter=performance.now();syncOrbControls();
   document.body.classList.toggle('cube-mode',value==='cube');
-  $('#cube-controls').hidden=value!=='cube';$('.manual-controls').hidden=value==='cube';
+  document.body.classList.toggle('orb-mode',value==='orb');
+  $('#cube-controls').hidden=value!=='cube';$('#orb-controls').hidden=value!=='orb';$('.manual-controls').hidden=value==='cube'||value==='orb';
   document.body.classList.toggle('handframe-mode',value!=='invisible');
+  $('#studio-title').innerHTML=value==='orb'?'Hold the light <em>between your hands.</em>':'Make room for <em>imagination.</em>';
   if(value!=='invisible'){$('#studio-actions').prepend($('.camera-actions'));$('#studio-status').append($('#status'));}
   else{$('#camera-dock').append($('.camera-actions'));$('#status-dock').append($('#status'));}
-palm.reset();pinch.reset();frame=null;resetPerspective();if(live)void pipeline.infer(performance.now(),mode==='invisible');document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(b=>{b.classList.toggle('active',b.dataset.mode===value);b.setAttribute('aria-pressed',String(b.dataset.mode===value));});$('#invisible-controls').hidden=value!=='invisible';$('#handframe-controls').hidden=value!=='handframe';$('#perspective-controls').hidden=value!=='handframe';syncGestureHelp();$('#effect-caption').textContent=value==='cube'?`${cubePreset===0?'Blue':'Violet'} cube · A new dimension.`:value==='invisible'?'A little less here.':`${worldName(style)} · A world within reach.`;scene.setAttribute('aria-label',`${live?'Live camera':'Simulated'} ${value} effect. Use the adjacent controls to interact.`);syncPhotos();}
+palm.reset();pinch.reset();frame=null;resetPerspective();if(live)void pipeline.infer(performance.now(),mode==='invisible');document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(b=>{b.classList.toggle('active',b.dataset.mode===value);b.setAttribute('aria-pressed',String(b.dataset.mode===value));});$('#invisible-controls').hidden=value!=='invisible';$('#handframe-controls').hidden=value!=='handframe';$('#perspective-controls').hidden=value!=='handframe';syncGestureHelp();$('#effect-caption').textContent=value==='orb'?'Orb · Between your hands.':value==='cube'?`${cubePreset===0?'Blue':'Violet'} cube · A new dimension.`:value==='invisible'?'A little less here.':`${worldName(style)} · A world within reach.`;scene.setAttribute('aria-label',`${live?'Live camera':'Simulated'} ${value} effect. Use the adjacent controls to interact.`);syncPhotos();}
 function activeFrame(){return manual||!live?manualFrame:automaticShaping()&&straightPanel()&&performance.now()-panelMeasuredAt>150?null:frame;}
 function pixelRect(rect:FrameRect){return {x:Math.max(0,Math.round(rect.x*W)),y:Math.max(0,Math.round(rect.y*H)),width:Math.max(1,Math.min(Math.round(rect.width*W),W-Math.round(rect.x*W))),height:Math.max(1,Math.min(Math.round(rect.height*H),H-Math.round(rect.y*H)))};}
 
@@ -472,7 +505,11 @@ $('#cube-retry').addEventListener('click',()=>{
   if(mode!=='cube'||!cubeFailed||cubeRetryUsed)return;
   cubeRetryUsed=true;disposeCube();cubeFailed=false;cubeEnabled=true;$('#cube-retry').hidden=true;
 });
+$('#orb-follow').addEventListener('change',()=>{orbFollow=$<HTMLInputElement>('#orb-follow').checked;orb.reset();orbInputAfter=performance.now();syncOrbControls();});
+$('#orb-skeleton').addEventListener('change',()=>{orbSkeleton=$<HTMLInputElement>('#orb-skeleton').checked;});
+for(const [id,key] of [['#orb-size','size'],['#orb-x','x'],['#orb-y','y']] as const)$('#'+id.slice(1)).addEventListener('input',()=>{manualOrb[key]=Number($<HTMLInputElement>(id).value)/100;});
 $('#reset').addEventListener('click',()=>{
+  if(mode==='orb'){orbFollow=true;orbSkeleton=true;orb.reset();orbRaw=[];Object.assign(manualOrb,{x:.5,y:.42,size:.42});for(const [id,value] of [['#orb-size','42'],['#orb-x','50'],['#orb-y','42']])$<HTMLInputElement>(id).value=value;syncOrbControls();syncGestureHelp();return;}
   if(mode==='cube'){
     resetCubeInput();cubePreset=0;Object.assign(manualCube,{x:.5,y:.5,size:.38});
     for(const [id,value] of [['#cube-size','38'],['#cube-x','50'],['#cube-y','50']])$<HTMLInputElement>(id).value=value;
@@ -492,13 +529,14 @@ $('#capture-background').addEventListener('click',()=>{
   },1000);
 });
 let dragging=false;
-scene.addEventListener('pointerdown',e=>{if(live&&(mode==='cube'?!cubeManual:!manual))return;dragging=true;scene.setPointerCapture(e.pointerId);moveFrame(e);});
+scene.addEventListener('pointerdown',e=>{if(mode==='orb'&&orbFollow)return;if(live&&(mode==='cube'?!cubeManual:!manual))return;dragging=true;scene.setPointerCapture(e.pointerId);moveFrame(e);});
 scene.addEventListener('pointermove',e=>{if(dragging)moveFrame(e);});scene.addEventListener('pointerup',()=>dragging=false);scene.addEventListener('pointercancel',()=>dragging=false);
 function moveFrame(e:PointerEvent){const r=scene.getBoundingClientRect();
+  if(mode==='orb'){manualOrb.x=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));manualOrb.y=Math.max(0,Math.min(1,(e.clientY-r.top)/r.height));$<HTMLInputElement>('#orb-x').value=String(manualOrb.x*100);$<HTMLInputElement>('#orb-y').value=String(manualOrb.y*100);return;}
   if(mode==='cube'){manualCube.x=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));manualCube.y=Math.max(0,Math.min(1,(e.clientY-r.top)/r.height));
     $<HTMLInputElement>('#cube-x').value=String(manualCube.x*100);$<HTMLInputElement>('#cube-y').value=String(manualCube.y*100);return;}
 manualFrame.x=Math.max(.01,Math.min(.99-manualFrame.width,(e.clientX-r.left)/r.width-manualFrame.width/2));manualFrame.y=Math.max(.01,Math.min(.99-manualFrame.height,(e.clientY-r.top)/r.height-manualFrame.height/2));}
-scene.tabIndex=0;scene.addEventListener('keydown',e=>{if(live&&(mode==='cube'?!cubeManual:!manual))return;const amount=e.shiftKey?.05:.02;const d:Record<string,[number,number]>={ArrowLeft:[-amount,0],ArrowRight:[amount,0],ArrowUp:[0,-amount],ArrowDown:[0,amount]};if(d[e.key]){e.preventDefault();if(mode==='cube'){manualCube.x=Math.max(0,Math.min(1,manualCube.x+d[e.key][0]));manualCube.y=Math.max(0,Math.min(1,manualCube.y+d[e.key][1]));$<HTMLInputElement>('#cube-x').value=String(manualCube.x*100);$<HTMLInputElement>('#cube-y').value=String(manualCube.y*100);return;}manualFrame.x=Math.max(.01,Math.min(.99-manualFrame.width,manualFrame.x+d[e.key][0]));manualFrame.y=Math.max(.01,Math.min(.99-manualFrame.height,manualFrame.y+d[e.key][1]));}});
+scene.tabIndex=0;scene.addEventListener('keydown',e=>{if(mode==='orb'&&orbFollow)return;if(live&&(mode==='cube'?!cubeManual:!manual))return;const amount=e.shiftKey?.05:.02;const d:Record<string,[number,number]>={ArrowLeft:[-amount,0],ArrowRight:[amount,0],ArrowUp:[0,-amount],ArrowDown:[0,amount]};if(d[e.key]){e.preventDefault();if(mode==='orb'){manualOrb.x=Math.max(0,Math.min(1,manualOrb.x+d[e.key][0]));manualOrb.y=Math.max(0,Math.min(1,manualOrb.y+d[e.key][1]));$<HTMLInputElement>('#orb-x').value=String(manualOrb.x*100);$<HTMLInputElement>('#orb-y').value=String(manualOrb.y*100);return;}if(mode==='cube'){manualCube.x=Math.max(0,Math.min(1,manualCube.x+d[e.key][0]));manualCube.y=Math.max(0,Math.min(1,manualCube.y+d[e.key][1]));$<HTMLInputElement>('#cube-x').value=String(manualCube.x*100);$<HTMLInputElement>('#cube-y').value=String(manualCube.y*100);return;}manualFrame.x=Math.max(.01,Math.min(.99-manualFrame.width,manualFrame.x+d[e.key][0]));manualFrame.y=Math.max(.01,Math.min(.99-manualFrame.height,manualFrame.y+d[e.key][1]));}});
 let hiddenTimer:ReturnType<typeof setTimeout>|undefined;
 document.addEventListener('visibilitychange',()=>{
   clearTimeout(hiddenTimer);
@@ -520,7 +558,7 @@ function render(now:number){
   if(mode==='cube'&&live&&pipeline.video.readyState>=2){/* Draw original video once below, at its native aspect. */}
   else if(live&&pipeline.video.readyState>=2){rawCtx.save();if(pipeline.mirrored){rawCtx.translate(W,0);rawCtx.scale(-1,1);}rawCtx.drawImage(pipeline.video,0,0,W,H);rawCtx.restore();}
   else drawDemo(rawCtx,reducedMotion?0:now);
-  if(live&&now-lastVision>1000){hands=[];frame=null;resetPerspective();palm.reset();pinch.reset();}
+  if(live&&now-lastVision>1000){hands=[];orbRaw=[];frame=null;resetPerspective();palm.reset();pinch.reset();}
   syncWorldCue(now);
   if(mode==='cube'&&live&&pipeline.video.readyState>=2){
     ctx.save();if(pipeline.mirrored){ctx.translate(scene.width,0);ctx.scale(-1,1);}
@@ -531,6 +569,20 @@ function render(now:number){
   }
   const r=holdingPhotoAperture&&photoAperture&&now-photoAperture.measuredAt>150?null:activeFrame();
   if(focusView?.active&&cameraOnly){/* Clean camera view keeps the selected effect ready to restore. */}
+  else if(mode==='orb'){
+    let pose:OrbPose|null=null;let skeleton:Hand[]=[];let skeletonMirrored=false;
+    if(orbFollow&&!live){orb.update(demoHands(reducedMotion?0:now),now,W/Math.max(1,H),false);pose=orb.poseAt(now);skeleton=demoHands(reducedMotion?0:now);}
+    else if(orbFollow){pose=orb.poseAt(now);skeleton=orbRaw;skeletonMirrored=pipeline.mirrored;}
+    else pose={...manualOrb,opacity:1,state:'tracking'};
+    if(!cameraOnly&&pose)drawOrb(ctx,pose,scene.width,scene.height,reducedMotion?0:now,reducedMotion);
+    if(!cameraOnly&&orbSkeleton&&orbFollow)drawHandSkeleton(ctx,skeleton,scene.width,scene.height,skeletonMirrored);
+    const message=!live?(orbFollow?'Simulated preview. Two illustrated hands move the orb. This is not a camera recording.':'Sliders place the orb. Turn Follow my hands on for the illustrated hands, or start your camera.'):!orbFollow?'You are placing the orb. Turn on Follow my hands to use the camera.':pose?.state==='tracking'?'Between both hands. Spread them to grow the orb.':pose?.state==='holding'?'Holding the last position. Bring both hands back.':pose?.state==='fading'?'Lost both hands. The orb is fading.':'Show both hands, palms toward the camera, to bring the orb back.';
+    if($('#orb-status').textContent!==message)$('#orb-status').textContent=message;
+    const label=!live?'SIMULATED':!orbFollow?'MANUAL':pose?.state==='tracking'?'TRACKING':pose?.state==='holding'?'HOLDING':pose?.state==='fading'?'FADING':'SEARCHING';
+    if($('#orb-state').textContent!==label)$('#orb-state').textContent=label;
+    const cue=live&&orbFollow&&pose?.state!=='tracking'?message:'';
+    worldCue.hidden=!cue;if(cue&&worldCue.textContent!==cue)worldCue.textContent=cue;
+  }
   else if(mode==='cube'){
     const cubePose=cubeManual||!live?manualCube:cube.poseAt(now);
     if(cubeEnabled&&!cubeFailed&&!document.hidden){
@@ -626,8 +678,9 @@ function drawFrame(rect:FrameRect,styled:boolean){
   const len=15;ctx.lineWidth=4;for(const [x,y,dx,dy] of [[p.x,p.y,1,1],[p.x+p.width,p.y,-1,1],[p.x,p.y+p.height,1,-1],[p.x+p.width,p.y+p.height,-1,-1]]){ctx.beginPath();ctx.moveTo(x+dx*len,y);ctx.lineTo(x,y);ctx.lineTo(x,y+dy*len);ctx.stroke();}ctx.restore();
 }
 void fetch('/api/config').then(r=>r.ok?r.json():null).then(config=>{aiEnabled=typeof config==='object'&&config!==null&&'aiEnabled' in config&&config.aiEnabled===true;}).catch(()=>{aiEnabled=false;});
+installPwa($<HTMLButtonElement>('#install-app'),$('#install-help'));
 requestAnimationFrame(render);
 
-// Begin in the phone-friendly hand studio; all three effects remain available.
-if(matchMedia('(max-width: 760px)').matches)setMode('handframe');
+// Phones open on the orb. Invisible, HandFrame and Cube stay one tap away.
+if(matchMedia('(max-width: 760px)').matches)setMode('orb');
 syncPhotos();
